@@ -1,0 +1,25 @@
+{
+  "name": "atproto-devnet",
+  "version": "0.1.0",
+  "description": "Standalone, testable ATProto development network for local development and CI",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:health": "vitest run --testPathPattern health",
+    "up": "docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait",
+    "down": "docker compose -f docker-compose.yml -f docker-compose.test.yml down -v",
+    "logs": "docker compose -f docker-compose.yml -f docker-compose.test.yml logs -f"
+  },
+  "devDependencies": {
+    "@atproto/api": "^0.15.0",
+    "vitest": "^3.0.0",
+    "ws": "^8.18.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

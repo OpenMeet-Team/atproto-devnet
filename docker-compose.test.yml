@@ -1,0 +1,41 @@
+# Test overlay: adds Postgres + MailDev so devnet tests can run standalone.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devnet-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: plc
+    ports:
+      - "${DEVNET_POSTGRES_PORT:-5433}:5432"
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  maildev:
+    image: maildev/maildev:latest
+    container_name: devnet-maildev
+    ports:
+      - "${DEVNET_MAILDEV_WEB_PORT:-1081}:1080"
+      - "${DEVNET_MAILDEV_SMTP_PORT:-1026}:1025"
+    networks:
+      - atproto-devnet
+
+  # Override PLC/PDS to depend on test postgres/maildev
+  plc:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/plc
+
+  pds:
+    environment:
+      PDS_EMAIL_SMTP_URL: smtp://maildev:1025

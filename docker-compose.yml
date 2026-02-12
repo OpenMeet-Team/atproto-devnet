@@ -1,0 +1,158 @@
+# atproto-devnet: Standalone ATProto development network
+#
+# Requires consumer to provide:
+#   - PostgreSQL (for PLC server)
+#   - SMTP server (for PDS email verification)
+#
+# Usage:
+#   Standalone testing: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
+#   Consumer include:   include: [{ path: ../atproto-devnet/docker-compose.yml }]
+
+services:
+  # ── DID Registry ─────────────────────────────────────────────────
+  plc:
+    image: itaru2622/bluesky-did-method-plc:latest
+    container_name: devnet-plc
+    restart: unless-stopped
+    environment:
+      PORT: 2582
+      DATABASE_URL: ${DEVNET_PLC_DB_URL:?DEVNET_PLC_DB_URL is required}
+      DB_CREDS_JSON: "{\"username\":\"postgres\",\"password\":\"postgres\",\"host\":\"postgres\",\"port\":\"5432\",\"database\":\"plc\"}"
+      DB_MIGRATE_CREDS_JSON: "{\"username\":\"postgres\",\"password\":\"postgres\",\"host\":\"postgres\",\"port\":\"5432\",\"database\":\"plc\"}"
+      ENABLE_MIGRATIONS: "true"
+      LOG_ENABLED: "true"
+      LOG_LEVEL: info
+      NODE_ENV: development
+    ports:
+      - "${DEVNET_PLC_PORT:-2582}:2582"
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2582/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Personal Data Server ─────────────────────────────────────────
+  pds:
+    image: ghcr.io/bluesky-social/pds:0.4
+    container_name: devnet-pds
+    restart: unless-stopped
+    depends_on:
+      plc:
+        condition: service_healthy
+    environment:
+      PDS_PORT: 3000
+      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-devnet.test}
+      PDS_DATA_DIRECTORY: /pds/data
+      PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
+      PDS_DID_PLC_URL: http://plc:2582
+      PDS_BSKY_APP_VIEW_URL: https://api.bsky.app
+      PDS_BSKY_APP_VIEW_DID: did:web:api.bsky.app
+      PDS_REPORT_SERVICE_URL: https://mod.bsky.app
+      PDS_REPORT_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
+      PDS_CRAWLERS: ""
+      PDS_INVITE_REQUIRED: "true"
+      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+      PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
+      PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      PDS_EMAIL_SMTP_URL: ${DEVNET_SMTP_URL:?DEVNET_SMTP_URL is required}
+      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
+      PDS_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
+      PDS_SERVICE_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
+      LOG_ENABLED: "true"
+      NODE_ENV: development
+    volumes:
+      - pds-data:/pds/data
+    ports:
+      - "${DEVNET_PDS_PORT:-3000}:3000"
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/xrpc/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Jetstream (JSON event stream from PDS firehose) ──────────────
+  jetstream:
+    image: ghcr.io/bluesky-social/jetstream:sha-05c89f0
+    container_name: devnet-jetstream
+    restart: unless-stopped
+    depends_on:
+      pds:
+        condition: service_healthy
+    environment:
+      JETSTREAM_WS_URL: ws://pds:3000/xrpc/com.atproto.sync.subscribeRepos
+      JETSTREAM_DATA_DIR: /data
+      JETSTREAM_LIVENESS_TTL: 86400s
+    volumes:
+      - jetstream-data:/data
+    ports:
+      - "${DEVNET_JETSTREAM_PORT:-6008}:6008"
+      - "${DEVNET_JETSTREAM_METRICS_PORT:-6009}:6009"
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6008'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── TAP (repo sync + backfill) ───────────────────────────────────
+  tap:
+    image: ghcr.io/bluesky-social/indigo/tap:latest
+    container_name: devnet-tap
+    restart: unless-stopped
+    depends_on:
+      pds:
+        condition: service_healthy
+    environment:
+      TAP_RELAY_URL: http://pds:3000
+      TAP_PLC_URL: http://plc:2582
+      TAP_DATABASE_URL: sqlite:///data/tap.db
+      TAP_DISABLE_ACKS: "true"
+      TAP_LOG_LEVEL: info
+    volumes:
+      - tap-data:/data
+    ports:
+      - "${DEVNET_TAP_PORT:-2480}:2480"
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2480/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Init (one-shot setup) ────────────────────────────────────────
+  init:
+    image: alpine:3.20
+    container_name: devnet-init
+    depends_on:
+      pds:
+        condition: service_healthy
+      plc:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./data:/devnet-data
+    environment:
+      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-devnet.test}
+      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+      HANDLE_DOMAIN: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
+      SEED_ACCOUNTS: ${DEVNET_SEED_ACCOUNTS:-true}
+    entrypoint: /bin/sh
+    command: ["/scripts/init.sh"]
+    networks:
+      - atproto-devnet
+    restart: "no"
+
+volumes:
+  pds-data:
+  jetstream-data:
+  tap-data:
+
+networks:
+  atproto-devnet:
+    name: atproto-devnet
