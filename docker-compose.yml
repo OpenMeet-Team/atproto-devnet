@@ -14,11 +14,23 @@ services:
     image: itaru2622/bluesky-did-method-plc:latest
     container_name: devnet-plc
     restart: unless-stopped
+    # PLC needs DB_CREDS_JSON as a JSON string, which can't be built from
+    # env var interpolation in compose. We wrap the entrypoint to construct
+    # it at runtime from the same credential vars used everywhere else.
+    entrypoint: >
+      sh -c "
+        export DB_CREDS_JSON=$$(printf '{\"username\":\"%s\",\"password\":\"%s\",\"host\":\"%s\",\"port\":\"%s\",\"database\":\"%s\"}' \"$$DEVNET_DB_USER\" \"$$DEVNET_DB_PASSWORD\" \"$$DEVNET_DB_HOST\" \"$$DEVNET_DB_PORT\" \"$$DEVNET_DB_NAME\")
+        export DB_MIGRATE_CREDS_JSON=$$DB_CREDS_JSON
+        exec node /app/packages/server/service/index.js
+      "
     environment:
       PORT: 2582
-      DATABASE_URL: ${DEVNET_PLC_DB_URL:?DEVNET_PLC_DB_URL is required}
-      DB_CREDS_JSON: "{\"username\":\"postgres\",\"password\":\"postgres\",\"host\":\"postgres\",\"port\":\"5432\",\"database\":\"plc\"}"
-      DB_MIGRATE_CREDS_JSON: "{\"username\":\"postgres\",\"password\":\"postgres\",\"host\":\"postgres\",\"port\":\"5432\",\"database\":\"plc\"}"
+      DEVNET_DB_USER: ${DEVNET_DB_USER:-postgres}
+      DEVNET_DB_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
+      DEVNET_DB_HOST: ${DEVNET_DB_HOST:-postgres}
+      DEVNET_DB_PORT: ${DEVNET_DB_PORT:-5432}
+      DEVNET_DB_NAME: ${DEVNET_DB_NAME:-plc}
+      DATABASE_URL: "postgres://${DEVNET_DB_USER:-postgres}:${DEVNET_DB_PASSWORD:-postgres}@${DEVNET_DB_HOST:-postgres}:${DEVNET_DB_PORT:-5432}/${DEVNET_DB_NAME:-plc}"
       ENABLE_MIGRATIONS: "true"
       LOG_ENABLED: "true"
       LOG_LEVEL: info
@@ -56,7 +68,7 @@ services:
       PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-      PDS_EMAIL_SMTP_URL: ${DEVNET_SMTP_URL:?DEVNET_SMTP_URL is required}
+      PDS_EMAIL_SMTP_URL: ${DEVNET_SMTP_URL:-smtp://maildev:1025}
       PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
       PDS_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
       PDS_SERVICE_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}

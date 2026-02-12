@@ -6,15 +6,15 @@ services:
     image: postgres:16-alpine
     container_name: devnet-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: plc
+      POSTGRES_USER: ${DEVNET_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DEVNET_DB_NAME:-plc}
     ports:
       - "${DEVNET_POSTGRES_PORT:-5433}:5432"
     networks:
       - atproto-devnet
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DEVNET_DB_USER:-postgres}"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -33,8 +33,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/plc
 
   pds:
     environment:
