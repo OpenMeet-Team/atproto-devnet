@@ -33,6 +33,10 @@ log "Invite code: ${INVITE_CODE}"
 
 # ── Seed accounts ─────────────────────────────────────────────────
 if [ "${SEED_ACCOUNTS}" = "true" ]; then
+  # Skip if accounts were already seeded (idempotent re-runs)
+  if [ -f "${DATA_DIR}/accounts.json" ] && [ "$(cat "${DATA_DIR}/accounts.json" 2>/dev/null)" != "{}" ] && [ -s "${DATA_DIR}/accounts.json" ]; then
+    log "Accounts already seeded, skipping."
+  else
   log "Seeding accounts..."
 
   # Initialize output files
@@ -98,6 +102,7 @@ if [ "${SEED_ACCOUNTS}" = "true" ]; then
     "BOB"
 
   log "Accounts seeded. Credentials in ${DATA_DIR}/accounts.env"
+  fi
 else
   log "Skipping account seeding (SEED_ACCOUNTS=${SEED_ACCOUNTS})"
   echo "DEVNET_INVITE_CODE=${INVITE_CODE}" > "${DATA_DIR}/accounts.env"
