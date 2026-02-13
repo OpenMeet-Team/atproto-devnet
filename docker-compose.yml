@@ -12,7 +12,6 @@ services:
   # ── DID Registry ─────────────────────────────────────────────────
   plc:
     image: itaru2622/bluesky-did-method-plc:latest
-    container_name: devnet-plc
     restart: unless-stopped
     # PLC needs DB_CREDS_JSON as a JSON string, which can't be built from
     # env var interpolation in compose. We wrap the entrypoint to construct
@@ -48,7 +47,6 @@ services:
   # ── Personal Data Server ─────────────────────────────────────────
   pds:
     image: ghcr.io/bluesky-social/pds:0.4
-    container_name: devnet-pds
     restart: unless-stopped
     depends_on:
       plc:
@@ -89,7 +87,6 @@ services:
   # ── Jetstream (JSON event stream from PDS firehose) ──────────────
   jetstream:
     image: ghcr.io/bluesky-social/jetstream:sha-05c89f0
-    container_name: devnet-jetstream
     restart: unless-stopped
     depends_on:
       pds:
@@ -114,7 +111,6 @@ services:
   # ── TAP (repo sync + backfill) ───────────────────────────────────
   tap:
     image: ghcr.io/bluesky-social/indigo/tap:latest
-    container_name: devnet-tap
     restart: unless-stopped
     depends_on:
       pds:
@@ -140,7 +136,6 @@ services:
   # ── Init (one-shot setup) ────────────────────────────────────────
   init:
     image: alpine:3.20
-    container_name: devnet-init
     depends_on:
       pds:
         condition: service_healthy
@@ -167,4 +162,3 @@ volumes:
 
 networks:
   atproto-devnet:
-    name: atproto-devnet
