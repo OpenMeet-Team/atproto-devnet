@@ -11,5 +11,5 @@
     "types": ["vitest/globals"]
   },
   "include": ["test/**/*.ts", "vitest.config.ts"],
-  "exclude": ["node_modules", "dist", "data", "examples"]
+  "exclude": ["node_modules", "dist", "data"]
 }

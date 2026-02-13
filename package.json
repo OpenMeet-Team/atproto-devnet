@@ -4,6 +4,22 @@
   "description": "Standalone, testable ATProto development network for local development and CI",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "author": "OpenMeet Team",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenMeet-Team/atproto-devnet.git"
+  },
+  "homepage": "https://github.com/OpenMeet-Team/atproto-devnet",
+  "keywords": [
+    "atproto",
+    "bluesky",
+    "pds",
+    "jetstream",
+    "docker",
+    "development",
+    "testing"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
