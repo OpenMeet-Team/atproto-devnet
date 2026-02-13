@@ -1,6 +1,6 @@
 # atproto-devnet
 
-A standalone, self-contained [AT Protocol](https://atproto.com) development network for local development and CI. Run a complete ATProto stack — PDS, PLC, Jetstream, and TAP — without touching production Bluesky infrastructure.
+A standalone, self-contained [AT Protocol](https://atproto.com) development network for local development and CI. Provides a local PDS, PLC, Jetstream, and TAP — enough to create and manage PDS accounts, publish and read records, and test Jetstream consumers, all without touching production Bluesky infrastructure. This is not the full Bluesky stack (no AppView, relay, or feed generators), but it covers the core services most AT Protocol applications need for local development.
 
 ## Services
 
