@@ -34,6 +34,30 @@ npm run down
 
 The test suite validates health checks, account seeding, record CRUD, Jetstream events, firehose output, and network isolation.
 
+## Upgrading from earlier versions
+
+Changes to the default stack that existing setups will notice:
+
+- **The PDS no longer forwards to Bluesky's AppView.** `app.bsky.*` reads and any method the PDS
+  doesn't implement now go to `https://appview.invalid` and fail with `502 UpstreamFailure`.
+  Bluesky's AppView never indexed devnet accounts, so for those accounts nothing useful is lost. To
+  get the old behavior back, set `DEVNET_APPVIEW_URL=https://api.bsky.app`,
+  `DEVNET_APPVIEW_DID=did:web:api.bsky.app`, `DEVNET_REPORT_SERVICE_URL=https://mod.bsky.app` and
+  `DEVNET_REPORT_SERVICE_DID=did:plc:ar7c4by46qjdydhdevvrndac`. The isolation test will then fail
+  by design.
+- **DID resolution works again on current `pds:0.4` pulls.** Since `@atproto/pds` 0.5.34, the PDS
+  refuses to resolve DIDs through an `http://` PLC unless SSRF protection is off, and the floating
+  `pds:0.4` tag now pulls 0.5.36. Without the fix, `describeRepo`, OAuth and anything else that
+  resolves a new DID fails with `Forbidden protocol "http:"`. The PDS now sets
+  `PDS_DISABLE_SSRF_PROTECTION=true`, so it can also fetch private addresses, such as an OAuth client's
+  metadata on your machine.
+- **init reseeds when `data/` is stale.** `data/` outlives `npm run down`. init used to skip seeding
+  whenever `data/accounts.json` existed, leaving credentials for accounts that were gone. It now
+  checks that the recorded accounts exist on the running PDS and reseeds if they don't, so
+  `data/accounts.env` gets new DIDs and a new invite code.
+- **The PDS runs as root.** Release images already did. This lets `DEVNET_PDS_IMAGE` take monorepo
+  images, which default to `node`.
+
 ## Integrating into your project
 
 atproto-devnet is designed to be **composed into** your project's Docker environment using [Docker Compose file stacking](https://docs.docker.com/compose/how-it-works/#merge). Clone it as a sibling directory and layer it with a thin overlay file in your project.
@@ -307,10 +331,10 @@ reach them as `pds:3020` and `pds:3030`. The extra PDSes don't require invites, 
 service DID, since all three would otherwise be `did:web:localhost`. Jetstream and TAP still follow
 only the alpha.
 
-The extra PDSes point their AppView at `https://appview.invalid`, because a PDS forwards any XRPC
-method it doesn't implement (`com.atproto.space.*` on a non-spaces build, for one) to its AppView
-with a service-auth token. **The default stack points at `https://api.bsky.app`**, so a test that
-calls an unimplemented method there sends that request to Bluesky's production AppView.
+A PDS forwards any XRPC method it doesn't implement (`com.atproto.space.*` on a non-spaces build,
+for one) to its AppView with a service-auth token. On a stock build that shows up as `502
+UpstreamFailure`, because every devnet PDS points its AppView at `https://appview.invalid` (see
+`DEVNET_APPVIEW_URL`).
 
 ## When the bug is inside the PDS: dev-env
 
@@ -349,6 +373,8 @@ All settings have sensible defaults. Override via `.env` or environment variable
 | `DEVNET_PDS_HOSTNAME` | `devnet.test` | PDS service hostname |
 | `DEVNET_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
 | `DEVNET_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
+| `DEVNET_APPVIEW_URL` / `DEVNET_APPVIEW_DID` | `https://appview.invalid` / `did:example:invalid` | Where the PDS forwards app.bsky.* reads and methods it doesn't implement. Unresolvable, so nothing reaches Bluesky |
+| `DEVNET_REPORT_SERVICE_URL` / `DEVNET_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
 | `DEVNET_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts |
 | `DEVNET_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
 

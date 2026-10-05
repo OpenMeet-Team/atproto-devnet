@@ -31,13 +31,11 @@ x-extra-pds-env: &extra-pds-env
   PDS_DATA_DIRECTORY: /pds/data
   PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
   PDS_DID_PLC_URL: http://plc:2582
-  # A stock PDS forwards XRPC methods it does not implement (com.atproto.space.*
-  # among them) to its AppView, with a service-auth token. An unresolvable host keeps
-  # a test from sending those to Bluesky's production AppView.
-  PDS_BSKY_APP_VIEW_URL: https://appview.invalid
-  PDS_BSKY_APP_VIEW_DID: did:example:invalid
-  PDS_REPORT_SERVICE_URL: https://moderator.invalid
-  PDS_REPORT_SERVICE_DID: did:example:invalid
+  # Same AppView settings as the alpha; see docker-compose.yml.
+  PDS_BSKY_APP_VIEW_URL: ${DEVNET_APPVIEW_URL:-https://appview.invalid}
+  PDS_BSKY_APP_VIEW_DID: ${DEVNET_APPVIEW_DID:-did:example:invalid}
+  PDS_REPORT_SERVICE_URL: ${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}
+  PDS_REPORT_SERVICE_DID: ${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}
   PDS_CRAWLERS: ""
   PDS_INVITE_REQUIRED: "false"
   PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
