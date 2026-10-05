@@ -223,6 +223,41 @@ Create additional accounts at any time:
 ./scripts/create-account.sh carol.devnet.test
 ```
 
+## Spaces PDS and unpublished lexicons
+
+`docker-compose.spaces.yml` swaps the PDS for the atproto permissioned-spaces alpha
+(`com.atproto.space.*`, `com.atproto.simplespace.*`) and lets it resolve lexicons that aren't
+published anywhere. That's what you need to test an OAuth `space:` scope naming your own space type,
+or an `include:` permission set, before the NSIDs resolve through DNS.
+
+A PDS normally resolves an NSID through a `_lexicon` DNS TXT record. With
+`PDS_LEXICON_AUTHORITY_DID` set, it resolves **every** NSID from that one account instead, so the
+lexicons your app's scopes name have to be published there as `com.atproto.lexicon.schema` records,
+with the NSID as the record key.
+
+Booting takes two passes, because the authority's DID only exists once the PDS is up:
+
+```bash
+F="-f docker-compose.yml -f docker-compose.test.yml -f docker-compose.spaces.yml"
+docker compose $F up -d --wait
+./scripts/lexicon-authority.sh            # prints DEVNET_LEXICON_AUTHORITY_DID=did:plc:...
+DEVNET_LEXICON_AUTHORITY_DID=did:plc:... docker compose $F up -d --wait pds
+# then putRecord your lexicons into the authority account
+```
+
+How this differs from the default stack:
+
+- **PDS on 3010, at `http://localhost:3010`.** The authority account lives on this PDS, and its DID
+  document's endpoint has to reach the PDS both from inside its container (to resolve lexicons) and
+  from the host. `PDS_HOSTNAME=localhost` makes the endpoint `http://localhost:<PDS_PORT>`, so the
+  container and host ports must match. `PDS_DEV_MODE` turns off the SSRF protection that would
+  refuse a localhost fetch. Override the port with `DEVNET_SPACES_PDS_PORT`.
+- **Runs as root.** The alpha image runs as `node`, and the `pds-data` volume is root-owned.
+- **Digest-pinned image.** Upstream moves the `pds-spaces-alpha` tag.
+
+Observed on this image (revision `79d6307e`): writes inside a space (`createSpace`, member entries,
+records in a space) don't appear on the PDS firehose or on Jetstream; only public repo records do.
+
 ## Configuration
 
 All settings have sensible defaults. Override via `.env` or environment variables:
