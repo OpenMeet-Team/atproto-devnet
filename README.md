@@ -364,6 +364,20 @@ adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into
 image. Pick another commit with `DEVNET_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
 image, and the patch has to apply.
 
+## Worked scenarios
+
+[`sandbox/opensocial`](https://github.com/tompscanlan/atproto/tree/sandbox/opensocial-lexicons/sandbox/opensocial)
+is a cookbook that runs on this stack: all of the overlays above. It starts from a clean checkout and
+runs probes for:
+
+- OAuth `space:` scopes that name a space type;
+- members on other PDS builds joining a group;
+- a group's members-only events kept in a space;
+- private RSVPs, and who can read them.
+
+Each probe prints its requests and a list of verdicts. The README records what we saw, so you can
+compare a run against it.
+
 ## When the bug is inside the PDS: dev-env
 
 devnet runs published images, so it's the right place to see how your app behaves against a real
