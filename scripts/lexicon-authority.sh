@@ -9,7 +9,9 @@ set -eu
 # The PDS reads PDS_LEXICON_AUTHORITY_DID only at startup, and the authority's
 # DID only exists once the PDS is up, so the boot is two passes:
 #   1. up with docker-compose.spaces.yml        (authority unset)
-#   2. this script, then recreate the pds service with the printed DID
+#   2. this script, then `up` the whole stack again with the printed DID. Name no
+#      service: with the multi-PDS or relay overlay, other services share the pds
+#      container's network namespace, and recreating pds alone strands them.
 #
 # Then publish lexicons into the account as com.atproto.lexicon.schema records,
 # record key = the NSID. Every NSID the PDS resolves comes from this account,
@@ -59,5 +61,5 @@ fi
 
 echo "DEVNET_LEXICON_AUTHORITY_DID=${DID}"
 echo >&2
-echo "Recreate the PDS with it, using the same -f files and project as the first pass:" >&2
-echo "  DEVNET_LEXICON_AUTHORITY_DID=${DID} docker compose <files> up -d --wait pds" >&2
+echo "Bring the stack up again with it, using the same -f files and project as the first pass:" >&2
+echo "  DEVNET_LEXICON_AUTHORITY_DID=${DID} docker compose <files> up -d --wait" >&2

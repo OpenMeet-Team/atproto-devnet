@@ -289,7 +289,7 @@ Booting takes two passes, because the authority's DID only exists once the PDS i
 F="-f docker-compose.yml -f docker-compose.test.yml -f docker-compose.spaces.yml"
 docker compose $F up -d --wait
 ./scripts/lexicon-authority.sh            # prints DEVNET_LEXICON_AUTHORITY_DID=did:plc:...
-DEVNET_LEXICON_AUTHORITY_DID=did:plc:... docker compose $F up -d --wait pds
+DEVNET_LEXICON_AUTHORITY_DID=did:plc:... docker compose $F up -d --wait   # whole stack, not just pds
 # then putRecord your lexicons into the authority account
 ```
 
