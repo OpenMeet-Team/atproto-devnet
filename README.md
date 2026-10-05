@@ -328,13 +328,41 @@ Each PDS writes `http://localhost:<port>` into its accounts' DID documents. For 
 another's accounts, that URL has to work inside every PDS container as well as on the host, so the
 two extra PDSes share the alpha's network namespace (`network_mode: service:pds`). Other containers
 reach them as `pds:3020` and `pds:3030`. The extra PDSes don't require invites, and each has its own
-service DID, since all three would otherwise be `did:web:localhost`. Jetstream and TAP still follow
-only the alpha.
+service DID, since all three would otherwise be `did:web:localhost`. On their own, Jetstream and TAP
+follow only the alpha; add the local relay below to get one stream from all three.
 
 A PDS forwards any XRPC method it doesn't implement (`com.atproto.space.*` on a non-spaces build,
 for one) to its AppView with a service-auth token. On a stock build that shows up as `502
 UpstreamFailure`, because every devnet PDS points its AppView at `https://appview.invalid` (see
 `DEVNET_APPVIEW_URL`).
+
+## A local relay
+
+`docker-compose.relay.yml`, stacked after the multi-PDS overlay, adds a relay that crawls all three
+PDSes. Jetstream and TAP read from the relay, which is the shape production has:
+
+```
+PDSes --> relay (:2470) --> Jetstream (:6008)
+                       \--> TAP (:2480)
+```
+
+```bash
+F="$F -f docker-compose.relay.yml"
+docker compose $F up -d --wait     # builds the relay image the first time
+```
+
+`relay-init` registers each PDS through the relay's admin API, because a relay won't accept a
+localhost host from a PDS's own `requestCrawl`. The relay and TAP join the PDSes' network namespace,
+so the `http://localhost:<port>` URLs in DID documents work for them as well.
+
+**The relay is built locally, not pulled.** Upstream's relay (`ghcr.io/bluesky-social/indigo:relay-<commit>`)
+checks every host through an SSRF-safe transport that refuses loopback and private addresses, with
+no setting to turn it off. Its admin `requestCrawl` accepts `localhost:<port>`, and the host check
+then fails with `unsafe network address`, so the published image can never crawl a devnet PDS.
+`relay/Dockerfile` builds the same upstream commit with `relay/allow-private-hosts.patch`, which
+adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
+image. Pick another commit with `DEVNET_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
+image, and the patch has to apply.
 
 ## When the bug is inside the PDS: dev-env
 

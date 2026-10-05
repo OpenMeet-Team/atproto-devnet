@@ -1,0 +1,108 @@
+# Overlay: a local relay that crawls every devnet PDS, so Jetstream and TAP see one
+# merged stream, as they would in production. Stack it last:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml \
+#     -f docker-compose.spaces.yml -f docker-compose.multi-pds.yml \
+#     -f docker-compose.relay.yml up -d --wait
+#
+#   PDSes --> relay (:2470) --> Jetstream (:6008)
+#                          \--> TAP (:2480)
+#
+# The relay joins the PDSes' network namespace: it connects to each host at the
+# localhost URL in its accounts' DID documents, and checks that each account's DID
+# document names the host the event came from. TAP joins too, because a backfill
+# fetches repos from those same URLs. Jetstream only reads the relay, so it stays
+# on the bridge network and reaches the relay as pds:2470.
+#
+# A relay only adds localhost hosts through its admin API, so a PDS cannot register
+# itself with requestCrawl. relay-init adds each PDS once the relay is up.
+
+x-relay-admin-password: &relay-admin-password ${DEVNET_RELAY_ADMIN_PASSWORD:-devnet-relay-admin}
+
+services:
+  pds:
+    ports: !override
+      - "${DEVNET_SPACES_PDS_PORT:-3010}:${DEVNET_SPACES_PDS_PORT:-3010}"
+      - "3020:3020"
+      - "3030:3030"
+      - "${DEVNET_RELAY_PORT:-2470}:2470"
+      - "${DEVNET_TAP_PORT:-2480}:2480"
+
+  relay:
+    # Upstream's relay with one patch, so it can crawl PDSes on localhost; see
+    # relay/Dockerfile. DEVNET_RELAY_INDIGO_COMMIT picks the indigo commit (it needs
+    # a published relay-<commit> image, and the patch has to apply).
+    build:
+      context: ./relay
+      args:
+        INDIGO_COMMIT: ${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
+    image: atproto-devnet-relay:${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
+    restart: unless-stopped
+    network_mode: service:pds
+    depends_on:
+      pds:
+        condition: service_healthy
+    environment:
+      RELAY_ADMIN_PASSWORD: *relay-admin-password
+      RELAY_PLC_HOST: http://plc:2582
+      # ws:// hosts; localhost hosts are accepted only through the admin API
+      RELAY_ALLOW_INSECURE_HOSTS: "true"
+      # the patched host check (relay/allow-private-hosts.patch)
+      RELAY_ALLOW_PRIVATE_HOSTS: "true"
+      # the PDS builds differ in how much sync metadata their events carry
+      RELAY_LENIENT_SYNC_VALIDATION: "true"
+      ENVIRONMENT: dev
+    volumes:
+      - relay-data:/data/relay
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2470/xrpc/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  relay-init:
+    image: alpine:3.20
+    network_mode: service:pds
+    depends_on:
+      relay:
+        condition: service_healthy
+      pds-regular:
+        condition: service_healthy
+      pds-prod:
+        condition: service_healthy
+    environment:
+      RELAY_ADMIN_PASSWORD: *relay-admin-password
+      RELAY_HOSTS: localhost:${DEVNET_SPACES_PDS_PORT:-3010} localhost:3020 localhost:3030
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -eu
+        apk add --no-cache curl >/dev/null 2>&1
+        for host in $$RELAY_HOSTS; do
+          echo "[relay-init] crawl $$host"
+          curl -sf -u "admin:$$RELAY_ADMIN_PASSWORD" -H "Content-Type: application/json" \
+            -d "{\"hostname\": \"$$host\"}" http://localhost:2470/admin/pds/requestCrawl
+          echo
+        done
+    restart: "no"
+
+  jetstream:
+    depends_on:
+      relay:
+        condition: service_healthy
+    environment:
+      JETSTREAM_WS_URL: ws://pds:2470/xrpc/com.atproto.sync.subscribeRepos
+
+  tap:
+    network_mode: service:pds
+    ports: !reset []
+    networks: !reset []
+    depends_on:
+      relay:
+        condition: service_healthy
+    environment:
+      TAP_RELAY_URL: http://localhost:2470
+
+volumes:
+  relay-data:

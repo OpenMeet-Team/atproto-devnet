@@ -1,0 +1,30 @@
+diff --git a/cmd/relay/relay/host_checker.go b/cmd/relay/relay/host_checker.go
+index 251ff2c..1142778 100644
+--- a/cmd/relay/relay/host_checker.go
++++ b/cmd/relay/relay/host_checker.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"fmt"
+ 	"net/http"
++	"os"
+ 	"time"
+ 
+ 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+@@ -33,9 +34,16 @@ func NewHostClient(userAgent string) *HostClient {
+ 	if userAgent == "" {
+ 		userAgent = "indigo-relay (atproto-relay)"
+ 	}
++	// RELAY_ALLOW_PRIVATE_HOSTS=true lets a local network's relay check hosts on
++	// localhost and private addresses. Without it, an admin requestCrawl that names
++	// localhost:<port> is accepted and then fails the host check.
++	transport := ssrf.PublicOnlyTransport()
++	if os.Getenv("RELAY_ALLOW_PRIVATE_HOSTS") == "true" {
++		transport = http.DefaultTransport.(*http.Transport).Clone()
++	}
+ 	c := http.Client{
+ 		Timeout:   5 * time.Second,
+-		Transport: ssrf.PublicOnlyTransport(),
++		Transport: transport,
+ 	}
+ 	return &HostClient{
+ 		Client:    &c,

@@ -31,15 +31,16 @@ describe('service configuration isolation', () => {
   });
 
   it('Jetstream is configured to use local PDS firehose', () => {
+    // the PDS directly, or a local relay (docker-compose.relay.yml)
     const wsUrl = composeExec('jetstream', 'printenv JETSTREAM_WS_URL');
-    expect(wsUrl).toContain('pds:3000');
+    expect(wsUrl).toMatch(/^ws:\/\/(pds|localhost):\d+\//);
     expect(wsUrl).not.toContain('bsky.network');
   });
 
   it('TAP is configured to use local PDS and PLC', () => {
     const relayUrl = composeExec('tap', 'printenv TAP_RELAY_URL');
     const plcUrl = composeExec('tap', 'printenv TAP_PLC_URL');
-    expect(relayUrl).toContain('pds:3000');
+    expect(relayUrl).toMatch(/^http:\/\/(pds|localhost):\d+$/);
     expect(plcUrl).toContain('plc:2582');
     expect(relayUrl).not.toContain('bsky.network');
     expect(plcUrl).not.toContain('plc.directory');
