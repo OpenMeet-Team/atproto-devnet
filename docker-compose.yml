@@ -46,7 +46,12 @@ services:
 
   # ── Personal Data Server ─────────────────────────────────────────
   pds:
-    image: ghcr.io/bluesky-social/pds:0.4
+    # Any PDS build: a release (ghcr.io/bluesky-social/pds:<version>) or an
+    # upstream commit (ghcr.io/bluesky-social/atproto:pds-<commit sha>).
+    image: ${DEVNET_PDS_IMAGE:-ghcr.io/bluesky-social/pds:0.4}
+    # Release images run as root; monorepo images run as `node`, which cannot
+    # open the root-owned pds-data volume.
+    user: root
     restart: unless-stopped
     depends_on:
       plc:
@@ -62,6 +67,9 @@ services:
       PDS_REPORT_SERVICE_URL: https://mod.bsky.app
       PDS_REPORT_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
       PDS_CRAWLERS: ""
+      # PDS builds after upstream 1ff43e6e5 (2026-09-10) resolve DIDs through the
+      # SSRF-protected fetch, which refuses the local PLC's http:// URL.
+      PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "true"
       PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production

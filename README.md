@@ -223,6 +223,30 @@ Create additional accounts at any time:
 ./scripts/create-account.sh carol.devnet.test
 ```
 
+## Choosing a PDS version
+
+`DEVNET_PDS_IMAGE` picks the PDS image, so you can run your app or the test suite against another
+release, an unreleased upstream commit, or the spaces alpha:
+
+```bash
+npm run down      # fresh volumes: a newer PDS migrates its database, and an older one can't read it
+DEVNET_PDS_IMAGE=ghcr.io/bluesky-social/pds:0.4.5037 npm run up && npm test
+```
+
+- **Releases:** `ghcr.io/bluesky-social/pds:<version>`, e.g. `0.4.5037`, `beta`, `latest`. The
+  default is `0.4`.
+- **Upstream commits:** `ghcr.io/bluesky-social/atproto:pds-<full commit sha>`. All of the last 100
+  commits on `main` had one (checked 2026-10-05); commits on other branches may not.
+- **Spaces alpha:** see the next section.
+
+Both kinds run here. The PDS runs as root because monorepo images default to `node`, which can't
+open the root-owned data volume. It also has `PDS_DISABLE_SSRF_PROTECTION` set, because builds that
+include upstream `1ff43e6e5` (2026-09-10) resolve DIDs through a fetch that refuses the local PLC's
+`http://` URL.
+
+The suite has passed on `pds:0.4` (`0.4.5036`) and `atproto:pds-cea6f5c4a034860c35eda03dbde207f5bdb9387f`
+(`0.5.36`).
+
 ## Spaces PDS and unpublished lexicons
 
 `docker-compose.spaces.yml` swaps the PDS for the atproto permissioned-spaces alpha
@@ -252,11 +276,25 @@ How this differs from the default stack:
   from the host. `PDS_HOSTNAME=localhost` makes the endpoint `http://localhost:<PDS_PORT>`, so the
   container and host ports must match. `PDS_DEV_MODE` turns off the SSRF protection that would
   refuse a localhost fetch. Override the port with `DEVNET_SPACES_PDS_PORT`.
-- **Runs as root.** The alpha image runs as `node`, and the `pds-data` volume is root-owned.
-- **Digest-pinned image.** Upstream moves the `pds-spaces-alpha` tag.
+- **Digest-pinned image.** Set `DEVNET_PDS_IMAGE` to try another spaces build.
 
 Observed on this image (revision `79d6307e`): writes inside a space (`createSpace`, member entries,
 records in a space) don't appear on the PDS firehose or on Jetstream; only public repo records do.
+
+## When the bug is inside the PDS: dev-env
+
+devnet runs published images, so it's the right place to see how your app behaves against a real
+PDS, PLC and Jetstream. To step through PDS code, run a branch with your own edits, or test several
+PDSes talking to each other, use atproto's in-process network instead:
+[`packages/dev-env`](https://github.com/bluesky-social/atproto/tree/main/packages/dev-env) in the
+atproto monorepo. It builds PLC and PDSes from source in one Node process. On the
+`permissioned-data*` branches, `bin-multi-pds` starts three PDSes with a lexicon authority already
+wired in, and you can attach a debugger to it.
+
+A worked example is
+[`sandbox/opensocial`](https://github.com/tompscanlan/atproto/tree/sandbox/opensocial-lexicons/sandbox/opensocial).
+It has a script that publishes a set of unpublished lexicons and a probe that signs in with OAuth
+`space:` scopes naming them, and both run against either dev-env or this repo's spaces overlay.
 
 ## Configuration
 
@@ -278,6 +316,7 @@ All settings have sensible defaults. Override via `.env` or environment variable
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEVNET_PDS_HOSTNAME` | `devnet.test` | PDS service hostname |
+| `DEVNET_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
 | `DEVNET_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
 | `DEVNET_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts |
 | `DEVNET_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |

@@ -33,8 +33,12 @@ log "Invite code: ${INVITE_CODE}"
 
 # ── Seed accounts ─────────────────────────────────────────────────
 if [ "${SEED_ACCOUNTS}" = "true" ]; then
-  # Skip if accounts were already seeded (idempotent re-runs)
-  if [ -f "${DATA_DIR}/accounts.json" ] && [ "$(cat "${DATA_DIR}/accounts.json" 2>/dev/null)" != "{}" ] && [ -s "${DATA_DIR}/accounts.json" ]; then
+  # Skip if accounts were already seeded on THIS PDS (idempotent re-runs). data/ is a
+  # host directory that outlives `down -v`, so after a fresh volume (or a different
+  # PDS image) accounts.json can name accounts the running PDS has never seen.
+  SEEDED_DID=$(jq -r '[.. | objects | select(has("did")) | .did][0] // empty' "${DATA_DIR}/accounts.json" 2>/dev/null || true)
+  # getRepoStatus answers from the PDS's own store, with no DID resolution.
+  if [ -n "${SEEDED_DID}" ] && curl -sf "${PDS_URL}/xrpc/com.atproto.sync.getRepoStatus?did=${SEEDED_DID}" >/dev/null 2>&1; then
     log "Accounts already seeded, skipping."
   else
   log "Seeding accounts..."
