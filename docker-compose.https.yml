@@ -1,0 +1,165 @@
+# The https devnet (spike): one PDS at an https name behind nginx, its own PLC, and
+# one local CA, as a SEPARATE compose project. It shares no network, volume or port
+# with the http devnet, so bringing it up or down leaves that stack alone.
+#
+#   ./scripts/https-up.sh       # CA, both authority passes, lexicons, spike account
+#   ./scripts/https-down.sh     # stop it (add -v to drop its volumes too)
+#
+# Always run compose against this file with its own project name:
+#   docker compose -p devnet-https -f docker-compose.https.yml <cmd>
+# The scripts do. The file names the project too, but COMPOSE_PROJECT_NAME in the
+# shell would win over that name, and could point this file at another stack.
+#
+# Names (see https/nginx.conf):
+#   pds.https.devnet.test, *.https.devnet.test   the PDS and its handles
+#   plc.directory                                this stack's PLC, for processes run
+#                                                under scripts/https-run only
+#   atmo.devnet.internal                         a client on the dev pod, port 5480
+# nginx answers all of them on 127.0.0.1:443 with one leaf from data/https/ (made by
+# scripts/https-ca.sh). It is the only port this stack publishes. Inside the network,
+# nginx also answers to the PDS and atmo names, so the PDS reaches itself and a
+# client's metadata over TLS, and trusts the CA through NODE_EXTRA_CA_CERTS.
+#
+# Generated values (database and admin credentials, the JWT secret, the PLC rotation
+# key) live in data/https/stack.env, which scripts/https-up.sh writes once. data/ is
+# git-ignored.
+
+name: devnet-https
+
+x-stack-env: &stack-env
+  env_file:
+    - path: data/https/stack.env
+      required: true
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    <<: *stack-env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: plc
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - devnet-https
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  plc:
+    image: itaru2622/bluesky-did-method-plc:latest
+    restart: unless-stopped
+    <<: *stack-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # The PLC reads its database credentials as JSON, built here from stack.env.
+    entrypoint: >
+      sh -c "
+        export DB_CREDS_JSON=$$(printf '{\"username\":\"postgres\",\"password\":\"%s\",\"host\":\"postgres\",\"port\":\"5432\",\"database\":\"plc\"}' \"$$POSTGRES_PASSWORD\")
+        export DB_MIGRATE_CREDS_JSON=$$DB_CREDS_JSON
+        export DATABASE_URL=postgres://postgres:$$POSTGRES_PASSWORD@postgres:5432/plc
+        exec node /app/packages/server/service/index.js
+      "
+    environment:
+      PORT: 2582
+      ENABLE_MIGRATIONS: "true"
+      LOG_ENABLED: "true"
+      LOG_LEVEL: info
+      NODE_ENV: development
+    networks:
+      - devnet-https
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2582/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  pds:
+    # The spaces alpha, at the digest docker-compose.spaces.yml pins (revision
+    # 79d6307e): the build that reads PDS_LEXICON_AUTHORITY_DID.
+    image: ${HTTPS_PDS_IMAGE:-ghcr.io/bluesky-social/atproto@sha256:1cf9349e9f0e89789784569fed376cd647742ea7c368948625f44779ba03f150}
+    # Monorepo images run as `node`, which cannot open the root-owned data volume.
+    user: root
+    restart: unless-stopped
+    env_file:
+      - path: data/https/stack.env
+        required: true
+      # PDS_LEXICON_AUTHORITY_DID. The authority's DID exists only once the PDS is
+      # up, so scripts/https-up.sh writes this file after the first pass, then runs
+      # `up` again, which recreates the PDS with it (see lexicon-authority.sh).
+      - path: data/https/authority.env
+        required: false
+    depends_on:
+      plc:
+        condition: service_healthy
+    environment:
+      PDS_PORT: 3000
+      # The public URL is https://<PDS_HOSTNAME>, with no port: nginx answers on 443.
+      PDS_HOSTNAME: pds.https.devnet.test
+      PDS_SERVICE_HANDLE_DOMAINS: .https.devnet.test
+      PDS_HANDLE_DOMAINS: .https.devnet.test
+      PDS_DATA_DIRECTORY: /pds/data
+      PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
+      PDS_DID_PLC_URL: http://plc:2582
+      # Every address here is an RFC 1918 one (the PLC, nginx, the dev pod), which
+      # the PDS's SSRF-protected fetch would refuse. No PDS_DEV_MODE: the public URL
+      # is https, so the PDS runs as it would on the real network.
+      PDS_DISABLE_SSRF_PROTECTION: "true"
+      PDS_INVITE_REQUIRED: "false"
+      # The default AppView host does not resolve, as in docker-compose.yml.
+      PDS_BSKY_APP_VIEW_URL: ${HTTPS_APPVIEW_URL:-https://appview.invalid}
+      PDS_BSKY_APP_VIEW_DID: ${HTTPS_APPVIEW_DID:-did:example:invalid}
+      PDS_REPORT_SERVICE_URL: https://moderator.invalid
+      PDS_REPORT_SERVICE_DID: did:example:invalid
+      PDS_CRAWLERS: ""
+      # The PDS fetches https URLs on this network (itself, a client's metadata).
+      NODE_EXTRA_CA_CERTS: /https/ca.crt
+      LOG_ENABLED: "true"
+      NODE_ENV: development
+    volumes:
+      - pds-data:/pds/data
+      - ./data/https/ca.crt:/https/ca.crt:ro
+    networks:
+      - devnet-https
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/xrpc/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nginx:
+    image: nginx:1.30-alpine
+    restart: unless-stopped
+    depends_on:
+      pds:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:443:443"
+    extra_hosts:
+      # The dev pod, where a client (the probe's, or atmo's) serves on port 5480.
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./https/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./data/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
+      - ./data/https/leaf.key:/etc/nginx/https/leaf.key:ro
+    networks:
+      devnet-https:
+        aliases:
+          - pds.https.devnet.test
+          - atmo.devnet.internal
+    healthcheck:
+      test: ["CMD", "nginx", "-t", "-q"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  postgres-data:
+  pds-data:
+
+networks:
+  devnet-https:
