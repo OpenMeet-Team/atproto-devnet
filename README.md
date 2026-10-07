@@ -472,7 +472,8 @@ Two scripts check the whole path. Run both under `https-run`:
   `https://plc.directory` with atcute's default PLC resolver, then fetches the PDS's
   protected-resource and authorization server metadata with the resolvers at their defaults. Then
   it serves a confidential client at `https://atmo.devnet.internal/` and pushes a PAR with that
-  client_id. Last, it pushes a raw PAR with a `.test` client_id, which the PDS refuses.
+  client_id. Each run gets a new key and client_id path, because the PDS caches a client's
+  metadata and keys by URL. Last, it pushes a raw PAR with a `.test` client_id, which the PDS refuses.
 - `scripts/https-signin-walk.mjs` signs the spike account in to atmo from headless Chromium
   (`PLAYWRIGHT_MODULE` points at playwright's `index.mjs`), first by DID and then by handle.
   atmo's dev server must already be running under `https-run`. The browser trusts the leaf by
@@ -482,7 +483,7 @@ Observed on 2026-10-07, with atmo at `9255b29` and no atmo changes:
 
 ```
 RESOLVED did:plc:... on https://pds.https.devnet.test through plc.directory, ... off
-PAR ACCEPTED for confidential client https://atmo.devnet.internal/oauth-client-metadata.json
+PAR ACCEPTED for confidential client https://atmo.devnet.internal/probe-<run>/oauth-client-metadata.json
 REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must not be a local hostname
 SIGNED IN did:plc:... by DID
 SIGNED IN did:plc:... by handle

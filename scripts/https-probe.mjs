@@ -8,9 +8,9 @@
 //     PlcDidDocumentResolver), then the PDS's protected-resource and authorization
 //     server metadata through atcute's resolvers, left at their defaults.
 // (b) Serves a confidential client's metadata and JWKS on port 5480, which nginx
-//     answers for as https://atmo.devnet.internal/, and pushes a PAR with that
-//     client_id through atcute. The PDS fetches both documents over TLS and must
-//     answer with a request_uri.
+//     answers for as https://atmo.devnet.internal/ (under a path new to each run), and
+//     pushes a PAR with that client_id through atcute. The PDS fetches both documents
+//     over TLS and must answer with a request_uri.
 // (c) Pushes a raw PAR (plain fetch: atcute refuses this client_id before sending)
 //     with a client_id under .test, and prints the PDS's own refusal.
 //
@@ -84,8 +84,11 @@ try {
 	fail('resolve', e);
 }
 
-// (b) A confidential client at the .internal name, through atcute's own PAR.
-const key = await oauth.generateClientAssertionKey('probe-key');
+// (b) A confidential client at the .internal name, through atcute's own PAR. Each run
+// gets its own key and its own client_id path: the PDS caches a client's metadata and
+// JWKS by URL, and a cached key from an earlier run would fail this run's signature.
+const run = `probe-${Date.now().toString(36)}`;
+const key = await oauth.generateClientAssertionKey(run);
 const actorResolver = new identity.LocalActorResolver({
 	handleResolver: new identity.CompositeHandleResolver({
 		methods: {
@@ -104,10 +107,10 @@ const actorResolver = new identity.LocalActorResolver({
 });
 const client = new oauth.OAuthClient({
 	metadata: {
-		client_id: `${SITE}/oauth-client-metadata.json`,
-		redirect_uris: [`${SITE}/oauth/callback`],
+		client_id: `${SITE}/${run}/oauth-client-metadata.json`,
+		redirect_uris: [`${SITE}/${run}/oauth/callback`],
 		scope: 'atproto',
-		jwks_uri: `${SITE}/oauth/jwks.json`
+		jwks_uri: `${SITE}/${run}/oauth/jwks.json`
 	},
 	keyset: [key],
 	actorResolver,
@@ -118,9 +121,9 @@ const served = [];
 const server = createServer((req, res) => {
 	const path = new URL(req.url, SITE).pathname;
 	const body =
-		path === '/oauth-client-metadata.json'
+		path === `/${run}/oauth-client-metadata.json`
 			? client.metadata
-			: path === '/oauth/jwks.json'
+			: path === `/${run}/oauth/jwks.json`
 				? client.jwks
 				: null;
 	served.push(`${path} ${body ? 200 : 404}`);
