@@ -399,7 +399,7 @@ docker compose -p devnet-https -f docker-compose.https.yml ps
 What lands in `data/https/` (git-ignored, like the rest of `data/`):
 
 - `ca.crt`, `ca.key`, `leaf.crt`, `leaf.key`: the CA and the certificate nginx serves;
-- `stack.env`: the generated database credentials, PDS admin secret, JWT secret and PLC rotation key;
+- `db.env` (the database password, for postgres and the PLC) and `pds.env` (the PDS admin secret, JWT secret and PLC rotation key, for the PDS only);
 - `authority.env`: the lexicon authority's DID, which the PDS reads on the second pass;
 - `accounts.env`: the logins of `lex-authority.https.devnet.test` (`LEX_AUTHORITY_*`) and
   `spikeowner.https.devnet.test` (`SPIKEOWNER_HANDLE`, `SPIKEOWNER_DID`, `SPIKEOWNER_PASSWORD`);
@@ -518,8 +518,11 @@ The dev server and nginx run in the dev container. To sign in from a browser on 
    `plc.directory` at the devnet for every program on the computer until you remove the line.
 3. **Trust the CA.** Copy `data/https/ca.crt` to the host and add it to your user's root store:
    `certutil -user -addstore Root ca.crt` (no admin; Windows asks you to confirm). Remove it later
-   with `certutil -user -delstore Root "atproto-devnet local CA"`. Or skip this and click through
-   the certificate warning each time: `.test` names have no HSTS.
+   with `certutil -user -delstore Root "atproto-devnet local CA"`. The CA can only vouch for
+   servers under `devnet.test`, `devnet.internal` and `plc.directory` (name constraints), so
+   trusting it puts no other site at risk. Clicking through the certificate warning instead
+   covers only the PDS's own pages: atmo's code in the browser also fetches `plc.directory`,
+   and a click-through does not reach those requests.
 4. **Run atmo under `https-run`** as above, open `http://127.0.0.1:5454` and sign in with the DID
    in `data/https/spike-account.did`. The PDS's page asks for that account's secret,
    `SPIKEOWNER_PASSWORD` in `data/https/accounts.env`.

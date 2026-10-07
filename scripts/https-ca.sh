@@ -11,6 +11,12 @@ set -eu
 # devnet; only the leaf is reissued. Delete data/https/ca.* to start over, and then
 # trust the new ca.crt again everywhere the old one was trusted.
 #
+# The CA can only vouch for servers under devnet.test, devnet.internal and
+# plc.directory (name constraints, serverAuth only, no IP addresses), so trusting it
+# on a host cannot put any other site at risk, even if ca.key leaks from the pod.
+# A name outside those makes the leaf fail its own check below; widening the list
+# means a new CA, trusted again.
+#
 # Nothing here prints a key. Pass extra leaf names with HTTPS_EXTRA_NAMES
 # (space-separated), for instance when a later stage adds a PDS.
 
@@ -25,13 +31,19 @@ umask 077
 
 if [ -f ca.crt ] && [ -f ca.key ]; then
   echo "Keeping the existing CA: $(openssl x509 -in ca.crt -noout -subject)" >&2
+elif [ -f ca.crt ] || [ -f ca.key ]; then
+  echo "Only one of data/https/ca.crt and ca.key exists. Restore the other, or delete" >&2
+  echo "both to make a new CA (which must then be trusted again)." >&2
+  exit 1
 else
-  openssl req -x509 -new -nodes -sha256 -days 3650 \
+  openssl req -x509 -new -nodes -sha256 -days 730 \
     -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
     -keyout ca.key -out ca.crt \
     -subj "/O=atproto-devnet/CN=atproto-devnet local CA" \
     -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
-    -addext "keyUsage=critical,keyCertSign,cRLSign"
+    -addext "keyUsage=critical,keyCertSign,cRLSign" \
+    -addext "extendedKeyUsage=serverAuth" \
+    -addext "nameConstraints=critical,permitted;DNS:devnet.test,permitted;DNS:devnet.internal,permitted;DNS:plc.directory,excluded;IP:0.0.0.0/0.0.0.0,excluded;IP:0:0:0:0:0:0:0:0/0:0:0:0:0:0:0:0"
   chmod 644 ca.crt
   echo "Made a new CA: $(openssl x509 -in ca.crt -noout -subject)" >&2
 fi

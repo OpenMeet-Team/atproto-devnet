@@ -53,7 +53,9 @@ if [ -z "${DID}" ]; then
   exit 1
 fi
 
-# Replace this prefix's lines, keep everyone else's.
+# Replace this prefix's lines, keep everyone else's. The temp file holds every
+# saved secret, so it is never readable by anyone else, even briefly.
+umask 077
 grep -v "^${PREFIX}_" "${ACCOUNTS}" > "${ACCOUNTS}.tmp" || true
 {
   echo "${PREFIX}_HANDLE=${HANDLE}"

@@ -16,11 +16,13 @@
 //
 // Env: ATMO_WEB (atmo's apps/web, whose node_modules hold atcute), SPIKE_DID (default:
 // data/https/spike-account.did), PROBE_CLIENT_PORT (5480; nginx routes to that port),
-// PROBE_CLIENT_HOST (0.0.0.0: nginx reaches the pod through Docker's host gateway).
+// PROBE_CLIENT_HOST (default: the docker0 address, which is where Docker's host gateway
+// lands, so the server is not on the pod's other interfaces).
 // Exits 0 only when all three lines print.
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import os from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -31,7 +33,10 @@ const PDS = 'https://pds.https.devnet.test';
 const SITE = 'https://atmo.devnet.internal';
 const TEST_SITE = 'https://atmo.devnet.test';
 const PORT = Number(process.env.PROBE_CLIENT_PORT ?? 5480);
-const HOST = process.env.PROBE_CLIENT_HOST ?? '0.0.0.0';
+const HOST =
+  process.env.PROBE_CLIENT_HOST ??
+  os.networkInterfaces().docker0?.find((a) => a.family === 'IPv4')?.address ??
+  '127.0.0.1';
 const did = (
 	process.env.SPIKE_DID ?? readFileSync(join(ROOT, 'data/https/spike-account.did'), 'utf8')
 ).trim();

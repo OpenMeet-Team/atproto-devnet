@@ -7,7 +7,7 @@ set -eu
 # Usage: ./scripts/https-up.sh
 #
 #   1. scripts/https-ca.sh, if data/https has no certificates yet
-#   2. data/https/stack.env: generated database and PDS credentials, made once
+#   2. data/https/db.env and pds.env: generated database and PDS credentials, made once
 #   3. first pass: up, without a lexicon authority
 #   4. the lexicon authority account, its DID into data/https/authority.env, and a
 #      second `up`, which recreates the PDS with PDS_LEXICON_AUTHORITY_DID
@@ -25,25 +25,39 @@ dc() { docker compose -p devnet-https -f "${ROOT_DIR}/docker-compose.https.yml" 
 
 mkdir -p "${DATA}"
 
+NEW_CERTS=""
 if [ ! -f "${DATA}/ca.crt" ] || [ ! -f "${DATA}/leaf.crt" ] || [ ! -f "${DATA}/leaf.key" ]; then
   "${SCRIPT_DIR}/https-ca.sh"
+  NEW_CERTS=1
 fi
 
-if [ ! -f "${DATA}/stack.env" ]; then
+# db.env goes to postgres and the PLC, pds.env to the PDS alone. A stack.env from an
+# earlier version of this script is split into the two, keeping its values.
+if [ ! -f "${DATA}/db.env" ] || [ ! -f "${DATA}/pds.env" ]; then
   (
     umask 077
-    {
-      echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
-      echo "PDS_ADMIN_PASSWORD=$(openssl rand -hex 16)"
-      echo "PDS_JWT_SECRET=$(openssl rand -hex 32)"
-      echo "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=$(openssl rand -hex 32)"
-    } > "${DATA}/stack.env"
+    if [ -f "${DATA}/stack.env" ]; then
+      grep '^POSTGRES_' "${DATA}/stack.env" > "${DATA}/db.env"
+      grep '^PDS_' "${DATA}/stack.env" > "${DATA}/pds.env"
+      rm "${DATA}/stack.env"
+    else
+      echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" > "${DATA}/db.env"
+      {
+        echo "PDS_ADMIN_PASSWORD=$(openssl rand -hex 16)"
+        echo "PDS_JWT_SECRET=$(openssl rand -hex 32)"
+        echo "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=$(openssl rand -hex 32)"
+      } > "${DATA}/pds.env"
+    fi
   )
-  echo "Wrote ${DATA}/stack.env (generated credentials)" >&2
+  echo "Wrote ${DATA}/db.env and pds.env (generated credentials)" >&2
 fi
 
 echo "Pass 1: up" >&2
 dc up -d --wait
+# A running nginx keeps the certificate files it started with; new ones need a restart.
+if [ -n "${NEW_CERTS}" ]; then
+  dc restart nginx
+fi
 
 AUTH_DID=$("${SCRIPT_DIR}/https-account.sh" lex-authority LEX_AUTHORITY)
 if [ "$(sed -n 's/^PDS_LEXICON_AUTHORITY_DID=//p' "${DATA}/authority.env" 2>/dev/null)" != "${AUTH_DID}" ]; then

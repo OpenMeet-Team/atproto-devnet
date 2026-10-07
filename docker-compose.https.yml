@@ -20,22 +20,22 @@
 # nginx also answers to the PDS and atmo names, so the PDS reaches itself and a
 # client's metadata over TLS, and trusts the CA through NODE_EXTRA_CA_CERTS.
 #
-# Generated values (database and admin credentials, the JWT secret, the PLC rotation
-# key) live in data/https/stack.env, which scripts/https-up.sh writes once. data/ is
-# git-ignored.
+# Generated values live in data/https/, which scripts/https-up.sh writes once: db.env
+# (the database password, for postgres and the PLC) and pds.env (the PDS's admin and
+# JWT secrets and its PLC rotation key, for the PDS only). data/ is git-ignored.
 
 name: devnet-https
 
-x-stack-env: &stack-env
+x-db-env: &db-env
   env_file:
-    - path: data/https/stack.env
+    - path: data/https/db.env
       required: true
 
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    <<: *stack-env
+    <<: *db-env
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: plc
@@ -52,11 +52,11 @@ services:
   plc:
     image: itaru2622/bluesky-did-method-plc:latest
     restart: unless-stopped
-    <<: *stack-env
+    <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
-    # The PLC reads its database credentials as JSON, built here from stack.env.
+    # The PLC reads its database credentials as JSON, built here from db.env.
     entrypoint: >
       sh -c "
         export DB_CREDS_JSON=$$(printf '{\"username\":\"postgres\",\"password\":\"%s\",\"host\":\"postgres\",\"port\":\"5432\",\"database\":\"plc\"}' \"$$POSTGRES_PASSWORD\")
@@ -86,7 +86,7 @@ services:
     user: root
     restart: unless-stopped
     env_file:
-      - path: data/https/stack.env
+      - path: data/https/pds.env
         required: true
       # PDS_LEXICON_AUTHORITY_DID. The authority's DID exists only once the PDS is
       # up, so scripts/https-up.sh writes this file after the first pass, then runs
