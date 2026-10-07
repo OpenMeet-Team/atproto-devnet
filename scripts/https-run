@@ -1,0 +1,61 @@
+#!/bin/sh
+set -eu
+
+# Run a command as if the https devnet were the real network, for that command's
+# process tree only:
+#   - plc.directory, pds.https.devnet.test, every handle in data/https/accounts.env
+#     and atmo.devnet.internal resolve to 127.0.0.1, where nginx answers on 443;
+#   - Node trusts the devnet CA (NODE_EXTRA_CA_CERTS=data/https/ca.crt), on top of
+#     its own roots. Miniflare passes the same file on to workerd.
+#
+# Usage: scripts/https-run <cmd> [args...]
+#   e.g. scripts/https-run node scripts/https-probe.mjs
+#        (cd ../atmo/apps/web && ../../../atproto-devnet/scripts/https-run pnpm dev)
+#
+# How: bubblewrap gives the command its own mount namespace with a generated hosts
+# file bound over /etc/hosts. Nothing else changes: same filesystem, same network,
+# same user. Outside, every name resolves as usual. HTTPS_RUN_EXTRA_NAMES adds
+# names (space-separated).
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DATA="$(cd "${SCRIPT_DIR}/.." && pwd)/data/https"
+CA="${DATA}/ca.crt"
+
+if [ $# -eq 0 ]; then
+  echo "Usage: scripts/https-run <cmd> [args...]" >&2
+  exit 2
+fi
+if [ ! -f "${CA}" ]; then
+  echo "https-run: no ${CA}; run scripts/https-ca.sh (or scripts/https-up.sh) first" >&2
+  exit 1
+fi
+if ! command -v bwrap >/dev/null 2>&1; then
+  echo "https-run: bwrap (bubblewrap) is not installed" >&2
+  exit 1
+fi
+
+NAMES="plc.directory pds.https.devnet.test atmo.devnet.internal"
+if [ -f "${DATA}/accounts.env" ]; then
+  NAMES="${NAMES} $(sed -n 's/^[A-Z0-9_]*_HANDLE=//p' "${DATA}/accounts.env" | tr '\n' ' ')"
+fi
+NAMES="${NAMES} ${HTTPS_RUN_EXTRA_NAMES:-}"
+
+# The real hosts file, minus any line naming one of ours, plus ours on 127.0.0.1.
+# Written aside and renamed, so a run already holding the old file is undisturbed.
+HOSTS="${DATA}/hosts"
+TMP="$(mktemp "${DATA}/hosts.XXXXXX")"
+{
+  awk -v names="${NAMES}" '
+    BEGIN { n = split(names, a, " "); for (i = 1; i <= n; i++) ours[a[i]] = 1 }
+    { keep = 1; for (i = 2; i <= NF; i++) if ($i in ours) keep = 0; if (keep) print }
+  ' /etc/hosts
+  echo "# https devnet (scripts/https-run)"
+  set -f
+  for name in ${NAMES}; do echo "127.0.0.1 ${name}"; done
+  set +f
+} > "${TMP}"
+chmod 644 "${TMP}"
+mv "${TMP}" "${HOSTS}"
+
+export NODE_EXTRA_CA_CERTS="${CA}"
+exec bwrap --dev-bind / / --ro-bind "${HOSTS}" /etc/hosts --die-with-parent -- "$@"
