@@ -444,7 +444,8 @@ scripts/https-run node scripts/https-probe.mjs
   [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
   with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
 - Node trusts the devnet CA on top of its own roots (`NODE_EXTRA_CA_CERTS=data/https/ca.crt`).
-  Miniflare hands the same file to workerd, so a Worker's `fetch` trusts it too.
+  Miniflare's source passes the same file to workerd, so a Worker's `fetch` should trust it too.
+  The walk below doesn't exercise that: `vite dev` runs atmo's server code in Node.
 
 Node's certificate checks stay on: `https-run` only adds a CA for them to trust.
 

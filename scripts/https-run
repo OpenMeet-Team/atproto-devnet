@@ -6,7 +6,7 @@ set -eu
 #   - plc.directory, pds.https.devnet.test, every handle in data/https/accounts.env
 #     and atmo.devnet.internal resolve to 127.0.0.1, where nginx answers on 443;
 #   - Node trusts the devnet CA (NODE_EXTRA_CA_CERTS=data/https/ca.crt), on top of
-#     its own roots. Miniflare passes the same file on to workerd.
+#     its own roots. Miniflare's source passes the same file on to workerd.
 #
 # Usage: scripts/https-run <cmd> [args...]
 #   e.g. scripts/https-run node scripts/https-probe.mjs
