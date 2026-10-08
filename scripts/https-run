@@ -3,19 +3,22 @@ set -eu
 
 # Run a command as if the https devnet were the real network, for that command's
 # process tree only:
-#   - plc.directory, pds.https.devnet.test, every handle in data/https/accounts.env
-#     and atmo.devnet.internal resolve to 127.0.0.1, where nginx answers on 443;
+#   - the three PDS names (alpha.devnet.test, regular.devnet.test, prod.devnet.test),
+#     plc.directory, every handle in data/https/names (scripts/https-account.sh and
+#     https-up.sh add them) and every app in data/https/apps, as <name>.devnet.internal
+#     (scripts/https-app.sh), resolve to 127.0.0.1, where nginx answers on 443;
 #   - Node trusts the devnet CA (NODE_EXTRA_CA_CERTS=data/https/ca.crt), on top of
 #     its own roots. Miniflare's source passes the same file on to workerd.
 #
 # Usage: scripts/https-run <cmd> [args...]
 #   e.g. scripts/https-run node scripts/https-probe.mjs
-#        (cd ../atmo/apps/web && ../../../atproto-devnet/scripts/https-run pnpm dev)
+#        (cd ../myapp && ../atproto-devnet/scripts/https-run npm run dev)
 #
 # How: bubblewrap gives the command its own mount namespace with a generated hosts
 # file bound over /etc/hosts. Nothing else changes: same filesystem, same network,
 # same user. Outside, every name resolves as usual. HTTPS_RUN_EXTRA_NAMES adds
-# names (space-separated).
+# names (space-separated). The names are read when the command starts, so a handle
+# or app added later needs a restart of the command.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA="$(cd "${SCRIPT_DIR}/.." && pwd)/data/https"
@@ -34,9 +37,12 @@ if ! command -v bwrap >/dev/null 2>&1; then
   exit 1
 fi
 
-NAMES="plc.directory pds.https.devnet.test atmo.devnet.internal"
-if [ -f "${DATA}/accounts.env" ]; then
-  NAMES="${NAMES} $(sed -n 's/^[A-Z0-9_]*_HANDLE=//p' "${DATA}/accounts.env" | tr '\n' ' ')"
+NAMES="alpha.devnet.test regular.devnet.test prod.devnet.test plc.directory"
+if [ -f "${DATA}/names" ]; then
+  NAMES="${NAMES} $(grep -E '^[A-Za-z0-9.-]+$' "${DATA}/names" | tr '\n' ' ')"
+fi
+if [ -f "${DATA}/apps" ]; then
+  NAMES="${NAMES} $(awk 'NF == 2 { printf "%s.devnet.internal ", $1 }' "${DATA}/apps")"
 fi
 NAMES="${NAMES} ${HTTPS_RUN_EXTRA_NAMES:-}"
 
@@ -51,7 +57,7 @@ TMP="$(mktemp "${DATA}/hosts.XXXXXX")"
   ' /etc/hosts
   echo "# https devnet (scripts/https-run)"
   set -f
-  for name in ${NAMES}; do echo "127.0.0.1 ${name}"; done
+  printf '%s\n' ${NAMES} | awk 'NF && !seen[$0]++ { print "127.0.0.1 " $0 }'
   set +f
 } > "${TMP}"
 chmod 644 "${TMP}"

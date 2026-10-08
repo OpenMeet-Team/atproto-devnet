@@ -2,7 +2,8 @@
 set -eu
 
 # The https devnet's certificates: one local CA, made once, and one leaf that nginx
-# serves for every name the spike maps.
+# serves for every devnet name: the three PDSes and their handles, plc.directory, and
+# every app at <name>.devnet.internal.
 #
 # Usage: ./scripts/https-ca.sh
 #
@@ -17,15 +18,18 @@ set -eu
 # A name outside those makes the leaf fail its own check below; widening the list
 # means a new CA, trusted again.
 #
+# A TLS wildcard covers one label, so *.devnet.test does not cover a handle on the
+# regular PDS (<name>.regular.devnet.test); each PDS's handle domain has its own.
+#
 # Nothing here prints a key. Pass extra leaf names with HTTPS_EXTRA_NAMES
-# (space-separated), for instance when a later stage adds a PDS.
+# (space-separated), for instance when a PDS is added.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT="${SCRIPT_DIR}/../data/https"
 mkdir -p "${OUT}"
 cd "${OUT}"
 
-NAMES="pds.https.devnet.test *.https.devnet.test plc.directory atmo.devnet.internal ${HTTPS_EXTRA_NAMES:-}"
+NAMES="alpha.devnet.test regular.devnet.test prod.devnet.test *.devnet.test *.regular.devnet.test *.prod.devnet.test plc.directory *.devnet.internal ${HTTPS_EXTRA_NAMES:-}"
 
 umask 077
 
@@ -67,7 +71,7 @@ EOF
 openssl req -new -nodes -sha256 \
   -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
   -keyout leaf.key -out leaf.csr \
-  -subj "/O=atproto-devnet/CN=pds.https.devnet.test"
+  -subj "/O=atproto-devnet/CN=alpha.devnet.test"
 # 397 days: under the 398-day ceiling browsers apply to server certificates.
 openssl x509 -req -sha256 -days 397 \
   -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
