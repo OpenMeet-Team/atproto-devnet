@@ -1,8 +1,19 @@
 # atproto-devnet
 
-A standalone, self-contained [AT Protocol](https://atproto.com) development network for local development and CI. Provides a local PDS, PLC, Jetstream, and TAP — enough to create and manage PDS accounts, publish and read records, and test Jetstream consumers, all without touching production Bluesky infrastructure. This is not the full Bluesky stack (no AppView, relay, or feed generators), but it covers the core services most AT Protocol applications need for local development.
+A self-contained [AT Protocol](https://atproto.com) network for local development and CI. It runs
+on Docker Compose, so it works wherever Docker Compose does, and nothing in it touches Bluesky's
+production network.
+
+The default stack is one PDS, a PLC, Jetstream and TAP. That is enough to create accounts, publish
+and read records, and test Jetstream consumers. Optional overlays add a PDS that supports
+permissioned spaces, two more PDS builds beside it, a local relay that crawls them all, and https
+names with a local CA. There is no AppView and no feed generator.
 
 ## Services
+
+`npm run up` starts the services below. In your own project, `docker-compose.yml` alone runs PDS,
+PLC, Jetstream, TAP and init, and your project provides Postgres and SMTP (see
+[Integrating into your project](#integrating-into-your-project)).
 
 | Service | Image | Default Port | Purpose |
 |---------|-------|-------------|---------|
@@ -11,6 +22,15 @@ A standalone, self-contained [AT Protocol](https://atproto.com) development netw
 | **Jetstream** | `ghcr.io/bluesky-social/jetstream` | 6008 | JSON event stream from PDS firehose |
 | **TAP** | `ghcr.io/bluesky-social/indigo/tap` | 2480 | Repo sync + backfill |
 | **init** | `alpine:3.20` | — | One-shot: creates invite codes and seeds test accounts |
+| **Postgres** | `postgres:16-alpine` | 5433 | The PLC's database (`docker-compose.test.yml`) |
+| **MailDev** | `maildev/maildev:latest` | 1081 web, 1026 SMTP | Email for the PDS (`docker-compose.test.yml`) |
+
+The overlays add more services:
+
+- the spaces PDS on port 3010 ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons));
+- `pds-regular` on 3020 and `pds-prod` on 3030 ([Several PDS builds side by side](#several-pds-builds-side-by-side));
+- `relay` on 2470 and a one-shot `relay-init` ([A local relay](#a-local-relay));
+- `nginx` on 127.0.0.1:443 ([The https devnet](#the-https-devnet)).
 
 ## Quick start (standalone)
 
@@ -32,7 +52,7 @@ npm test
 npm run down
 ```
 
-The test suite validates health checks, account seeding, record CRUD, Jetstream events, firehose output, and network isolation.
+The suite checks health, account seeding, record CRUD, Jetstream events, the raw firehose, TAP tracking, and that no service points at Bluesky.
 
 ## Upgrading from earlier versions
 
@@ -40,20 +60,19 @@ Changes to the default stack that existing setups will notice:
 
 - **The PDS no longer forwards to Bluesky's AppView.** `app.bsky.*` reads and any method the PDS
   doesn't implement now go to `https://appview.invalid` and fail with `502 UpstreamFailure`.
-  Bluesky's AppView never indexed devnet accounts, so for those accounts nothing useful is lost. To
-  get the old behavior back, set `DEVNET_APPVIEW_URL=https://api.bsky.app`,
-  `DEVNET_APPVIEW_DID=did:web:api.bsky.app`, `DEVNET_REPORT_SERVICE_URL=https://mod.bsky.app` and
-  `DEVNET_REPORT_SERVICE_DID=did:plc:ar7c4by46qjdydhdevvrndac`. The isolation test will then fail
-  by design.
+  Bluesky's AppView never indexed devnet accounts, so for those accounts nothing useful is lost.
 - **DID resolution works again on current `pds:0.4` pulls.** Since `@atproto/pds` 0.5.34, the PDS
   refuses to resolve DIDs through an `http://` PLC unless SSRF protection is off, and the floating
   `pds:0.4` tag now pulls 0.5.36. Without the fix, `describeRepo`, OAuth and anything else that
   resolves a new DID fails with `Forbidden protocol "http:"`. The PDS now sets
   `PDS_DISABLE_SSRF_PROTECTION=true`, so it can also fetch private addresses, such as an OAuth client's
-  metadata on your machine.
+  metadata on your machine. The default stack still uses http. The
+  [https devnet](#the-https-devnet) keeps SSRF protection off too, for another reason: every address
+  a PDS fetches from there (nginx, the PLC, your machine) is a private one, and the protected fetch
+  refuses private addresses.
 - **init reseeds when `data/` is stale.** `data/` outlives `npm run down`. init used to skip seeding
   whenever `data/accounts.json` existed, leaving credentials for accounts that were gone. It now
-  checks that the recorded accounts exist on the running PDS and reseeds if they don't, so
+  checks that the first recorded account exists on the running PDS and reseeds if it doesn't, so
   `data/accounts.env` gets new DIDs and a new invite code.
 - **The PDS runs as root.** Release images already did. This lets `DEVNET_PDS_IMAGE` take monorepo
   images, which default to `node`.
@@ -105,7 +124,17 @@ docker compose \
   up -d
 ```
 
-The `--project-directory .` flag ensures volume paths resolve relative to your project, not the devnet repo.
+Compose resolves relative paths from your project, because your file comes first. That includes
+the devnet's own `./scripts` and `./data`, which the `init` service mounts. So your overlay must
+mount them from the devnet checkout:
+
+```yaml
+services:
+  init:
+    volumes:
+      - ../atproto-devnet/scripts:/scripts:ro
+      - ../atproto-devnet/data:/devnet-data
+```
 
 ## Real-world examples
 
@@ -153,7 +182,7 @@ services:
   api:
     environment:
       - PDS_URL=http://pds:3000
-      - PDS_DID_PLC_URL=http://plc:2582
+      - DID_PLC_URL=http://plc:2582
 
   # Point firehose consumer at local Jetstream
   bsky-firehose-consumer:
@@ -172,11 +201,16 @@ networks:
 4. Updates `.env` with the invite code
 5. Force-recreates the API container to pick up the new code
 
-See the full implementation: [OpenMeet-Team/openmeet-api `feature/adopt-atproto-devnet`](https://github.com/OpenMeet-Team/openmeet-api/tree/feature/adopt-atproto-devnet)
+See the full implementation in [openmeet-api](https://github.com/OpenMeet-Team/openmeet-api): `docker-compose-devnet.yml`, `scripts/devnet-up.sh` and `scripts/devnet-down.sh` on its main branch.
 
 ### Open Social (provides its own Postgres + MailDev)
 
 Open Social doesn't have existing Postgres/MailDev services, so its overlay provides them — similar to `docker-compose.test.yml` but tailored to Open Social's needs.
+
+Open Social stacks the files the other way round. Its `scripts/start-test-env.sh` passes the
+devnet's `docker-compose.yml` first and its own overlay second, with no `--project-directory`.
+Paths then resolve from the devnet checkout, so init finds its scripts. The overlay reaches Open
+Social's own files through `OPENSOCIAL_DIR`, which the script exports.
 
 **`docker-compose.devnet.yml`** (overlay):
 ```yaml
@@ -247,6 +281,10 @@ Create additional accounts at any time:
 ./scripts/create-account.sh carol.devnet.test
 ```
 
+It talks to `http://localhost:3000`. On the spaces stacks, set `DEVNET_PDS_URL=http://localhost:3010`.
+On the https devnet, use [`scripts/https-account.sh`](#tools-for-an-app) instead. It needs `curl` and
+`jq`, and it prints the new password.
+
 ## Choosing a PDS version
 
 `DEVNET_PDS_IMAGE` picks the PDS image, so you can run your app or the test suite against another
@@ -292,6 +330,10 @@ docker compose $F up -d --wait
 DEVNET_LEXICON_AUTHORITY_DID=did:plc:... docker compose $F up -d --wait   # whole stack, not just pds
 # then putRecord your lexicons into the authority account
 ```
+
+`npm run down` names only the base files. Stop an overlay stack with the same files you started it
+with: `docker compose $F down`, and add `-v` to drop its volumes. This holds for the multi-PDS and
+relay stacks below too.
 
 How this differs from the default stack:
 
@@ -570,13 +612,14 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 
 ### The CA
 
-`scripts/https-ca.sh` (which `https-up.sh` runs when there is no leaf) makes the CA once. Rerunning
-it keeps the CA and only reissues the leaf, so a browser or OS that trusts `ca.crt` keeps trusting
-the devnet. The leaf names the three PDSes, `*.devnet.test`, `*.regular.devnet.test`,
-`*.prod.devnet.test`, `plc.directory` and `*.devnet.internal`; a TLS wildcard covers one label, so
-each handle domain needs its own. Add names with `HTTPS_EXTRA_NAMES="a.devnet.test b.devnet.test"`,
-then restart nginx. To start over, delete `data/https/ca.*` and trust the new `ca.crt` wherever the
-old one was trusted.
+`scripts/https-ca.sh` makes the CA once. `https-up.sh` runs it when there is no leaf, or when the
+leaf does not name `*.devnet.internal`. Rerunning it keeps the CA and only reissues the leaf, so a
+browser or OS that trusts `ca.crt` keeps trusting the devnet. The leaf names the three PDSes,
+`*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory` and
+`*.devnet.internal`; a TLS wildcard covers one label, so each handle domain needs its own. Add
+deeper names with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"`, then restart nginx. A name one label
+under `devnet.test` is already covered. To start over, delete `data/https/ca.*` and trust the new
+`ca.crt` wherever the old one was trusted.
 
 The CA can only vouch for servers under `devnet.test`, `devnet.internal` and `plc.directory` (name
 constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
@@ -650,7 +693,7 @@ All settings have sensible defaults. Override via `.env` or environment variable
 | `DEVNET_DB_HOST` | `postgres` | PostgreSQL hostname |
 | `DEVNET_DB_PORT` | `5432` | PostgreSQL port |
 | `DEVNET_DB_NAME` | `plc` | Database name for PLC |
-| `DEVNET_SMTP_URL` | `smtp://maildev:1025` | SMTP server for PDS email |
+| `DEVNET_SMTP_URL` | `smtp://maildev:1025` | SMTP server for PDS email. Under `npm run up`, the test overlay sets the PDS's SMTP URL to `smtp://maildev:1025` directly, so this has no effect there |
 
 ### PDS settings
 
@@ -663,6 +706,10 @@ All settings have sensible defaults. Override via `.env` or environment variable
 | `DEVNET_REPORT_SERVICE_URL` / `DEVNET_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
 | `DEVNET_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts |
 | `DEVNET_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
+| `DEVNET_PDS_REGULAR_IMAGE` / `DEVNET_PDS_PROD_IMAGE` | `ghcr.io/bluesky-social/pds:0.4.5037` / a pinned production digest | The two extra PDS builds ([Several PDS builds side by side](#several-pds-builds-side-by-side)) |
+| `DEVNET_LEXICON_AUTHORITY_DID` | empty | The spaces PDS's lexicon authority ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons)) |
+| `DEVNET_RELAY_INDIGO_COMMIT` | `b2619d8...` | The indigo commit the relay image builds from |
+| `DEVNET_RELAY_ADMIN_PASSWORD` | `devnet-relay-admin` | The relay's admin password |
 
 ### Host port mapping
 
@@ -673,6 +720,15 @@ All settings have sensible defaults. Override via `.env` or environment variable
 | `DEVNET_JETSTREAM_PORT` | `6008` | Jetstream WebSocket |
 | `DEVNET_JETSTREAM_METRICS_PORT` | `6009` | Jetstream metrics |
 | `DEVNET_TAP_PORT` | `2480` | TAP |
+| `DEVNET_SPACES_PDS_PORT` | `3010` | The spaces PDS. `DEVNET_PDS_PORT` applies to the default PDS only, and `pds-regular` and `pds-prod` always use 3020 and 3030 |
+| `DEVNET_RELAY_PORT` | `2470` | Relay |
+| `DEVNET_POSTGRES_PORT` | `5433` | Postgres (`npm run up` only) |
+| `DEVNET_MAILDEV_WEB_PORT` / `DEVNET_MAILDEV_SMTP_PORT` | `1081` / `1026` | MailDev (`npm run up` only) |
+
+`create-account.sh` and the test suite reach the PDS at `DEVNET_PDS_URL` (default
+`http://localhost:3000`). `lexicon-authority.sh` defaults it to the spaces PDS on 3010. The tests
+also read `DEVNET_PLC_URL`, `DEVNET_JETSTREAM_WS_URL`, `DEVNET_JETSTREAM_METRICS_URL` and
+`DEVNET_TAP_URL`, each defaulting to localhost on the ports above.
 
 ## npm scripts
 
@@ -696,8 +752,8 @@ The test suite validates all major operations against a running devnet:
 | `record-crud.test.ts` | Create, read, list, and delete ATProto records |
 | `jetstream.test.ts` | JSON event stream delivers commit events, supports filtering |
 | `firehose.test.ts` | Raw PDS firehose emits CBOR events |
-| `isolation.test.ts` | Network is fully isolated (no external PLC/crawlers) |
-| `tap.test.ts` | TAP tracks DIDs and syncs repos |
+| `isolation.test.ts` | PDS, Jetstream and TAP point only at the local PLC and the local PDS or relay, with no crawlers and no Bluesky AppView. It checks settings, not traffic |
+| `tap.test.ts` | TAP accepts a DID to track. Live sync is not tested yet |
 
 ## License
 
