@@ -410,7 +410,8 @@ F="$F -f docker-compose.multi-pds.yml -f docker-compose.relay.yml -f docker-comp
 docker compose -p "$DEVNET_PROJECT" $F ps
 ```
 
-`https-up.sh` is safe to rerun; a rerun is one `up`. It makes the leaf certificate if there is
+`https-up.sh` is safe to rerun; a rerun leaves the running services as they are, and only the
+one-shot `init` and `relay-init` run again. It makes the leaf certificate if there is
 none, brings the stack up, makes the lexicon authority (`lex-authority.devnet.test` on the alpha),
 brings the stack up again with `DEVNET_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
 `data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `DEVNET_INVITE_CODE`
@@ -424,8 +425,10 @@ https name. Port 443 is one per machine, so only one https devnet can serve at a
 
 `https-down.sh` passes its arguments to `docker compose down` and never deletes `data/`. The PLC's
 database is a named volume (`plc-db`), so a `down` without `-v` keeps every DID along with the
-PDSes. After `-v`, the next `https-up.sh` starts over: init reseeds `alice` and `bob`, and the
-authority is made again with a new DID.
+PDSes. After `-v`, the next `https-up.sh` starts over: init reseeds `alice` and `bob` and rewrites
+`data/accounts.env` from scratch, so the logins the tools wrote there are gone along with their
+accounts (run `https-account.sh` and `https-invite.sh` again), and the authority is made again with
+a new DID.
 
 ### What it writes
 
@@ -502,8 +505,7 @@ scripts/https-lexicons.sh ../bookclub/lexicons    # prints each NSID: com.exampl
 It publishes every lexicon JSON under the folder, at any depth, and leaves a record alone when it
 already holds the same document. Or publish with the app's own tooling: sign in with the
 `LEX_AUTHORITY_*` login in `data/accounts.env` and `putRecord` each document into
-`com.atproto.lexicon.schema` with the NSID as the record key. The PDS caches what it resolves for
-about five minutes.
+`com.atproto.lexicon.schema` with the NSID as the record key.
 
 **An app route**, so the app has an https origin that both the PDSes and `https-run`'s processes
 reach: `scripts/https-app.sh <name> <port>`.
@@ -542,8 +544,8 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 
 - **Each PDS at its https name.** `PDS_HOSTNAME` is `alpha.devnet.test`, `regular.devnet.test` or
   `prod.devnet.test`, and the alpha's handle domain is set to `.devnet.test` explicitly (its default
-  would be `.alpha.devnet.test`). The alpha runs without `PDS_DEV_MODE`, as it would on the real
-  network; the two releases keep it. All three keep `PDS_DISABLE_SSRF_PROTECTION`, because everything
+  would be `.alpha.devnet.test`). The alpha runs with `PDS_DEV_MODE=false`, as it would on the
+  real network; the two releases keep dev mode on. All three keep `PDS_DISABLE_SSRF_PROTECTION`, because everything
   they fetch here sits on an RFC 1918 address.
 - **The PDSes reach each other over TLS.** Inside the compose network, nginx also answers to the
   three PDS names, and each PDS trusts the CA through `NODE_EXTRA_CA_CERTS`. Docker's DNS has no

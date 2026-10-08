@@ -19,9 +19,9 @@ fi
 #   -v  also drop the project's volumes: every account, DID and record is gone. The PLC's
 #       database is a named volume, so without -v the DIDs survive with the PDSes.
 #
-# data/ is never deleted. After -v, the logins in data/accounts.env name accounts that no
-# longer exist; the next https-up.sh starts them over (the base init reseeds alice and
-# bob, and the lexicon authority is made again). The CA, the leaf and the app routes in
+# data/ is never deleted. After -v, the next https-up.sh starts over: the base init reseeds
+# alice and bob and rewrites data/accounts.env from scratch, dropping the logins the tools
+# wrote there (their accounts are gone too), and the lexicon authority is made again. The CA, the leaf and the app routes in
 # data/https stay either way.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

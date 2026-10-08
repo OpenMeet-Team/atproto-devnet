@@ -121,8 +121,9 @@ DENV="${DATA_DIR}/devnet.env"
 mv "${DENV}.tmp" "${DENV}"
 echo "Wrote ${DENV}" >&2
 
-# init leaves data/accounts.env world-readable on every up; it holds logins.
+# init leaves data/accounts.env and data/accounts.json world-readable on every up; both hold logins.
 make_private "${DEVNET_ACCOUNTS}"
+make_private "${DATA_DIR}/accounts.json"
 
 echo >&2
 dc ps --format '{{.Service}} {{.State}} {{.Ports}}' >&2
