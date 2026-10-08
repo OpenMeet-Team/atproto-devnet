@@ -1,23 +1,33 @@
-// Probe the https devnet the way atmo's server code meets it: atmo's own installed
-// atcute, its default PLC directory, and no plain-http escape hatch anywhere.
-// Run it under scripts/https-run, which maps the names and trusts the devnet CA:
+// Probe the https devnet the way an app built for the real network meets it: stock
+// atcute, its default PLC directory, and no plain-http escape hatch anywhere. Run it
+// under scripts/https-run, which maps the names and trusts the devnet CA, after
+// routing the probe's app name to its port:
 //
-//   scripts/https-run node scripts/https-probe.mjs
+//   scripts/https-app.sh probe 5480
+//   ATCUTE_DIR=<dir> PROBE_DID=<did> scripts/https-run node scripts/https-probe.mjs
 //
-// (a) Resolves the spike account's DID through https://plc.directory (atcute's default
+// (a) Resolves PROBE_DID through https://plc.directory (atcute's default
 //     PlcDidDocumentResolver), then the PDS's protected-resource and authorization
 //     server metadata through atcute's resolvers, left at their defaults.
-// (b) Serves a confidential client's metadata and JWKS on port 5480, which nginx
-//     answers for as https://atmo.devnet.internal/ (under a path new to each run), and
-//     pushes a PAR with that client_id through atcute. The PDS fetches both documents
+// (b) Serves a confidential client's metadata and JWKS on PROBE_CLIENT_PORT, which nginx
+//     answers for as https://<PROBE_APP>.devnet.internal/ (under a path new to each run),
+//     and pushes a PAR with that client_id through atcute. The PDS fetches both documents
 //     over TLS and must answer with a request_uri.
-// (c) Pushes a raw PAR (plain fetch: atcute refuses this client_id before sending)
-//     with a client_id under .test, and prints the PDS's own refusal.
+// (c) Pushes a raw PAR (plain fetch: atcute refuses this client_id before sending) with a
+//     client_id under .test, and prints the PDS's own refusal.
 //
-// Env: ATMO_WEB (atmo's apps/web, whose node_modules hold atcute), SPIKE_DID (default:
-// data/https/spike-account.did), PROBE_CLIENT_PORT (5480; nginx routes to that port),
-// PROBE_CLIENT_HOST (default: the docker0 address, which is where Docker's host gateway
-// lands, so the server is not on the pod's other interfaces).
+// Env:
+//   ATCUTE_DIR         required: a directory node resolves @atcute/oauth-node-client and
+//                      @atcute/identity-resolver from (any project that installs them,
+//                      or a plain `npm i` of the two)
+//   PROBE_DID          the account to resolve and name in the PAR (default: the lexicon
+//                      authority, LEX_AUTHORITY_DID in data/devnet.env)
+//   PROBE_PDS          the PDS that DID must name (default https://alpha.devnet.test)
+//   PROBE_APP          the app name (default probe: https://probe.devnet.internal/)
+//   PROBE_CLIENT_PORT  where the client's documents are served (default 5480)
+//   PROBE_CLIENT_HOST  the address to serve on (default: the docker0 address, which is
+//                      where Docker's host gateway lands, so the server is not on the
+//                      machine's other interfaces)
 // Exits 0 only when all three lines print.
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -28,28 +38,46 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ATMO_WEB = process.env.ATMO_WEB ?? '/workspaces/scratch/wt-atmo-events-https-spike/apps/web';
-const PDS = 'https://pds.https.devnet.test';
-const SITE = 'https://atmo.devnet.internal';
-const TEST_SITE = 'https://atmo.devnet.test';
+const ATCUTE_DIR = process.env.ATCUTE_DIR;
+if (!ATCUTE_DIR) {
+	console.log('FAIL setup: set ATCUTE_DIR to a directory node resolves @atcute/* from');
+	process.exit(2);
+}
+const PDS = process.env.PROBE_PDS ?? 'https://alpha.devnet.test';
+const APP = process.env.PROBE_APP ?? 'probe';
+const SITE = `https://${APP}.devnet.internal`;
+const TEST_SITE = `https://${APP}.devnet.test`;
 const PORT = Number(process.env.PROBE_CLIENT_PORT ?? 5480);
 const HOST =
   process.env.PROBE_CLIENT_HOST ??
   os.networkInterfaces().docker0?.find((a) => a.family === 'IPv4')?.address ??
   '127.0.0.1';
+const devnetEnv = () => {
+	try {
+		return readFileSync(join(ROOT, 'data/devnet.env'), 'utf8');
+	} catch {
+		return '';
+	}
+};
 const did = (
-	process.env.SPIKE_DID ?? readFileSync(join(ROOT, 'data/https/spike-account.did'), 'utf8')
+	process.env.PROBE_DID ??
+	devnetEnv().match(/^LEX_AUTHORITY_DID=(.+)$/m)?.[1] ??
+	''
 ).trim();
+if (!did) {
+	console.log('FAIL setup: set PROBE_DID (or run scripts/https-up.sh, which writes data/devnet.env)');
+	process.exit(2);
+}
 
-// atcute exactly as atmo has it installed. The metadata resolvers are not in the
+// atcute as installed under ATCUTE_DIR. The metadata resolvers are not in the
 // package's exports, so they load from the same install by file path.
-const atmoRequire = createRequire(join(ATMO_WEB, 'package.json'));
-const fromAtmo = (spec) => import(pathToFileURL(atmoRequire.resolve(spec)).href);
-const oauthEntry = atmoRequire.resolve('@atcute/oauth-node-client');
+const atcuteRequire = createRequire(join(ATCUTE_DIR, 'package.json'));
+const fromAtcute = (spec) => import(pathToFileURL(atcuteRequire.resolve(spec)).href);
+const oauthEntry = atcuteRequire.resolve('@atcute/oauth-node-client');
 const fromOauthDist = (file) => import(pathToFileURL(join(dirname(oauthEntry), file)).href);
 
-const oauth = await fromAtmo('@atcute/oauth-node-client');
-const identity = await fromAtmo('@atcute/identity-resolver');
+const oauth = await fromAtcute('@atcute/oauth-node-client');
+const identity = await fromAtcute('@atcute/identity-resolver');
 const { ProtectedResourceMetadataResolver } = await fromOauthDist(
 	'resolvers/protected-resource-metadata.js'
 );
@@ -89,7 +117,7 @@ try {
 	fail('resolve', e);
 }
 
-// (b) A confidential client at the .internal name, through atcute's own PAR. Each run
+// (b) A confidential client at the app's .internal name, through atcute's own PAR. Each run
 // gets its own key and its own client_id path: the PDS caches a client's metadata and
 // JWKS by URL, and a cached key from an earlier run would fail this run's signature.
 const run = `probe-${Date.now().toString(36)}`;
