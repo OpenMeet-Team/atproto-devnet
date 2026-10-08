@@ -309,14 +309,15 @@ when the command starts.
 ```
 OAUTH_PUBLIC_URL=
 GROUP_PDS_SERVICE=https://alpha.devnet.test
-GROUP_HANDLE_DOMAIN=.devnet.test
+GROUP_HANDLE_DOMAIN=devnet.test
 ```
 
 - `OAUTH_PUBLIC_URL=` is empty on purpose. `wrangler.jsonc` sets it to `https://atmo.rsvp`. Empty
   makes atmo use its loopback OAuth client, `http://127.0.0.1:5454`, which needs no keys and no
   public origin.
 - `GROUP_PDS_SERVICE` and `GROUP_HANDLE_DOMAIN` name where atmo would create group accounts: the
-  alpha, the devnet PDS that serves spaces.
+  alpha, the devnet PDS that serves spaces. Write the domain with no leading dot. atmo adds the dot
+  itself, and `.devnet.test` gives handles like `name..devnet.test`, which the PDS refuses.
 
 Then create atmo's tables in its local D1 database. Without them, atmo logs
 `no such table: groups` when it serves its OAuth client metadata.
