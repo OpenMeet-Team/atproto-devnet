@@ -266,15 +266,113 @@ Open Social also includes a smoke test (`test/devnet-smoke.test.ts`) that create
 
 See the full implementation: [collectivesocial/open-social#18](https://github.com/collectivesocial/open-social/pull/18)
 
-### atmo (the https devnet, with fixtures made by the devnet's tools)
+### atmo (the https devnet, with no devnet code in the app)
 
-[atmo](https://github.com/flo-bit/atmo-events) is an events app. Its groups end-to-end test runs on
-[the https devnet](#the-https-devnet), so the app reaches each PDS at an https name, as it does on
-the real network, with no test switch in the app. The devnet knows nothing about atmo. The test's
-fixtures are ordinary accounts made with the devnet's tools, and its lexicons come from the
-[opensocial.group proposal](https://tangled.org/opensocial.group/proposal).
+[atmo](https://github.com/flo-bit/atmo-events) is an events app. It runs on
+[the https devnet](#the-https-devnet) as it would on the real network. Its server reaches each PDS
+and `plc.directory` at their https names, and the app has no devnet code or test switch. The devnet
+knows nothing about atmo, so everything below is made with the devnet's tools. The steps use the
+`feat/groups-opensocial` branch of
+[tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial),
+checked out beside the devnet as `atmo-events/`, and the
+[opensocial.group proposal](https://tangled.org/opensocial.group/proposal) beside both as
+`opensocial-proposal/`. Start with the https devnet up.
 
-From the devnet checkout, with the https devnet up:
+**Lexicons.** Every devnet PDS resolves NSIDs only from the devnet's lexicon authority. atmo's OAuth
+scope includes two permission sets, `rsvp.atmo.permissionSet` and `app.bsky.authCreatePosts`. If the
+authority does not hold them, the PDS cannot expand the scope and the consent page fails. Copy both
+from their real authorities, then publish them, and the proposal's lexicons for groups. From the
+devnet checkout, outside `https-run`, because the copy reads the real `plc.directory`:
+
+```bash
+mkdir -p data/atmo-lexicons
+for nsid in rsvp.atmo.permissionSet app.bsky.authCreatePosts; do
+  authority=$(echo "$nsid" | awk -F. '{print $2"."$1}')      # rsvp.atmo.x -> atmo.rsvp
+  did=$(dig +short TXT "_lexicon.$authority" | tr -d '"' | sed 's/^did=//')
+  pds=$(curl -s "https://plc.directory/$did" |
+    jq -r '.service[] | select(.id == "#atproto_pds") | .serviceEndpoint')
+  curl -s "$pds/xrpc/com.atproto.repo.getRecord?repo=$did&collection=com.atproto.lexicon.schema&rkey=$nsid" |
+    jq '.value | del(."$type")' > "data/atmo-lexicons/$nsid.json"
+done
+./scripts/https-lexicons.sh data/atmo-lexicons
+./scripts/https-lexicons.sh ../opensocial-proposal/lexicons
+```
+
+**An account.** `alice.devnet.test` and `bob.devnet.test` are already there (see
+[Seeded test accounts](#seeded-test-accounts)). To use another, make it with
+`scripts/https-account.sh` before you start atmo, because `https-run` maps only the handles it knows
+when the command starts.
+
+**Configure atmo.** In `atmo-events/apps/web`, after `pnpm install`, write a git-ignored
+`.dev.vars`. It overrides the vars in `wrangler.jsonc` for `vite dev`:
+
+```
+OAUTH_PUBLIC_URL=
+GROUP_PDS_SERVICE=https://alpha.devnet.test
+GROUP_HANDLE_DOMAIN=.devnet.test
+```
+
+- `OAUTH_PUBLIC_URL=` is empty on purpose. `wrangler.jsonc` sets it to `https://atmo.rsvp`. Empty
+  makes atmo use its loopback OAuth client, `http://127.0.0.1:5454`, which needs no keys and no
+  public origin.
+- `GROUP_PDS_SERVICE` and `GROUP_HANDLE_DOMAIN` name where atmo would create group accounts: the
+  alpha, the devnet PDS that serves spaces.
+
+Then create atmo's tables in its local D1 database. Without them, atmo logs
+`no such table: groups` when it serves its OAuth client metadata.
+
+```bash
+pnpm exec wrangler d1 migrations apply DB --local
+```
+
+**Run atmo** under `https-run`, from `atmo-events/apps/web`:
+
+```bash
+../../atproto-devnet/scripts/https-run pnpm dev     # http://127.0.0.1:5454
+```
+
+**Use it from a browser.** Set up a browser on your computer as in
+[From a browser on your own computer](#from-a-browser-on-your-own-computer). Forward port 5454 to
+5454 as well, since the loopback client's redirect URI names that port. Open
+`http://127.0.0.1:5454` in that browser and sign in as `alice.devnet.test`, by handle or by DID,
+with her password from `data/accounts.env`. atmo sends you to `https://alpha.devnet.test` to sign in
+and approve, then back to atmo, signed in.
+
+| URL | What answers |
+| --- | --- |
+| `http://127.0.0.1:5454` | atmo |
+| `https://alpha.devnet.test` | the alpha PDS: its sign-in and consent pages, and its xrpc |
+| `https://<handle>/.well-known/atproto-did` | the handle's PDS, with the handle's DID |
+| `https://plc.directory/<did>` | the devnet's PLC, with the DID document |
+
+**Use it from the shell.** The same names work under `https-run`. curl does not read
+`NODE_EXTRA_CA_CERTS`, so give it the CA. From the devnet checkout:
+
+```bash
+dn() { ./scripts/https-run curl -s --cacert data/https/ca.crt "$@"; }
+dn https://alpha.devnet.test/xrpc/_health                # {"version":"0.5.32"}
+dn https://alice.devnet.test/.well-known/atproto-did     # alice's DID
+did=$(sed -n 's/^ALICE_DID=//p' data/accounts.env)
+dn https://plc.directory/$did                            # her DID document, alsoKnownAs at://alice.devnet.test
+dn "https://alpha.devnet.test/xrpc/com.atproto.repo.listRecords?repo=$did&collection=community.lexicon.calendar.event"
+```
+
+The last line lists the events atmo has written to alice's repo.
+
+**Not covered yet: creating a group from atmo.** With the loopback client, atmo's group page says
+group creation is not configured. To create and link a group, atmo needs its confidential OAuth
+client:
+
+- `OAUTH_PUBLIC_URL` set to an https origin that the PDS can fetch client metadata from;
+- `CLIENT_ASSERTION_KEY`, which `pnpm env:generate-key` makes;
+- `GROUP_PDS_INVITE_CODE`, which `scripts/https-invite.sh GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.dev.vars` writes.
+
+An app route (`scripts/https-app.sh atmo 5454`) would give the origin. But atmo's dev server listens
+on 127.0.0.1 only, and nginx in the containers cannot reach that address. The groups e2e below binds
+an existing group account instead.
+
+**The groups e2e.** It makes its fixtures with the same tools. From the devnet checkout, after the
+lexicons above:
 
 ```bash
 export ACCOUNTS_FILE=$PWD/data/atmo-e2e.env       # the test's logins, kept mode 600
@@ -284,7 +382,6 @@ export ACCOUNTS_FILE=$PWD/data/atmo-e2e.env       # the test's logins, kept mode
 ./scripts/https-account.sh e2e-outsider E2E_OUTSIDER
 ./scripts/https-account.sh e2enospaces E2E_NOSPACES regular   # a member on a PDS without spaces
 unset ACCOUNTS_FILE
-./scripts/https-lexicons.sh ../opensocial-proposal/lexicons
 # what the test reads: URLs, DIDs, the group's handle and where the logins are; no secret
 { grep -E '^E2E_[A-Z]+_(DID|HANDLE)=' data/atmo-e2e.env
   echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
