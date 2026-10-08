@@ -361,171 +361,250 @@ no setting to turn it off. Its admin `requestCrawl` accepts `localhost:<port>`, 
 then fails with `unsafe network address`, so the published image can never crawl a devnet PDS.
 `relay/Dockerfile` builds the same upstream commit with `relay/allow-private-hosts.patch`, which
 adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
-image. Pick another commit with `DEVNET_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
+image. The setting covers both places the relay refuses those addresses: the host check, and the
+firehose dialer for `wss://` hosts, which [the https devnet](#the-https-devnet) needs because its
+PDS names resolve to nginx's private address. Pick another commit with `DEVNET_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
 image, and the patch has to apply.
 
-## An https devnet (spike)
+## The https devnet
 
 The stacks above serve every PDS at `http://localhost:<port>`, so an app has to be told it is on a
 devnet before it will sign in there: allow plain http, and ask the devnet PLC instead of
-`plc.directory`. `docker-compose.https.yml` tries the other way round. It makes the devnet look like
-the real network, so an app built for the real network signs in with no code changes:
+`plc.directory`. `docker-compose.https.yml` goes the other way. Stacked last on the five files above,
+it makes the whole spaces stack look like the real network, so an app built for the real network
+runs against it with no devnet code:
 
 | Name | Served by |
 | --- | --- |
-| `pds.https.devnet.test`, `*.https.devnet.test` | the PDS (spaces alpha `79d6307e`) and its handles |
+| `alpha.devnet.test`, `*.devnet.test` | `pds`, the spaces alpha (`79d6307e`), and its handles; invites required |
+| `regular.devnet.test`, `*.regular.devnet.test` | `pds-regular`, a current release, and its handles |
+| `prod.devnet.test`, `*.prod.devnet.test` | `pds-prod`, the build you run in prod, and its handles |
 | `plc.directory` | this stack's own PLC |
-| `atmo.devnet.internal` | port 5480 on the dev machine, where `scripts/https-probe.mjs` serves a client |
+| `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
 
-nginx answers all of them on `127.0.0.1:443` with one certificate from a local CA. That is the
-only port the stack publishes. The names resolve to `127.0.0.1` only for commands run under
-`scripts/https-run`, so every other program on the machine still reaches the real `plc.directory`.
+nginx answers all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's
+public URL, OAuth issuer and DID document endpoint is `https://<its name>`, and the relay crawls
+the three PDSes as `wss://` hosts. On the machine, the names resolve to `127.0.0.1` only for
+commands run under `scripts/https-run`, so every other program still reaches the real
+`plc.directory`.
 
-It is a separate compose project, `devnet-https`, with its own network, volumes, Postgres and PLC.
-Bringing it up or down leaves the http devnet's project alone.
+The devnet knows no app. It has no app's accounts, invite codes, lexicons or ports. It gives an app
+tools to make its own (below), and using them is optional.
 
 ### Up and down
 
+Every run names its compose project with `DEVNET_PROJECT`; there is no default. The scripts refuse
+the shared project `devnet-spaces` unless `DEVNET_RESET_OK=1`, and exit before calling docker.
+
 ```bash
-./scripts/https-up.sh     # CA, generated credentials, the two-pass authority boot, lexicons, spike account
-./scripts/https-down.sh   # stop it; -v also drops its volumes
-docker compose -p devnet-https -f docker-compose.https.yml ps
+export DEVNET_PROJECT=devnet-mine
+./scripts/https-up.sh     # certificates, two-pass authority boot, data/devnet.env
+./scripts/https-down.sh   # stop it; -v also drops its volumes (every account and DID)
 ```
 
-`https-up.sh` is safe to rerun: it keeps what an earlier run made. The scripts always pass
-`-p devnet-https`. Pass it too when you run compose against this file by hand, because a
-`COMPOSE_PROJECT_NAME` in your shell wins over the project name the file sets.
+Both pass the same six files, the https overlay last:
 
-What lands in `data/https/` (git-ignored, like the rest of `data/`):
+```bash
+F="-f docker-compose.yml -f docker-compose.test.yml -f docker-compose.spaces.yml"
+F="$F -f docker-compose.multi-pds.yml -f docker-compose.relay.yml -f docker-compose.https.yml"
+docker compose -p "$DEVNET_PROJECT" $F ps
+```
 
-- `ca.crt`, `ca.key`, `leaf.crt`, `leaf.key`: the CA and the certificate nginx serves;
-- `db.env` (the database password, for postgres and the PLC) and `pds.env` (the PDS admin secret, JWT secret and PLC rotation key, for the PDS only);
-- `authority.env`: the lexicon authority's DID, which the PDS reads on the second pass;
-- `accounts.env`: the logins of `lex-authority.https.devnet.test` (`LEX_AUTHORITY_*`) and
-  `spikeowner.https.devnet.test` (`SPIKEOWNER_HANDLE`, `SPIKEOWNER_DID`, `SPIKEOWNER_PASSWORD`);
-- `spike-account.did`: the spike account's DID, alone;
-- `lexicons/`: the permission sets `https-seed.sh` publishes into the authority
-  (`rsvp.atmo.permissionSet` and `app.bsky.authCreatePosts`, which atmo's sign-in includes);
-- `hosts`: the hosts file `https-run` last generated.
+`https-up.sh` is safe to rerun; a rerun is one `up`. It makes the leaf certificate if there is
+none, brings the stack up, makes the lexicon authority (`lex-authority.devnet.test` on the alpha),
+brings the stack up again with `DEVNET_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
+`data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `DEVNET_INVITE_CODE`
+into `data/accounts.env`, as it does for the http stacks. Nothing else is seeded.
 
-How the PDS differs from the spaces overlay's:
+Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`DEVNET_PLC_PORT`), Jetstream
+(`DEVNET_JETSTREAM_PORT`, `DEVNET_JETSTREAM_METRICS_PORT`) and maildev (`DEVNET_MAILDEV_WEB_PORT`,
+`DEVNET_MAILDEV_SMTP_PORT`). Set those to run a second https devnet beside another; pass the same
+values on every run. The PDS, relay, TAP and Postgres ports are not published: reach a PDS by its
+https name. Port 443 is one per machine, so only one https devnet can serve at a time.
 
-- **`PDS_HOSTNAME=pds.https.devnet.test`, with no `PDS_DEV_MODE`.** The public URL, the OAuth
-  issuer and every DID document's endpoint are `https://pds.https.devnet.test`, so the PDS needs no
-  dev mode and runs as it would on the real network. It keeps `PDS_DISABLE_SSRF_PROTECTION`,
-  because everything it fetches here sits on an RFC 1918 address.
-- **The PDS reaches itself over TLS.** Inside the compose network, nginx also answers to
-  `pds.https.devnet.test` and `atmo.devnet.internal`, and the PDS trusts the CA through
-  `NODE_EXTRA_CA_CERTS`. The PDS resolves the lexicon authority's records from its own https URL,
-  and fetches a client's metadata from `https://atmo.devnet.internal/`.
-- **No invite codes** (`PDS_INVITE_REQUIRED=false`).
+`https-down.sh` passes its arguments to `docker compose down` and never deletes `data/`. The PLC's
+database is a named volume (`plc-db`), so a `down` without `-v` keeps every DID along with the
+PDSes. After `-v`, the next `https-up.sh` starts over: init reseeds `alice` and `bob`, and the
+authority is made again with a new DID.
 
-### The CA
+### What it writes
 
-`scripts/https-ca.sh` (which `https-up.sh` runs the first time) makes the CA once. Rerunning it
-keeps the CA and only reissues the leaf, so a browser or OS that trusts `ca.crt` keeps trusting the
-devnet. Add names with `HTTPS_EXTRA_NAMES="a.example b.example"`, then restart nginx:
-`docker compose -p devnet-https -f docker-compose.https.yml restart nginx`. To start over, delete
-`data/https/ca.*` and trust the new `ca.crt` wherever the old one was trusted.
+`data/` is git-ignored:
 
-A CA you trust can vouch for any name, and its key is `data/https/ca.key`. Keep that file on the
-dev machine, and remove the CA from a browser or OS when you're done with it.
+- `data/devnet.env`: the devnet's own facts, nothing secret. `ALPHA_PDS_URL`, `REGULAR_PDS_URL`,
+  `PROD_PDS_URL`, `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
+  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT` and `DEVNET_CA_FILE`.
+  An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
+- `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
+  `LEX_AUTHORITY_*`, and whatever the tools below add.
+- `data/https/`: `ca.crt` and `ca.key` (the CA), `leaf.crt` and `leaf.key` (what nginx serves),
+  `names` (the handles `https-run` maps), `apps` and `nginx/` (the app routes), and `hosts` (the
+  hosts file `https-run` last generated).
 
 ### Running a command against it: `https-run`
 
 ```bash
 scripts/https-run getent hosts plc.directory     # 127.0.0.1 inside; the real address outside
-scripts/https-run node scripts/https-probe.mjs
+(cd ../bookclub && ../atproto-devnet/scripts/https-run npm run dev)
 ```
 
 `https-run <cmd>` runs the command with two changes, for its process tree only:
 
-- the names above, and every handle in `data/https/accounts.env`, resolve to `127.0.0.1`.
+- the three PDS names, `plc.directory`, every handle in `data/https/names` and every app in
+  `data/https/apps` (as `<name>.devnet.internal`) resolve to `127.0.0.1`.
   [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
   with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
+  `HTTPS_RUN_EXTRA_NAMES` adds names.
 - Node trusts the devnet CA on top of its own roots (`NODE_EXTRA_CA_CERTS=data/https/ca.crt`).
   Miniflare's source passes the same file to workerd, so a Worker's `fetch` should trust it too.
-  The walk below doesn't exercise that: `vite dev` runs atmo's server code in Node.
 
+The names are read when the command starts. Handles are listed one by one (there is no wildcard
+DNS), so restart a command under `https-run` to pick up a handle or app made after it started.
 Node's certificate checks stay on: `https-run` only adds a CA for them to trust.
 
-### atmo against it, with no code changes
+### Tools for an app
 
-atmo reads its dev config from `apps/web/.dev.vars`, which git ignores. Add:
+Each example uses a made-up app, `bookclub`. None of them prints a secret; a login or code goes only
+to the file named.
 
-```
-OAUTH_PUBLIC_URL=
-GROUP_PDS_SERVICE=https://pds.https.devnet.test
-GROUP_HANDLE_DOMAIN=.https.devnet.test
-```
-
-`OAUTH_PUBLIC_URL` is empty on purpose: it overrides `wrangler.jsonc`'s `https://atmo.rsvp`, and
-without it, `vite dev` builds atmo's loopback client. Then run the dev server under `https-run`:
+**An account**, on any of the three PDSes: `scripts/https-account.sh <name> <PREFIX> [alpha|regular|prod]`.
 
 ```bash
-cd <atmo>/apps/web
-<devnet>/scripts/https-run pnpm dev          # http://127.0.0.1:5454
+scripts/https-account.sh bookclubowner BOOKCLUB_OWNER            # bookclubowner.devnet.test on the alpha
+scripts/https-account.sh reader BOOKCLUB_READER regular          # reader.regular.devnet.test
 ```
 
-Two scripts check the whole path. Run both under `https-run`:
+It prints the DID alone, and a rerun finds the account instead of making another. The login goes to
+`ACCOUNTS_FILE` (default `data/accounts.env`, mode 600) as `<PREFIX>_HANDLE`, `_DID`, `_PASSWORD`
+and `_PDS`, and the handle goes to `data/https/names`. On the alpha it sends `DEVNET_INVITE_CODE`;
+the other two require no invite and are sent none. The labels `alpha`, `regular` and `prod` are
+refused on the alpha, where the handle would be another PDS's name.
 
-- `scripts/https-probe.mjs` uses atmo's own installed atcute. It resolves the spike account through
-  `https://plc.directory` with atcute's default PLC resolver, then fetches the PDS's
-  protected-resource and authorization server metadata with the resolvers at their defaults. Then
-  it serves a confidential client at `https://atmo.devnet.internal/` and pushes a PAR with that
-  client_id. Each run gets a new key and client_id path, because the PDS caches a client's
-  metadata and keys by URL. Last, it pushes a raw PAR with a `.test` client_id, which the PDS refuses.
-- `scripts/https-signin-walk.mjs` signs the spike account in to atmo from headless Chromium
-  (`PLAYWRIGHT_MODULE` points at playwright's `index.mjs`), first by DID and then by handle.
-  atmo's dev server must already be running under `https-run`. The browser trusts the leaf by
-  its public key hash, since the browser is not what's under test.
+**An invite code** on the alpha, for an app that creates accounts itself:
+`scripts/https-invite.sh <VAR> [file]`.
 
-Observed on 2026-10-07, with atmo at `9255b29` and no atmo changes:
+```bash
+scripts/https-invite.sh BOOKCLUB_INVITE_CODE ../bookclub/.env.devnet
+```
+
+It mints the code through the PDS's admin API (`INVITE_USES`, default 100) and writes
+`<VAR>=<code>` to the file (default `data/accounts.env`, mode 600), replacing an earlier line.
+
+**Lexicons.** With `PDS_LEXICON_AUTHORITY_DID` set, every devnet PDS resolves **every** NSID from
+the authority account, never from DNS, so an app's record types, permission sets and space types
+have to be published there as `com.atproto.lexicon.schema` records, keyed by NSID. An app publishes
+its own:
+
+```bash
+scripts/https-lexicons.sh ../bookclub/lexicons    # prints each NSID: com.example.bookclub.review, ...
+```
+
+It publishes every lexicon JSON under the folder, at any depth, and leaves a record alone when it
+already holds the same document. Or publish with the app's own tooling: sign in with the
+`LEX_AUTHORITY_*` login in `data/accounts.env` and `putRecord` each document into
+`com.atproto.lexicon.schema` with the NSID as the record key. The PDS caches what it resolves for
+about five minutes.
+
+**An app route**, so the app has an https origin that both the PDSes and `https-run`'s processes
+reach: `scripts/https-app.sh <name> <port>`.
+
+```bash
+scripts/https-app.sh bookclub 5600     # https://bookclub.devnet.internal -> port 5600 on this machine
+```
+
+The app must listen where Docker's host gateway lands (`host.docker.internal` inside the
+containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `data/https/apps` (a
+rerun with the same name changes the port), and nginx in `DEVNET_PROJECT`'s stack is reloaded. A
+`.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
+OAuth client can use `https://bookclub.devnet.internal/...` as its client_id: the PDS fetches its
+metadata and keys from there over TLS. A client_id under `.test` is refused by the PDS
+(`invalid_client_id: The client_id's TLD must not be a local hostname`), which is why apps live under
+`.devnet.internal`.
+
+`scripts/https-probe.mjs` checks the whole path for any app name. It resolves an account through
+`https://plc.directory` with stock atcute at its defaults, serves a confidential client at
+`https://<PROBE_APP>.devnet.internal/`, pushes a PAR with that client_id, and pushes a raw PAR with a
+`.test` client_id, which the PDS refuses. `ATCUTE_DIR` is required: a directory node resolves
+`@atcute/oauth-node-client` and `@atcute/identity-resolver` from.
+
+```bash
+scripts/https-app.sh probe 5480
+ATCUTE_DIR=<dir> PROBE_DID=<did> scripts/https-run node scripts/https-probe.mjs
+```
 
 ```
-RESOLVED did:plc:... on https://pds.https.devnet.test through plc.directory, ... off
-PAR ACCEPTED for confidential client https://atmo.devnet.internal/probe-<run>/oauth-client-metadata.json
+RESOLVED did:plc:... on https://alpha.devnet.test through plc.directory, ... off
+PAR ACCEPTED for confidential client https://probe.devnet.internal/probe-<run>/oauth-client-metadata.json
 REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must not be a local hostname
-SIGNED IN did:plc:... by DID
-SIGNED IN did:plc:... by handle
-NAVIGATIONS 16, 0 off-site
 ```
 
-The handle sign-in works because atmo's resolver asks DNS over HTTPS first, which knows nothing
-of `.test` and fails, and then `https://<handle>/.well-known/atproto-did`, which the PDS answers.
-During that walk, atmo's dev server (traced with `strace -f -e trace=connect`) opened connections
-to two public hosts:
-`mozilla.cloudflare-dns.com` (that DNS over HTTPS lookup) and `slingshot.microcosm.blue` (contrail
-looking up an account). Everything else went to `127.0.0.1`.
+### How it differs from the http stacks
+
+- **Each PDS at its https name.** `PDS_HOSTNAME` is `alpha.devnet.test`, `regular.devnet.test` or
+  `prod.devnet.test`, and the alpha's handle domain is set to `.devnet.test` explicitly (its default
+  would be `.alpha.devnet.test`). The alpha runs without `PDS_DEV_MODE`, as it would on the real
+  network; the two releases keep it. All three keep `PDS_DISABLE_SSRF_PROTECTION`, because everything
+  they fetch here sits on an RFC 1918 address.
+- **The PDSes reach each other over TLS.** Inside the compose network, nginx also answers to the
+  three PDS names, and each PDS trusts the CA through `NODE_EXTRA_CA_CERTS`. Docker's DNS has no
+  wildcard names, so each PDS preloads `https/app-names.cjs`, which looks up any `.devnet.internal`
+  name as nginx. Only the address changes: the request keeps the app's name, and TLS still checks the
+  certificate for it.
+- **nginx routes by name.** Each PDS's block takes its name and its handle wildcard, and passes Host
+  through, so the PDS answers `/.well-known/atproto-did` for a handle. Of two matching wildcards nginx
+  takes the longer, so `*.regular.devnet.test` wins over `*.devnet.test`. A name nginx does not list
+  gets no certificate at all.
+- **The relay dials wss.** `relay-init` registers the three bare names, which the relay treats as
+  https hosts. Their addresses are nginx's, a private one, so the relay is built with
+  `relay/allow-private-hosts.patch`, whose `RELAY_ALLOW_PRIVATE_HOSTS` covers the firehose dialer as
+  well as the host check (see [A local relay](#a-local-relay)). The CA is mounted into
+  `/etc/ssl/certs`, which Go reads on top of its bundle. `RELAY_ALLOW_INSECURE_HOSTS` is dropped. The
+  image has its own tag, `atproto-devnet-relay:https-<commit>`. The relay's `listHosts` shows a host
+  only once it has sent an event.
+- **TAP resync is not supported.** TAP follows the relay's stream, but it fetches a repo to resync
+  through an SSRF-safe transport that refuses nginx's address, so a resync fails here.
+- **Jetstream is unchanged**, at `ws://127.0.0.1:<DEVNET_JETSTREAM_PORT>`, reading the relay over the
+  compose network.
+
+### The CA
+
+`scripts/https-ca.sh` (which `https-up.sh` runs when there is no leaf) makes the CA once. Rerunning
+it keeps the CA and only reissues the leaf, so a browser or OS that trusts `ca.crt` keeps trusting
+the devnet. The leaf names the three PDSes, `*.devnet.test`, `*.regular.devnet.test`,
+`*.prod.devnet.test`, `plc.directory` and `*.devnet.internal`; a TLS wildcard covers one label, so
+each handle domain needs its own. Add names with `HTTPS_EXTRA_NAMES="a.devnet.test b.devnet.test"`,
+then restart nginx. To start over, delete `data/https/ca.*` and trust the new `ca.crt` wherever the
+old one was trusted.
+
+The CA can only vouch for servers under `devnet.test`, `devnet.internal` and `plc.directory` (name
+constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
+`data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
+when you're done with it.
 
 ### From a browser on your own computer
 
-The dev server and nginx run in the dev container. To sign in from a browser on the host:
+nginx runs in the dev container. To use the devnet from a browser on the host:
 
-1. **Forward two ports**, in VS Code's Ports view: container 443 to host **443** exactly, and 5454
-   to 5454. The PDS's URLs carry no port, and VS Code quietly picks another local port when 443 is
-   taken, so check the forwarded address.
-2. **Map the names to `127.0.0.1` for the browser.** Either start a separate Chrome or Edge
-   instance with its own profile directory, so the flag takes effect even when the browser is
-   already open:
+1. **Forward port 443**, in VS Code's Ports view: container 443 to host **443** exactly. The PDS's
+   URLs carry no port, and VS Code quietly picks another local port when 443 is taken, so check the
+   forwarded address. Forward your app's own port too if the browser opens it directly.
+2. **Map the names to `127.0.0.1` for the browser.** Start a separate Chrome or Edge instance with
+   its own profile directory, so the flag takes effect even when the browser is already open:
 
    ```
    rem cmd.exe; in PowerShell, write $env:TEMP for %TEMP%
-   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP pds.https.devnet.test 127.0.0.1, MAP *.https.devnet.test 127.0.0.1, MAP plc.directory 127.0.0.1, MAP atmo.devnet.internal 127.0.0.1"
+   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP *.devnet.test 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
    ```
 
-   or add hosts-file entries for the same names. A hosts file needs admin, and it points
-   `plc.directory` at the devnet for every program on the computer until you remove the line.
-3. **Trust the CA.** Copy `data/https/ca.crt` to the host and add it to your user's root store:
-   `certutil -user -addstore Root ca.crt` (no admin; Windows asks you to confirm). Remove it later
-   with `certutil -user -delstore Root "atproto-devnet local CA"`. The CA can only vouch for
-   servers under `devnet.test`, `devnet.internal` and `plc.directory` (name constraints), so
-   trusting it puts no other site at risk. Clicking through the certificate warning instead
-   covers only the PDS's own pages: atmo's code in the browser also fetches `plc.directory`,
-   and a click-through does not reach those requests.
-4. **Run atmo under `https-run`** as above, open `http://127.0.0.1:5454` and sign in with the DID
-   in `data/https/spike-account.did`. The PDS's page asks for that account's secret,
-   `SPIKEOWNER_PASSWORD` in `data/https/accounts.env`.
+   A wildcard rule also covers the three PDS names. Hosts-file entries work too, one name at a time;
+   they need admin, and they point `plc.directory` at the devnet for every program on the computer
+   until you remove the line.
+3. **Trust the CA, once.** If your host already trusts this `ca.crt`, there is nothing to do:
+   `https-ca.sh` keeps the CA. Otherwise copy `data/https/ca.crt` to the host and add it to your
+   user's root store: `certutil -user -addstore Root ca.crt` (no admin; Windows asks you to confirm).
+   Remove it later with `certutil -user -delstore Root "atproto-devnet local CA"`. Clicking through a
+   certificate warning instead covers only the page you clicked through, not the requests an app's
+   code in the browser makes to `plc.directory` or a PDS.
 
 ## Worked scenarios
 
