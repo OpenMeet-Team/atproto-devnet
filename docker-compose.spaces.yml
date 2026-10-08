@@ -1,0 +1,50 @@
+# Overlay: run the devnet PDS as the atproto permissioned-spaces alpha, and let it
+# resolve lexicons that are not published anywhere.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml \
+#     -f docker-compose.spaces.yml up -d --wait
+#
+# The spaces alpha ships from the monorepo image, digest-pinned because upstream
+# moves the pds-spaces-alpha tag. This digest is revision 79d6307e (2026-10-01).
+#
+# Lexicon resolution: with PDS_LEXICON_AUTHORITY_DID set, the PDS resolves EVERY
+# NSID from that one account, never from DNS. The account lives on this PDS, so
+# the DID doc's endpoint must reach this PDS from inside its own container AND
+# from the host. PDS_HOSTNAME=localhost makes the endpoint http://localhost:<PDS_PORT>,
+# so the container port and the host port have to match. PDS_DEV_MODE turns off
+# SSRF protection, which would otherwise refuse a localhost fetch.
+#
+# Two-phase boot: the authority's DID only exists after the PDS is up. Run
+# scripts/lexicon-authority.sh, which creates the account and recreates the PDS
+# with DEVNET_LEXICON_AUTHORITY_DID set.
+
+x-pds-port: &pds-port ${DEVNET_SPACES_PDS_PORT:-3010}
+
+services:
+  pds:
+    # DEVNET_PDS_IMAGE overrides this too; it must be a spaces build.
+    image: ${DEVNET_PDS_IMAGE:-ghcr.io/bluesky-social/atproto@sha256:1cf9349e9f0e89789784569fed376cd647742ea7c368948625f44779ba03f150}
+    environment:
+      PDS_PORT: *pds-port
+      PDS_HOSTNAME: localhost
+      PDS_DEV_MODE: "true"
+      PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+    ports: !override
+      - "${DEVNET_SPACES_PDS_PORT:-3010}:${DEVNET_SPACES_PDS_PORT:-3010}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$${PDS_PORT}/xrpc/_health"]
+
+  jetstream:
+    environment:
+      JETSTREAM_WS_URL: ws://pds:${DEVNET_SPACES_PDS_PORT:-3010}/xrpc/com.atproto.sync.subscribeRepos
+
+  tap:
+    environment:
+      TAP_RELAY_URL: http://pds:${DEVNET_SPACES_PDS_PORT:-3010}
+
+  init:
+    # init.sh hardcodes http://pds:3000
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - sed "s#http://pds:3000#http://pds:${DEVNET_SPACES_PDS_PORT:-3010}#" /scripts/init.sh > /tmp/init.sh && sh /tmp/init.sh

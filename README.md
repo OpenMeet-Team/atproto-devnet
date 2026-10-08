@@ -271,6 +271,55 @@ include upstream `1ff43e6e5` (2026-09-10) resolve DIDs through a fetch that refu
 The suite has passed on `pds:0.4` (`0.4.5036`) and `atproto:pds-cea6f5c4a034860c35eda03dbde207f5bdb9387f`
 (`0.5.36`).
 
+## Spaces PDS and unpublished lexicons
+
+`docker-compose.spaces.yml` swaps the PDS for the atproto permissioned-spaces alpha
+(`com.atproto.space.*`, `com.atproto.simplespace.*`) and lets it resolve lexicons that aren't
+published anywhere. That's what you need to test an OAuth `space:` scope naming your own space type,
+or an `include:` permission set, before the NSIDs resolve through DNS.
+
+A PDS normally resolves an NSID through a `_lexicon` DNS TXT record. With
+`PDS_LEXICON_AUTHORITY_DID` set, it resolves **every** NSID from that one account instead, so the
+lexicons your app's scopes name have to be published there as `com.atproto.lexicon.schema` records,
+with the NSID as the record key.
+
+Booting takes two passes, because the authority's DID only exists once the PDS is up:
+
+```bash
+F="-f docker-compose.yml -f docker-compose.test.yml -f docker-compose.spaces.yml"
+docker compose $F up -d --wait
+./scripts/lexicon-authority.sh            # prints DEVNET_LEXICON_AUTHORITY_DID=did:plc:...
+DEVNET_LEXICON_AUTHORITY_DID=did:plc:... docker compose $F up -d --wait   # whole stack, not just pds
+# then putRecord your lexicons into the authority account
+```
+
+How this differs from the default stack:
+
+- **PDS on 3010, at `http://localhost:3010`.** The authority account lives on this PDS, and its DID
+  document's endpoint has to reach the PDS both from inside its container (to resolve lexicons) and
+  from the host. `PDS_HOSTNAME=localhost` makes the endpoint `http://localhost:<PDS_PORT>`, so the
+  container and host ports must match. `PDS_DEV_MODE` turns off the SSRF protection that would
+  refuse a localhost fetch. Override the port with `DEVNET_SPACES_PDS_PORT`.
+- **Digest-pinned image.** Set `DEVNET_PDS_IMAGE` to try another spaces build.
+
+Observed on this image (revision `79d6307e`): writes inside a space (`createSpace`, member entries,
+records in a space) don't appear on the PDS firehose or on Jetstream; only public repo records do.
+
+## When the bug is inside the PDS: dev-env
+
+devnet runs published images, so it's the right place to see how your app behaves against a real
+PDS, PLC and Jetstream. To step through PDS code, run a branch with your own edits, or test several
+PDSes talking to each other, use atproto's in-process network instead:
+[`packages/dev-env`](https://github.com/bluesky-social/atproto/tree/main/packages/dev-env) in the
+atproto monorepo. It builds PLC and PDSes from source in one Node process. On the
+`permissioned-data*` branches, `bin-multi-pds` starts three PDSes with a lexicon authority already
+wired in, and you can attach a debugger to it.
+
+A worked example is
+[`sandbox/opensocial`](https://github.com/tompscanlan/atproto/tree/sandbox/opensocial-lexicons/sandbox/opensocial).
+It has a script that publishes a set of unpublished lexicons and a probe that signs in with OAuth
+`space:` scopes naming them, and both run against either dev-env or this repo's spaces overlay.
+
 ## Configuration
 
 All settings have sensible defaults. Override via `.env` or environment variables:
