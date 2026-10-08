@@ -46,7 +46,12 @@ services:
 
   # ── Personal Data Server ─────────────────────────────────────────
   pds:
-    image: ghcr.io/bluesky-social/pds:0.4
+    # Any PDS build: a release (ghcr.io/bluesky-social/pds:<version>) or an
+    # upstream commit (ghcr.io/bluesky-social/atproto:pds-<commit sha>).
+    image: ${DEVNET_PDS_IMAGE:-ghcr.io/bluesky-social/pds:0.4}
+    # Release images run as root; monorepo images run as `node`, which cannot
+    # open the root-owned pds-data volume.
+    user: root
     restart: unless-stopped
     depends_on:
       plc:
@@ -57,11 +62,20 @@ services:
       PDS_DATA_DIRECTORY: /pds/data
       PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
       PDS_DID_PLC_URL: http://plc:2582
-      PDS_BSKY_APP_VIEW_URL: https://api.bsky.app
-      PDS_BSKY_APP_VIEW_DID: did:web:api.bsky.app
-      PDS_REPORT_SERVICE_URL: https://mod.bsky.app
-      PDS_REPORT_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
+      # The PDS forwards app.bsky.* reads, and any XRPC method it does not implement
+      # (com.atproto.space.* on a build without spaces, for one), to this AppView with
+      # a service-auth token for the caller. The default host does not resolve, so
+      # nothing on this network reaches Bluesky's production AppView. Point it at a
+      # real AppView only if your app needs reads proxied through the PDS; Bluesky's
+      # AppView never sees devnet accounts, since no relay outside devnet crawls them.
+      PDS_BSKY_APP_VIEW_URL: ${DEVNET_APPVIEW_URL:-https://appview.invalid}
+      PDS_BSKY_APP_VIEW_DID: ${DEVNET_APPVIEW_DID:-did:example:invalid}
+      PDS_REPORT_SERVICE_URL: ${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}
+      PDS_REPORT_SERVICE_DID: ${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}
       PDS_CRAWLERS: ""
+      # PDS builds after upstream 1ff43e6e5 (2026-09-10) resolve DIDs through the
+      # SSRF-protected fetch, which refuses the local PLC's http:// URL.
+      PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "true"
       PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production

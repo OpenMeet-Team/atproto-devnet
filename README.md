@@ -34,6 +34,30 @@ npm run down
 
 The test suite validates health checks, account seeding, record CRUD, Jetstream events, firehose output, and network isolation.
 
+## Upgrading from earlier versions
+
+Changes to the default stack that existing setups will notice:
+
+- **The PDS no longer forwards to Bluesky's AppView.** `app.bsky.*` reads and any method the PDS
+  doesn't implement now go to `https://appview.invalid` and fail with `502 UpstreamFailure`.
+  Bluesky's AppView never indexed devnet accounts, so for those accounts nothing useful is lost. To
+  get the old behavior back, set `DEVNET_APPVIEW_URL=https://api.bsky.app`,
+  `DEVNET_APPVIEW_DID=did:web:api.bsky.app`, `DEVNET_REPORT_SERVICE_URL=https://mod.bsky.app` and
+  `DEVNET_REPORT_SERVICE_DID=did:plc:ar7c4by46qjdydhdevvrndac`. The isolation test will then fail
+  by design.
+- **DID resolution works again on current `pds:0.4` pulls.** Since `@atproto/pds` 0.5.34, the PDS
+  refuses to resolve DIDs through an `http://` PLC unless SSRF protection is off, and the floating
+  `pds:0.4` tag now pulls 0.5.36. Without the fix, `describeRepo`, OAuth and anything else that
+  resolves a new DID fails with `Forbidden protocol "http:"`. The PDS now sets
+  `PDS_DISABLE_SSRF_PROTECTION=true`, so it can also fetch private addresses, such as an OAuth client's
+  metadata on your machine.
+- **init reseeds when `data/` is stale.** `data/` outlives `npm run down`. init used to skip seeding
+  whenever `data/accounts.json` existed, leaving credentials for accounts that were gone. It now
+  checks that the recorded accounts exist on the running PDS and reseeds if they don't, so
+  `data/accounts.env` gets new DIDs and a new invite code.
+- **The PDS runs as root.** Release images already did. This lets `DEVNET_PDS_IMAGE` take monorepo
+  images, which default to `node`.
+
 ## Integrating into your project
 
 atproto-devnet is designed to be **composed into** your project's Docker environment using [Docker Compose file stacking](https://docs.docker.com/compose/how-it-works/#merge). Clone it as a sibling directory and layer it with a thin overlay file in your project.
@@ -223,6 +247,30 @@ Create additional accounts at any time:
 ./scripts/create-account.sh carol.devnet.test
 ```
 
+## Choosing a PDS version
+
+`DEVNET_PDS_IMAGE` picks the PDS image, so you can run your app or the test suite against another
+release, an unreleased upstream commit, or the spaces alpha:
+
+```bash
+npm run down      # fresh volumes: a newer PDS migrates its database, and an older one can't read it
+DEVNET_PDS_IMAGE=ghcr.io/bluesky-social/pds:0.4.5037 npm run up && npm test
+```
+
+- **Releases:** `ghcr.io/bluesky-social/pds:<version>`, e.g. `0.4.5037`, `beta`, `latest`. The
+  default is `0.4`.
+- **Upstream commits:** `ghcr.io/bluesky-social/atproto:pds-<full commit sha>`. All of the last 100
+  commits on `main` had one (checked 2026-10-05); commits on other branches may not.
+- **Spaces alpha:** see the next section.
+
+Both kinds run here. The PDS runs as root because monorepo images default to `node`, which can't
+open the root-owned data volume. It also has `PDS_DISABLE_SSRF_PROTECTION` set, because builds that
+include upstream `1ff43e6e5` (2026-09-10) resolve DIDs through a fetch that refuses the local PLC's
+`http://` URL.
+
+The suite has passed on `pds:0.4` (`0.4.5036`) and `atproto:pds-cea6f5c4a034860c35eda03dbde207f5bdb9387f`
+(`0.5.36`).
+
 ## Configuration
 
 All settings have sensible defaults. Override via `.env` or environment variables:
@@ -243,7 +291,10 @@ All settings have sensible defaults. Override via `.env` or environment variable
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEVNET_PDS_HOSTNAME` | `devnet.test` | PDS service hostname |
+| `DEVNET_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
 | `DEVNET_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
+| `DEVNET_APPVIEW_URL` / `DEVNET_APPVIEW_DID` | `https://appview.invalid` / `did:example:invalid` | Where the PDS forwards app.bsky.* reads and methods it doesn't implement. Unresolvable, so nothing reaches Bluesky |
+| `DEVNET_REPORT_SERVICE_URL` / `DEVNET_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
 | `DEVNET_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts |
 | `DEVNET_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
 

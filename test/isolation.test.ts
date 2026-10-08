@@ -25,6 +25,11 @@ describe('service configuration isolation', () => {
     expect(crawlers).toBe('');
   });
 
+  it("PDS does not forward requests to Bluesky's AppView", () => {
+    const appView = composeExec('pds', 'printenv PDS_BSKY_APP_VIEW_URL');
+    expect(appView).not.toContain('bsky.app');
+  });
+
   it('Jetstream is configured to use local PDS firehose', () => {
     const wsUrl = composeExec('jetstream', 'printenv JETSTREAM_WS_URL');
     expect(wsUrl).toContain('pds:3000');
