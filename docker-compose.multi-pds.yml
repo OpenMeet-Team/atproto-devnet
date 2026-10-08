@@ -1,0 +1,96 @@
+# Overlay: three PDSes side by side, for testing how different builds work together.
+# Stack it on the spaces overlay:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml \
+#     -f docker-compose.spaces.yml -f docker-compose.multi-pds.yml up -d --wait
+#
+#   pds          :3010  the spaces alpha (from docker-compose.spaces.yml)
+#   pds-regular  :3020  a current release           DEVNET_PDS_REGULAR_IMAGE
+#   pds-prod     :3030  the build you run in prod   DEVNET_PDS_PROD_IMAGE
+#
+# Each PDS publishes http://localhost:<port> in its accounts' DID documents. For one
+# PDS to reach another's accounts (DID resolution, service auth, spaces), that URL has
+# to work from inside every PDS container as well as from the host. So the extra PDSes
+# share the alpha's network namespace (network_mode: service:pds): localhost:3010,
+# :3020 and :3030 are the same three servers everywhere. Ports are published on `pds`,
+# which owns the namespace. Other containers reach them as pds:3020 and pds:3030.
+#
+# Jetstream and TAP still follow the alpha's firehose only.
+
+x-extra-pds: &extra-pds
+  user: root
+  restart: unless-stopped
+  network_mode: service:pds
+  depends_on:
+    pds:
+      condition: service_healthy
+
+x-extra-pds-env: &extra-pds-env
+  PDS_HOSTNAME: localhost
+  PDS_DEV_MODE: "true"
+  PDS_DATA_DIRECTORY: /pds/data
+  PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
+  PDS_DID_PLC_URL: http://plc:2582
+  # Same AppView settings as the alpha; see docker-compose.yml.
+  PDS_BSKY_APP_VIEW_URL: ${DEVNET_APPVIEW_URL:-https://appview.invalid}
+  PDS_BSKY_APP_VIEW_DID: ${DEVNET_APPVIEW_DID:-did:example:invalid}
+  PDS_REPORT_SERVICE_URL: ${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}
+  PDS_REPORT_SERVICE_DID: ${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}
+  PDS_CRAWLERS: ""
+  PDS_INVITE_REQUIRED: "false"
+  PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+  PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
+  PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  PDS_EMAIL_SMTP_URL: ${DEVNET_SMTP_URL:-smtp://maildev:1025}
+  PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
+  PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+  LOG_ENABLED: "true"
+  NODE_ENV: development
+
+services:
+  pds:
+    environment:
+      # All three would otherwise be did:web:localhost.
+      PDS_SERVICE_DID: did:web:alpha.devnet.test
+    ports: !override
+      - "${DEVNET_SPACES_PDS_PORT:-3010}:${DEVNET_SPACES_PDS_PORT:-3010}"
+      - "3020:3020"
+      - "3030:3030"
+
+  pds-regular:
+    <<: *extra-pds
+    # Newest numbered release as of 2026-10-05 (@atproto/pds 0.5.37).
+    image: ${DEVNET_PDS_REGULAR_IMAGE:-ghcr.io/bluesky-social/pds:0.4.5037}
+    environment:
+      <<: *extra-pds-env
+      PDS_PORT: "3020"
+      PDS_SERVICE_DID: did:web:regular.devnet.test
+      PDS_SERVICE_HANDLE_DOMAINS: .regular.devnet.test
+    volumes:
+      - pds-regular-data:/pds/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3020/xrpc/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  pds-prod:
+    <<: *extra-pds
+    # OpenMeet's production PDS: the 0.4.5009 release (@atproto/pds 0.5.9), by digest.
+    image: ${DEVNET_PDS_PROD_IMAGE:-ghcr.io/bluesky-social/pds@sha256:1fa8bbceabb65d8e1710749b1ea92c1c20a7489ca38da4a0a5f64c0c10a70c29}
+    environment:
+      <<: *extra-pds-env
+      PDS_PORT: "3030"
+      PDS_SERVICE_DID: did:web:prod.devnet.test
+      PDS_SERVICE_HANDLE_DOMAINS: .prod.devnet.test
+    volumes:
+      - pds-prod-data:/pds/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3030/xrpc/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pds-regular-data:
+  pds-prod-data:

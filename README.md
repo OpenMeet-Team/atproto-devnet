@@ -305,6 +305,37 @@ How this differs from the default stack:
 Observed on this image (revision `79d6307e`): writes inside a space (`createSpace`, member entries,
 records in a space) don't appear on the PDS firehose or on Jetstream; only public repo records do.
 
+## Several PDS builds side by side
+
+`docker-compose.multi-pds.yml`, stacked on the spaces overlay, adds two more PDSes so you can test
+how different builds work together. For example: can a member on a regular PDS join a group hosted
+on the spaces alpha?
+
+```bash
+F="-f docker-compose.yml -f docker-compose.test.yml -f docker-compose.spaces.yml -f docker-compose.multi-pds.yml"
+docker compose $F up -d --wait      # then the two-pass authority step from the spaces section
+```
+
+| Service | URL | Image setting | Default | Handles |
+| --- | --- | --- | --- | --- |
+| `pds` | `http://localhost:3010` | `DEVNET_PDS_IMAGE` | spaces alpha `79d6307e` | `.devnet.test` |
+| `pds-regular` | `http://localhost:3020` | `DEVNET_PDS_REGULAR_IMAGE` | `pds:0.4.5037` | `.regular.devnet.test` |
+| `pds-prod` | `http://localhost:3030` | `DEVNET_PDS_PROD_IMAGE` | `pds:0.4.5009` (by digest) | `.prod.devnet.test` |
+
+Set `DEVNET_PDS_PROD_IMAGE` to whatever your production PDS runs.
+
+Each PDS writes `http://localhost:<port>` into its accounts' DID documents. For one PDS to reach
+another's accounts, that URL has to work inside every PDS container as well as on the host, so the
+two extra PDSes share the alpha's network namespace (`network_mode: service:pds`). Other containers
+reach them as `pds:3020` and `pds:3030`. The extra PDSes don't require invites, and each has its own
+service DID, since all three would otherwise be `did:web:localhost`. On their own, Jetstream and TAP
+follow only the alpha; add the local relay below to get one stream from all three.
+
+A PDS forwards any XRPC method it doesn't implement (`com.atproto.space.*` on a non-spaces build,
+for one) to its AppView with a service-auth token. On a stock build that shows up as `502
+UpstreamFailure`, because every devnet PDS points its AppView at `https://appview.invalid` (see
+`DEVNET_APPVIEW_URL`).
+
 ## When the bug is inside the PDS: dev-env
 
 devnet runs published images, so it's the right place to see how your app behaves against a real
