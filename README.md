@@ -360,17 +360,44 @@ dn "https://alpha.devnet.test/xrpc/com.atproto.repo.listRecords?repo=$did&collec
 
 The last line lists the events atmo has written to alice's repo.
 
-**Not covered yet: creating a group from atmo.** With the loopback client, atmo's group page says
-group creation is not configured. To create and link a group, atmo needs its confidential OAuth
-client:
+**Groups: atmo's confidential client.** With the loopback client, atmo's group page says group
+creation is not configured. To create and link a group, atmo needs its confidential OAuth client, at
+an https origin where the PDS can fetch its client metadata and keys. The devnet gives that origin
+with an app route. From the devnet checkout:
 
-- `OAUTH_PUBLIC_URL` set to an https origin that the PDS can fetch client metadata from;
-- `CLIENT_ASSERTION_KEY`, which `pnpm env:generate-key` makes;
-- `GROUP_PDS_INVITE_CODE`, which `scripts/https-invite.sh GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.dev.vars` writes.
+```bash
+./scripts/https-app.sh atmo 5454                       # https://atmo.devnet.internal -> port 5454
+./scripts/https-invite.sh GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.dev.vars
+```
 
-An app route (`scripts/https-app.sh atmo 5454`) would give the origin. But atmo's dev server listens
-on 127.0.0.1 only, and nginx in the containers cannot reach that address. The groups e2e below binds
-an existing group account instead.
+Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.devnet.internal` in `.dev.vars`
+in place of the empty line, and add a client key. atmo's key script prints the key, so write it
+straight into the file:
+
+```bash
+printf "CLIENT_ASSERTION_KEY='%s'\n" \
+  "$(npx tsx src/lib/atproto/scripts/generate-key.ts 2>/dev/null | tail -1)" >> .dev.vars
+```
+
+Run atmo where nginx can reach it, still under `https-run`:
+
+```bash
+__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
+HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
+  ../../atproto-devnet/scripts/https-run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
+```
+
+- `--host` replaces the `127.0.0.1` in atmo's `vite.config.ts`. Use the address that
+  `host.docker.internal` has inside the containers; here it is the `docker0` address. Check with
+  `docker exec <project>-nginx-1 getent hosts host.docker.internal`.
+- `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` lets vite answer requests for `atmo.devnet.internal`.
+- `HTTPS_RUN_EXTRA_NAMES` maps, for atmo's process, the handle of the group you are about to
+  create, since `https-run` reads its names only at start.
+
+Open `https://atmo.devnet.internal` in the browser set up above. Its `*.devnet.internal` rule covers
+the name, and only port 443 needs forwarding. Sign in, then create the group under groups. The form
+mints the group's account on the alpha, then has you sign in as the group to link it. The groups
+e2e below binds an existing group account instead of creating one.
 
 **The groups e2e.** It makes its fixtures with the same tools. From the devnet checkout, after the
 lexicons above:
