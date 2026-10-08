@@ -254,7 +254,8 @@ else no "13 invite tool exit $ie, code printed $ileak (0); bogus code answer '$b
 hosts=$(docker exec $pdsc wget -qO- http://127.0.0.1:2470/xrpc/com.atproto.sync.listHosts 2>/dev/null | jq -r '.hosts[] | "\(.hostname) \(.status)"' 2>/dev/null | LC_ALL=C sort)
 act=0; for n in $PDS_NAMES; do echo "$hosts" | grep -qx "$n active" && act=$((act+1)); done
 AD=$(ev ALICE_DID $ACC)
-RK=verify$(date +%s)
+# app.bsky.feed.post keys are TIDs and the PDS checks that in any mode, so mint one (microseconds << 10 | clock id)
+RK=$(node -e 'const a="234567abcdefghijklmnopqrstuvwxyz";let v=(BigInt(Date.now())*1000n<<10n)|BigInt(Math.floor(Math.random()*1024));let s="";for(let i=0;i<13;i++){s=a[Number(v&31n)]+s;v>>=5n}console.log(s)')
 cat > $T/js.mjs <<'EOF'
 const [url, did, rkey] = process.argv.slice(2);
 const t0 = Date.now();
