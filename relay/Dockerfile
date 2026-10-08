@@ -1,10 +1,12 @@
 # The upstream relay, rebuilt with allow-private-hosts.patch.
 #
-# Upstream's relay checks every host through an SSRF-safe transport that refuses
-# loopback and private addresses, with no setting to turn that off. Its admin
-# requestCrawl accepts localhost:<port>, but the host check then fails, so a stock
-# relay image can never crawl a devnet PDS. The patch makes that check honor
-# RELAY_ALLOW_PRIVATE_HOSTS=true; nothing else changes.
+# Upstream's relay refuses loopback and private addresses in two places, with no
+# setting to turn either off: the host check (an SSRF-safe transport) and the
+# firehose dialer for wss:// hosts (an SSRF-safe dialer). Its admin requestCrawl
+# accepts localhost:<port>, but the host check then fails, so a stock relay image can
+# never crawl a devnet PDS; and a PDS at an https name behind a local TLS proxy
+# resolves to a private address, which the dialer refuses. The patch makes both honor
+# RELAY_ALLOW_PRIVATE_HOSTS=true (host_checker.go and slurper.go); nothing else changes.
 #
 # The binary is built from the same commit as the published image, which supplies
 # everything else (admin UI, runtime layout).

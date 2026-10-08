@@ -28,3 +28,28 @@ index 251ff2c..1142778 100644
  	}
  	return &HostClient{
  		Client:    &c,
+diff --git a/cmd/relay/relay/slurper.go b/cmd/relay/relay/slurper.go
+index 67bc2cb..0b28733 100644
+--- a/cmd/relay/relay/slurper.go
++++ b/cmd/relay/relay/slurper.go
+@@ -7,6 +7,7 @@ import (
+ 	"log/slog"
+ 	"math/rand"
+ 	"net/http"
++	"os"
+ 	"strings"
+ 	"sync"
+ 	"sync/atomic"
+@@ -297,8 +298,10 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host,
+ 		HandshakeTimeout: time.Second * 5,
+ 	}
+ 
+-	// if this isn't a localhost / private connection, then we should enable SSRF protections
+-	if !host.NoSSL {
++	// if this isn't a localhost / private connection, then we should enable SSRF protections.
++	// RELAY_ALLOW_PRIVATE_HOSTS=true skips them, so a local network's relay can dial wss://
++	// hosts whose names resolve to private addresses (a devnet's PDSes behind a TLS proxy).
++	if !host.NoSSL && os.Getenv("RELAY_ALLOW_PRIVATE_HOSTS") != "true" {
+ 		netDialer := ssrf.PublicOnlyDialer()
+ 		d.NetDialContext = netDialer.DialContext
+ 	}
