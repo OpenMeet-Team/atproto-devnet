@@ -1,0 +1,55 @@
+diff --git a/cmd/relay/relay/host_checker.go b/cmd/relay/relay/host_checker.go
+index 251ff2c..1142778 100644
+--- a/cmd/relay/relay/host_checker.go
++++ b/cmd/relay/relay/host_checker.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"fmt"
+ 	"net/http"
++	"os"
+ 	"time"
+ 
+ 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+@@ -33,9 +34,16 @@ func NewHostClient(userAgent string) *HostClient {
+ 	if userAgent == "" {
+ 		userAgent = "indigo-relay (atproto-relay)"
+ 	}
++	// RELAY_ALLOW_PRIVATE_HOSTS=true lets a local network's relay check hosts on
++	// localhost and private addresses. Without it, an admin requestCrawl that names
++	// localhost:<port> is accepted and then fails the host check.
++	transport := ssrf.PublicOnlyTransport()
++	if os.Getenv("RELAY_ALLOW_PRIVATE_HOSTS") == "true" {
++		transport = http.DefaultTransport.(*http.Transport).Clone()
++	}
+ 	c := http.Client{
+ 		Timeout:   5 * time.Second,
+-		Transport: ssrf.PublicOnlyTransport(),
++		Transport: transport,
+ 	}
+ 	return &HostClient{
+ 		Client:    &c,
+diff --git a/cmd/relay/relay/slurper.go b/cmd/relay/relay/slurper.go
+index 67bc2cb..0b28733 100644
+--- a/cmd/relay/relay/slurper.go
++++ b/cmd/relay/relay/slurper.go
+@@ -7,6 +7,7 @@ import (
+ 	"log/slog"
+ 	"math/rand"
+ 	"net/http"
++	"os"
+ 	"strings"
+ 	"sync"
+ 	"sync/atomic"
+@@ -297,8 +298,10 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.Host,
+ 		HandshakeTimeout: time.Second * 5,
+ 	}
+ 
+-	// if this isn't a localhost / private connection, then we should enable SSRF protections
+-	if !host.NoSSL {
++	// if this isn't a localhost / private connection, then we should enable SSRF protections.
++	// RELAY_ALLOW_PRIVATE_HOSTS=true skips them, so a local network's relay can dial wss://
++	// hosts whose names resolve to private addresses (a devnet's PDSes behind a TLS proxy).
++	if !host.NoSSL && os.Getenv("RELAY_ALLOW_PRIVATE_HOSTS") != "true" {
+ 		netDialer := ssrf.PublicOnlyDialer()
+ 		d.NetDialContext = netDialer.DialContext
+ 	}

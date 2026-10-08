@@ -336,6 +336,36 @@ for one) to its AppView with a service-auth token. On a stock build that shows u
 UpstreamFailure`, because every devnet PDS points its AppView at `https://appview.invalid` (see
 `DEVNET_APPVIEW_URL`).
 
+## A local relay
+
+`docker-compose.relay.yml`, stacked after the multi-PDS overlay, adds a relay that crawls all three
+PDSes. Jetstream and TAP read from the relay, which is the shape production has:
+
+```
+PDSes --> relay (:2470) --> Jetstream (:6008)
+                       \--> TAP (:2480)
+```
+
+```bash
+F="$F -f docker-compose.relay.yml"
+docker compose $F up -d --wait     # builds the relay image the first time
+```
+
+`relay-init` registers each PDS through the relay's admin API, because a relay won't accept a
+localhost host from a PDS's own `requestCrawl`. The relay and TAP join the PDSes' network namespace,
+so the `http://localhost:<port>` URLs in DID documents work for them as well.
+
+**The relay is built locally, not pulled.** Upstream's relay (`ghcr.io/bluesky-social/indigo:relay-<commit>`)
+checks every host through an SSRF-safe transport that refuses loopback and private addresses, with
+no setting to turn it off. Its admin `requestCrawl` accepts `localhost:<port>`, and the host check
+then fails with `unsafe network address`, so the published image can never crawl a devnet PDS.
+`relay/Dockerfile` builds the same upstream commit with `relay/allow-private-hosts.patch`, which
+adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
+image. The setting covers both places the relay refuses those addresses: the host check, and the
+firehose dialer for `wss://` hosts, which [the https devnet](#the-https-devnet) needs because its
+PDS names resolve to nginx's private address. Pick another commit with `DEVNET_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
+image, and the patch has to apply.
+
 ## When the bug is inside the PDS: dev-env
 
 devnet runs published images, so it's the right place to see how your app behaves against a real
