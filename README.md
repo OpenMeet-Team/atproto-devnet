@@ -266,6 +266,47 @@ Open Social also includes a smoke test (`test/devnet-smoke.test.ts`) that create
 
 See the full implementation: [collectivesocial/open-social#18](https://github.com/collectivesocial/open-social/pull/18)
 
+### atmo (the https devnet, with fixtures made by the devnet's tools)
+
+[atmo](https://github.com/flo-bit/atmo-events) is an events app. Its groups end-to-end test runs on
+[the https devnet](#the-https-devnet), so the app reaches each PDS at an https name, as it does on
+the real network, with no test switch in the app. The devnet knows nothing about atmo. The test's
+fixtures are ordinary accounts made with the devnet's tools, and its lexicons come from the
+[opensocial.group proposal](https://tangled.org/opensocial.group/proposal).
+
+From the devnet checkout, with the https devnet up:
+
+```bash
+export ACCOUNTS_FILE=$PWD/data/atmo-e2e.env       # the test's logins, kept mode 600
+./scripts/https-account.sh groups-e2e E2E_GROUP
+./scripts/https-account.sh e2e-owner E2E_OWNER
+./scripts/https-account.sh e2e-admin E2E_ADMIN
+./scripts/https-account.sh e2e-outsider E2E_OUTSIDER
+./scripts/https-account.sh e2enospaces E2E_NOSPACES regular   # a member on a PDS without spaces
+unset ACCOUNTS_FILE
+./scripts/https-lexicons.sh ../opensocial-proposal/lexicons
+# what the test reads: URLs, DIDs, the group's handle and where the logins are; no secret
+{ grep -E '^E2E_[A-Z]+_(DID|HANDLE)=' data/atmo-e2e.env
+  echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
+  echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' data/devnet.env)"
+  echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
+```
+
+Then from atmo's `apps/web`, under `https-run`. Start it after the accounts exist, so their handles
+are mapped:
+
+```bash
+../../atproto-devnet/scripts/https-run sh -c \
+  'set -a; . ../../atproto-devnet/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
+# ...
+# SUMMARY: 53 passed, 0 failed
+```
+
+The test refuses any host that is not this machine. Under `https-run` the devnet's names resolve to
+127.0.0.1, so it admits them. Without `https-run` it refuses them before any login. The test is
+`apps/web/scripts/groups-e2e.mjs` on the `feat/groups-opensocial` branch of
+[tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial/apps/web/scripts).
+
 ## Seeded test accounts
 
 When `DEVNET_SEED_ACCOUNTS=true` (the default), the init container creates two test accounts and writes their credentials to `data/accounts.json` and `data/accounts.env`:
