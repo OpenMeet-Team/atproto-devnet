@@ -15,8 +15,8 @@
 # SSRF protection, which would otherwise refuse a localhost fetch.
 #
 # Two-phase boot: the authority's DID only exists after the PDS is up. Run
-# scripts/lexicon-authority.sh, which creates the account and recreates the PDS
-# with DEVNET_LEXICON_AUTHORITY_DID set.
+# scripts/lexicon-authority.sh, which creates the account and prints its DID, then
+# `up` the whole stack again with DEVNET_LEXICON_AUTHORITY_DID set.
 
 x-pds-port: &pds-port ${DEVNET_SPACES_PDS_PORT:-3010}
 
