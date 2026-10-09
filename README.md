@@ -303,8 +303,9 @@ done
 `scripts/https-account.sh` before you start atmo, because `https-run` maps only the handles it knows
 when the command starts.
 
-**Configure atmo.** In `atmo-events/apps/web`, after `pnpm install`, write a git-ignored
-`.dev.vars`. It overrides the vars in `wrangler.jsonc` for `vite dev`:
+**Configure atmo.** In `atmo-events/apps/web`, after `pnpm install`, write a git-ignored `.env`.
+It overrides the vars in `wrangler.jsonc` for `vite dev`. Wrangler reads a `.dev.vars` instead
+when one exists, so keep only one of the two:
 
 ```
 OAUTH_PUBLIC_URL=
@@ -367,16 +368,16 @@ with an app route. From the devnet checkout:
 
 ```bash
 ./scripts/https-app.sh atmo 5454                       # https://atmo.devnet.internal -> port 5454
-./scripts/https-invite.sh GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.dev.vars
+./scripts/https-invite.sh GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
 ```
 
-Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.devnet.internal` in `.dev.vars`
+Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.devnet.internal` in `.env`
 in place of the empty line, and add a client key. atmo's key script prints the key, so write it
 straight into the file:
 
 ```bash
 printf "CLIENT_ASSERTION_KEY='%s'\n" \
-  "$(npx tsx src/lib/atproto/scripts/generate-key.ts 2>/dev/null | tail -1)" >> .dev.vars
+  "$(npx tsx src/lib/atproto/scripts/generate-key.ts 2>/dev/null | tail -1)" >> .env
 ```
 
 Run atmo where nginx can reach it, still under `https-run`:
