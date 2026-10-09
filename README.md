@@ -398,23 +398,24 @@ HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
 Open `https://atmo.devnet.internal` in the browser set up above. Its `*.devnet.internal` rule covers
 the name, and only port 443 needs forwarding. Sign in, then create the group under groups. The form
 mints the group's account on the alpha, then has you sign in as the group to link it. The groups
-e2e below binds an existing group account instead of creating one.
+e2e below creates a group the same way on every run, through atmo's own create.
 
 **The groups e2e.** It makes its fixtures with the same tools. From the devnet checkout, after the
 lexicons above:
 
 ```bash
 export ACCOUNTS_FILE=$PWD/data/atmo-e2e.env       # the test's logins, kept mode 600
-./scripts/https-account.sh groups-e2e E2E_GROUP
 ./scripts/https-account.sh e2e-owner E2E_OWNER
 ./scripts/https-account.sh e2e-admin E2E_ADMIN
 ./scripts/https-account.sh e2e-outsider E2E_OUTSIDER
 ./scripts/https-account.sh e2enospaces E2E_NOSPACES regular   # a member on a PDS without spaces
 unset ACCOUNTS_FILE
-# what the test reads: URLs, DIDs, the group's handle and where the logins are; no secret
-{ grep -E '^E2E_[A-Z]+_(DID|HANDLE)=' data/atmo-e2e.env
+./scripts/https-invite.sh E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
+# what the test reads: URLs, DIDs, the handle domain and where the secrets are; no secret
+{ grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
   echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
   echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' data/devnet.env)"
+  echo "E2E_HANDLE_DOMAIN=devnet.test"
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 
@@ -425,7 +426,7 @@ are mapped:
 ../../atproto-devnet/scripts/https-run sh -c \
   'set -a; . ../../atproto-devnet/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
 # ...
-# SUMMARY: 53 passed, 0 failed
+# SUMMARY: 49 passed, 0 failed
 ```
 
 The test refuses any host that is not this machine. Under `https-run` the devnet's names resolve to
