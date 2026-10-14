@@ -4,6 +4,9 @@
 services:
   postgres:
     image: postgres:16-alpine
+    # PLC restarts on its own (unless-stopped) but needs this; without it a
+    # Docker restart leaves postgres down and PLC crash-looping on DNS.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DEVNET_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
@@ -20,6 +23,7 @@ services:
 
   maildev:
     image: maildev/maildev:latest
+    restart: unless-stopped
     ports:
       - "${DEVNET_MAILDEV_WEB_PORT:-1081}:1080"
       - "${DEVNET_MAILDEV_SMTP_PORT:-1026}:1025"
