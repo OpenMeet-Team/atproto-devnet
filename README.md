@@ -692,7 +692,7 @@ to the file named.
 
 ```bash
 scripts/https-account.sh bookclubowner BOOKCLUB_OWNER            # bookclubowner.devnet.test on the alpha
-scripts/https-account.sh reader BOOKCLUB_READER regular          # reader.regular.devnet.test
+scripts/https-account.sh bookreader BOOKCLUB_READER regular      # bookreader.regular.devnet.test
 ```
 
 It prints the DID alone, and a rerun finds the account instead of making another. The login goes to
