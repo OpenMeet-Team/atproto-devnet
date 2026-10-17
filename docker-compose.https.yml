@@ -44,16 +44,19 @@ x-https-pds-env: &https-pds-env
   NODE_EXTRA_CA_CERTS: /https/ca.crt
   # <name>.devnet.internal resolves to nginx inside each PDS (https/app-names.cjs).
   NODE_OPTIONS: --require /https/app-names.cjs
+  PDS_EMAIL_FROM_ADDRESS: noreply@${DEVNET_DOMAIN:-devnet.test}
 
 services:
   pds:
     environment:
       <<: *https-pds-env
       PDS_HOSTNAME: alpha.${DEVNET_DOMAIN:-devnet.test}
+      # docker-compose.multi-pds.yml names all three PDSes under devnet.test, as on the
+      # plain stack, which does not read DEVNET_DOMAIN; here they follow it.
+      PDS_SERVICE_DID: did:web:alpha.${DEVNET_DOMAIN:-devnet.test}
       # Explicit: the default would be .alpha.devnet.test.
       PDS_SERVICE_HANDLE_DOMAINS: .${DEVNET_DOMAIN:-devnet.test}
       PDS_HANDLE_DOMAINS: .${DEVNET_DOMAIN:-devnet.test}
-      PDS_EMAIL_FROM_ADDRESS: noreply@${DEVNET_DOMAIN:-devnet.test}
       # The public URL is https, so the alpha runs as it would on the real network.
       # ("false", not !reset: compose keeps a key an earlier overlay set.)
       PDS_DEV_MODE: "false"
@@ -66,6 +69,8 @@ services:
     environment:
       <<: *https-pds-env
       PDS_HOSTNAME: regular.${DEVNET_DOMAIN:-devnet.test}
+      PDS_SERVICE_DID: did:web:regular.${DEVNET_DOMAIN:-devnet.test}
+      PDS_SERVICE_HANDLE_DOMAINS: .regular.${DEVNET_DOMAIN:-devnet.test}
     volumes:
       - *devnet-ca
       - *app-names
@@ -74,6 +79,8 @@ services:
     environment:
       <<: *https-pds-env
       PDS_HOSTNAME: prod.${DEVNET_DOMAIN:-devnet.test}
+      PDS_SERVICE_DID: did:web:prod.${DEVNET_DOMAIN:-devnet.test}
+      PDS_SERVICE_HANDLE_DOMAINS: .prod.${DEVNET_DOMAIN:-devnet.test}
     volumes:
       - *devnet-ca
       - *app-names
