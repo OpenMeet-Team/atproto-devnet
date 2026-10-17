@@ -600,6 +600,7 @@ runs against it with no devnet code:
 | `prod.devnet.test`, `*.prod.devnet.test` | `pds-prod`, the build you run in prod, and its handles |
 | `plc.directory` | this stack's own PLC |
 | `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
+| `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/https-app.sh`, for the handles it hands out |
 
 nginx answers all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's
 public URL, OAuth issuer and DID document endpoint is `https://<its name>`, and the relay crawls
@@ -753,6 +754,19 @@ metadata and keys from there over TLS. A client_id under `.test` is refused by t
 (`invalid_client_id: The client_id's TLD must not be a local hostname`), which is why apps live under
 `.devnet.internal`.
 
+**A handle ending**, for an app that hands out handles of its own, as a PDS does. A third word
+claims one:
+
+```bash
+scripts/https-app.sh grouphost 7070 gh  # also https://<handle>.gh.devnet.test -> port 7070
+```
+
+nginx then sends every name under `gh.devnet.test` to the app, Host and all, so the app answers
+`/.well-known/atproto-did` for its handles and they resolve from anywhere on the devnet. The leaf
+gains `*.gh.devnet.test` from the same CA, so nothing has to be trusted again. `alpha`, `regular` and
+`prod` belong to the PDSes, and an ending belongs to one app. A rerun without the ending drops it.
+Under `https-run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any handle.
+
 `scripts/https-probe.mjs` checks the whole path for any app name. It resolves an account through
 `https://plc.directory` with stock atcute at its defaults, serves a confidential client at
 `https://<PROBE_APP>.devnet.internal/`, pushes a PAR with that client_id, and pushes a raw PAR with a
@@ -803,9 +817,11 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 `scripts/https-ca.sh` makes the CA once. `https-up.sh` runs it when there is no leaf, or when the
 leaf does not name `*.devnet.internal`. Rerunning it keeps the CA and only reissues the leaf, so a
 browser or OS that trusts `ca.crt` keeps trusting the devnet. The leaf names the three PDSes,
-`*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory` and
-`*.devnet.internal`; a TLS wildcard covers one label, so each handle domain needs its own. Add
-deeper names with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"`, then restart nginx. A name one label
+`*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory`,
+`*.devnet.internal`, and `*.<ending>.devnet.test` for each handle ending an app claimed; a TLS
+wildcard covers one label, so each handle domain needs its own. `https-app.sh` reissues the leaf
+when it claims an ending, and `https-up.sh` when the leaf lacks any of these names. Add deeper names
+with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"` on every run, then restart nginx. A name one label
 under `devnet.test` is already covered. To start over, delete `data/https/ca.*` and trust the new
 `ca.crt` wherever the old one was trusted.
 

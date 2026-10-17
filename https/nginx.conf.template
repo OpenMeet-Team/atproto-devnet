@@ -82,7 +82,9 @@ server {
 # data/https/nginx/ (mounted at /etc/nginx/devnet/), one upstream per app, naming
 # host.docker.internal, and one map line per name. An upstream's name is resolved
 # once, when nginx loads it, through the container's hosts file (extra_hosts), which
-# Docker's DNS does not serve. Neither file has to exist.
+# Docker's DNS does not serve. Neither file has to exist. An app that claimed a handle
+# ending (scripts/https-app.sh <name> <port> <ending>) also gets a server there for
+# *.<ending>.devnet.test, which wins over the alpha's *.devnet.test as the longer wildcard.
 include /etc/nginx/devnet/*.conf;
 
 map $host $devnet_app {

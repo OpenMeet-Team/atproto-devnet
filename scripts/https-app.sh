@@ -5,16 +5,23 @@ set -eu
 # devnet's nginx, for any app: its pages, its OAuth client metadata and its keys, at an
 # https origin the devnet's PDSes and https-run's processes both reach.
 #
-# Usage: ./scripts/https-app.sh <name> <port>
-#   <name>  one lowercase DNS label; the app is https://<name>.devnet.internal
-#   <port>  where the app listens on this machine. Listen on the address Docker's host
-#           gateway lands on (host.docker.internal; the docker0 address here), or on
-#           0.0.0.0, so nginx can reach it.
+# Usage: ./scripts/https-app.sh <name> <port> [<ending>]
+#   <name>    one lowercase DNS label; the app is https://<name>.devnet.internal
+#   <port>    where the app listens on this machine. Listen on the address Docker's host
+#             gateway lands on (host.docker.internal; the docker0 address here), or on
+#             0.0.0.0, so nginx can reach it.
+#   <ending>  for an app that hands out handles of its own, as a PDS does: one lowercase
+#             DNS label. Every name under <ending>.<domain> (DEVNET_DOMAIN, devnet.test by
+#             default) goes to the app too, so a handle there resolves at the app. The
+#             leaf gains *.<ending>.<domain>, from the same CA, so nothing has to be
+#             trusted again. alpha, regular and prod are the PDSes' own; an ending is one
+#             app's.
 #
-# The route is kept in data/https/apps (a rerun with the same name changes its port);
-# data/https/nginx/ is rendered from it, and nginx in DEVNET_PROJECT's stack is
-# reloaded (DEVNET_PROJECT defaults to the one data/devnet.env names). If the stack is
-# down, the route is kept and nginx loads it when https-up.sh starts it.
+# The route is kept in data/https/apps (a rerun with the same name changes its port, and
+# drops its ending unless given again); data/https/nginx/ is rendered from it, and nginx
+# in DEVNET_PROJECT's stack is reloaded (DEVNET_PROJECT defaults to the one
+# data/devnet.env names). If the stack is down, the route is kept and nginx loads it when
+# https-up.sh starts it.
 #
 # A name with no route gets a 404 from nginx and reaches nothing. Inside https-run the
 # name resolves to 127.0.0.1; restart a process already running under it to pick up a
@@ -25,18 +32,41 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 NAME="${1:-}"
 PORT="${2:-}"
-if ! echo "${NAME}" | grep -qxE '[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?' || ! echo "${PORT}" | grep -qxE '[1-9][0-9]{0,4}' || [ "${PORT}" -gt 65535 ]; then
-  echo "Usage: https-app.sh <name> <port>   (name: one lowercase DNS label)" >&2
+ENDING="${3:-}"
+label() { echo "$1" | grep -qxE '[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?'; }
+if ! label "${NAME}" || ! echo "${PORT}" | grep -qxE '[1-9][0-9]{0,4}' || [ "${PORT}" -gt 65535 ] \
+   || { [ -n "${ENDING}" ] && ! label "${ENDING}"; } || [ $# -gt 3 ]; then
+  echo "Usage: https-app.sh <name> <port> [<ending>]   (name, ending: one lowercase DNS label each)" >&2
   exit 2
 fi
 
 mkdir -p "${HTTPS_DIR}"
 APPS="${HTTPS_DIR}/apps"
 touch "${APPS}"
-{ awk -v n="${NAME}" '$1 != n' "${APPS}"; echo "${NAME} ${PORT}"; } > "${APPS}.tmp"
+if [ -n "${ENDING}" ]; then
+  case "${ENDING}" in
+    alpha | regular | prod)
+      echo "https-app: ${ENDING}.${DEVNET_DOMAIN} is a PDS's own" >&2
+      exit 1
+      ;;
+  esac
+  OWNER="$(awk -v n="${NAME}" -v e="${ENDING}" '$1 != n && $3 == e { print $1; exit }' "${APPS}")"
+  if [ -n "${OWNER}" ]; then
+    echo "https-app: handles under ${ENDING}.${DEVNET_DOMAIN} already go to ${OWNER} (data/https/apps)" >&2
+    exit 1
+  fi
+fi
+{ awk -v n="${NAME}" '$1 != n' "${APPS}"; echo "${NAME} ${PORT}${ENDING:+ ${ENDING}}"; } > "${APPS}.tmp"
 mv "${APPS}.tmp" "${APPS}"
+# The CA is kept, and a new leaf is written over the old file, which nginx's mount follows.
+NEW_CERTS=""
+if leaf_lacks; then
+  "${SCRIPT_DIR}/https-ca.sh"
+  NEW_CERTS=1
+fi
 render_apps
 echo "https://${NAME}.devnet.internal -> port ${PORT} on this machine (data/https/apps)" >&2
+[ -z "${ENDING}" ] || echo "https://<handle>.${ENDING}.${DEVNET_DOMAIN} -> the same port" >&2
 
 DEVNET_PROJECT="${DEVNET_PROJECT:-$(env_get DEVNET_PROJECT "${DATA_DIR}/devnet.env")}"
 if [ -z "${DEVNET_PROJECT}" ]; then
@@ -51,5 +81,6 @@ if ! dc exec -T nginx nginx -t -q; then
   echo "https-app: nginx refused the new routes; data/https/nginx/ holds what it read" >&2
   exit 1
 fi
+# A reload rereads the certificate too.
 dc exec -T nginx nginx -s reload
-echo "Reloaded nginx in ${DEVNET_PROJECT}" >&2
+echo "Reloaded nginx in ${DEVNET_PROJECT}${NEW_CERTS:+, with the new leaf}" >&2

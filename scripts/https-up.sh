@@ -39,10 +39,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 mkdir -p "${HTTPS_DIR}/nginx"
 
-# The leaf must name *.devnet.internal, which a leaf from before the app routes lacks.
+# The leaf must carry every name leaf_names lists: a leaf from before the app routes lacks
+# *.devnet.internal, and one from before an app claimed a handle ending lacks its wildcard.
 NEW_CERTS=""
-if [ ! -f "${HTTPS_DIR}/leaf.crt" ] || [ ! -f "${HTTPS_DIR}/leaf.key" ] \
-   || ! openssl x509 -in "${HTTPS_DIR}/leaf.crt" -noout -ext subjectAltName 2>/dev/null | grep -qF 'DNS:*.devnet.internal'; then
+if leaf_lacks; then
   "${SCRIPT_DIR}/https-ca.sh"
   NEW_CERTS=1
 fi

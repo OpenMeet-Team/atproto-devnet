@@ -46,7 +46,7 @@ if [ -f "${DATA}/names" ]; then
   NAMES="${NAMES} $(grep -E '^[A-Za-z0-9.-]+$' "${DATA}/names" | tr '\n' ' ')"
 fi
 if [ -f "${DATA}/apps" ]; then
-  NAMES="${NAMES} $(awk 'NF == 2 { printf "%s.devnet.internal ", $1 }' "${DATA}/apps")"
+  NAMES="${NAMES} $(awk 'NF >= 2 { printf "%s.devnet.internal ", $1 }' "${DATA}/apps")"
 fi
 NAMES="${NAMES} ${HTTPS_RUN_EXTRA_NAMES:-}"
 

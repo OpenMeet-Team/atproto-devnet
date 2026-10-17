@@ -2,9 +2,10 @@
 set -eu
 
 # The https devnet's certificates: one local CA, made once, and one leaf that nginx
-# serves for every devnet name: the three PDSes and their handles, plc.directory, and
-# every app at <name>.devnet.internal. The PDS names sit under DEVNET_DOMAIN
-# (devnet.test by default; scripts/https-lib.sh), and the names below use the default.
+# serves for every devnet name: the three PDSes and their handles, plc.directory, every
+# app at <name>.devnet.internal, and the handles under each ending an app claimed with
+# scripts/https-app.sh. The PDS names sit under DEVNET_DOMAIN (devnet.test by default;
+# scripts/https-lib.sh, whose leaf_names lists them), and the names below use the default.
 #
 # Usage: ./scripts/https-ca.sh
 #
@@ -20,19 +21,18 @@ set -eu
 # a new DEVNET_DOMAIN, means a new CA, trusted again.
 #
 # A TLS wildcard covers one label, so *.devnet.test does not cover a handle on the
-# regular PDS (<name>.regular.devnet.test); each PDS's handle domain has its own.
+# regular PDS (<name>.regular.devnet.test); each handle domain has its own.
 #
 # Nothing here prints a key. Pass extra leaf names with HTTPS_EXTRA_NAMES
-# (space-separated), for instance when a PDS is added.
+# (space-separated), for instance when a PDS is added, on every run.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/https-lib.sh"
 D="${DEVNET_DOMAIN}"
+NAMES="$(leaf_names | tr '\n' ' ')"
 OUT="${SCRIPT_DIR}/../data/https"
 mkdir -p "${OUT}"
 cd "${OUT}"
-
-NAMES="alpha.${D} regular.${D} prod.${D} *.${D} *.regular.${D} *.prod.${D} plc.directory *.devnet.internal ${HTTPS_EXTRA_NAMES:-}"
 
 umask 077
 

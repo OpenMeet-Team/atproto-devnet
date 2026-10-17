@@ -109,9 +109,41 @@ add_name() {
   grep -qxF "$1" "${HTTPS_DIR}/names" || echo "$1" >> "${HTTPS_DIR}/names"
 }
 
-# render_apps: nginx's app routes, from data/https/apps (lines of "<name> <port>"), into
-# data/https/nginx/: one upstream per app at host.docker.internal:<port> (apps.conf) and
-# one map line per name (apps.map). See https/nginx.conf.template.
+# app_handles: the handle endings apps claimed with scripts/https-app.sh, one per line.
+app_handles() {
+  [ -f "${HTTPS_DIR}/apps" ] || return 0
+  awk 'NF >= 3 { print $3 }' "${HTTPS_DIR}/apps"
+}
+
+# leaf_names: every name the leaf carries, one or more per line. A TLS wildcard covers one
+# label, so each handle domain has its own: the three PDSes', and *.<ending>.<domain> for
+# each ending an app claimed. HTTPS_EXTRA_NAMES adds names (space-separated).
+leaf_names() {
+  _d="${DEVNET_DOMAIN}"
+  echo "alpha.${_d} regular.${_d} prod.${_d} *.${_d} *.regular.${_d} *.prod.${_d} plc.directory *.devnet.internal"
+  app_handles | sed "s/.*/*.&.${_d}/"
+  echo "${HTTPS_EXTRA_NAMES:-}"
+}
+
+# leaf_lacks: true when there is no leaf, or it lacks a name leaf_names lists.
+leaf_lacks() {
+  [ -f "${HTTPS_DIR}/leaf.crt" ] && [ -f "${HTTPS_DIR}/leaf.key" ] || return 0
+  _san="$(openssl x509 -in "${HTTPS_DIR}/leaf.crt" -noout -ext subjectAltName 2>/dev/null | tr -d ' ' | tr ',' '\n')"
+  set -f # a wildcard name is a name, not a glob
+  for _n in $(leaf_names); do
+    if ! printf '%s\n' "${_san}" | grep -qxF "DNS:${_n}"; then
+      set +f
+      return 0
+    fi
+  done
+  set +f
+  return 1
+}
+
+# render_apps: nginx's app routes, from data/https/apps (lines of "<name> <port>
+# [<ending>]"), into data/https/nginx/: one upstream per app at host.docker.internal:<port>
+# and, for an app that claimed a handle ending, a server for *.<ending>.<domain> (apps.conf),
+# and one map line per name (apps.map). See https/nginx.conf.template.
 render_apps() {
   mkdir -p "${HTTPS_DIR}/nginx"
   _apps="${HTTPS_DIR}/apps"
@@ -119,13 +151,17 @@ render_apps() {
   {
     echo "# Written by scripts/https-app.sh from data/https/apps; rerun it instead of editing."
     if [ -f "${_apps}" ]; then
-      awk 'NF == 2 { u = $1; gsub("-", "_", u); printf "upstream devnet_app_%s { server host.docker.internal:%s; }\n", u, $2 }' "${_apps}"
+      awk 'NF >= 2 { u = $1; gsub("-", "_", u); printf "upstream devnet_app_%s { server host.docker.internal:%s; }\n", u, $2 }' "${_apps}"
+      # Host is passed through (the http block sets it), so the app answers
+      # /.well-known/atproto-did for each handle. nginx takes the longer of two matching
+      # wildcards, so these win over the alpha's *.<domain>.
+      awk -v d="${DEVNET_DOMAIN}" 'NF >= 3 { u = $1; gsub("-", "_", u); printf "\n# Handles under %s.%s go to %s.\nserver {\n    listen 443 ssl;\n    server_name *.%s.%s;\n    location / {\n        proxy_pass http://devnet_app_%s;\n    }\n}\n", $3, d, $1, $3, d, u }' "${_apps}"
     fi
   } > "${_out}/apps.conf.tmp"
   {
     echo "# Written by scripts/https-app.sh from data/https/apps; rerun it instead of editing."
     if [ -f "${_apps}" ]; then
-      awk 'NF == 2 { u = $1; gsub("-", "_", u); printf "%s.devnet.internal devnet_app_%s;\n", $1, u }' "${_apps}"
+      awk 'NF >= 2 { u = $1; gsub("-", "_", u); printf "%s.devnet.internal devnet_app_%s;\n", $1, u }' "${_apps}"
     fi
   } > "${_out}/apps.map.tmp"
   mv "${_out}/apps.conf.tmp" "${_out}/apps.conf"
