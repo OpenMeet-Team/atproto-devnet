@@ -599,7 +599,8 @@ commands run under `scripts/https-run`, so every other program still reaches the
 `plc.directory`.
 
 `devnet.test` is the default of one setting, `DEVNET_DOMAIN`, and every name in the table above
-(and in the rest of this README) uses it. Set it in the environment or in `.env` and the same
+(and in the rest of this README) uses it. Only the https devnet reads it; the plain stack keeps
+`DEVNET_PDS_HOSTNAME` and `DEVNET_HANDLE_DOMAIN`. Set it in the environment or in `.env` and the same
 stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
 `regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
 A checkout keeps one domain, because its CA can vouch only for the domain it was made for
@@ -875,13 +876,13 @@ All settings have sensible defaults. Override via `.env` or environment variable
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEVNET_DOMAIN` | `devnet.test` | The domain every name sits under ([The https devnet](#the-https-devnet)) |
-| `DEVNET_PDS_HOSTNAME` | `DEVNET_DOMAIN` | PDS service hostname (the https devnet names its PDSes itself) |
+| `DEVNET_DOMAIN` | `devnet.test` | The https devnet's domain, which every name there sits under ([The https devnet](#the-https-devnet)). The plain stack does not read it |
+| `DEVNET_PDS_HOSTNAME` | `devnet.test` | PDS service hostname (the https devnet names its PDSes itself) |
 | `DEVNET_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
 | `DEVNET_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
 | `DEVNET_APPVIEW_URL` / `DEVNET_APPVIEW_DID` | `https://appview.invalid` / `did:example:invalid` | Where the PDS forwards app.bsky.* reads and methods it doesn't implement. Unresolvable, so nothing reaches Bluesky |
 | `DEVNET_REPORT_SERVICE_URL` / `DEVNET_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
-| `DEVNET_HANDLE_DOMAIN` | `.` + `DEVNET_DOMAIN` | Handle suffix for accounts |
+| `DEVNET_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts (the https devnet uses `.` + `DEVNET_DOMAIN`) |
 | `DEVNET_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
 | `DEVNET_PDS_REGULAR_IMAGE` / `DEVNET_PDS_PROD_IMAGE` | `ghcr.io/bluesky-social/pds:0.4.5037` / a pinned production digest | The two extra PDS builds ([Several PDS builds side by side](#several-pds-builds-side-by-side)) |
 | `DEVNET_LEXICON_AUTHORITY_DID` | empty | The spaces PDS's lexicon authority ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons)) |

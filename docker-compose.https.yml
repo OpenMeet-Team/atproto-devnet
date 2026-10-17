@@ -53,6 +53,7 @@ services:
       # Explicit: the default would be .alpha.devnet.test.
       PDS_SERVICE_HANDLE_DOMAINS: .${DEVNET_DOMAIN:-devnet.test}
       PDS_HANDLE_DOMAINS: .${DEVNET_DOMAIN:-devnet.test}
+      PDS_EMAIL_FROM_ADDRESS: noreply@${DEVNET_DOMAIN:-devnet.test}
       # The public URL is https, so the alpha runs as it would on the real network.
       # ("false", not !reset: compose keeps a key an earlier overlay set.)
       PDS_DEV_MODE: "false"
@@ -88,6 +89,14 @@ services:
     depends_on:
       nginx:
         condition: service_healthy
+
+  # init seeds alice and bob on the alpha, so under its handle domain. docker-compose.yml
+  # itself does not read DEVNET_DOMAIN: the plain stack keeps DEVNET_HANDLE_DOMAIN.
+  init:
+    environment:
+      PDS_HOSTNAME: alpha.${DEVNET_DOMAIN:-devnet.test}
+      HANDLE_DOMAIN: .${DEVNET_DOMAIN:-devnet.test}
+      DEVNET_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
 
   relay-init:
     depends_on:
