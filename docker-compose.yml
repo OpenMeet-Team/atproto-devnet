@@ -58,7 +58,7 @@ services:
         condition: service_healthy
     environment:
       PDS_PORT: 3000
-      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-devnet.test}
+      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-${DEVNET_DOMAIN:-devnet.test}}
       PDS_DATA_DIRECTORY: /pds/data
       PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
       PDS_DID_PLC_URL: http://plc:2582
@@ -81,9 +81,9 @@ services:
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       PDS_EMAIL_SMTP_URL: ${DEVNET_SMTP_URL:-smtp://maildev:1025}
-      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
-      PDS_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
-      PDS_SERVICE_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
+      PDS_EMAIL_FROM_ADDRESS: noreply@${DEVNET_DOMAIN:-devnet.test}
+      PDS_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.${DEVNET_DOMAIN:-devnet.test}}
+      PDS_SERVICE_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.${DEVNET_DOMAIN:-devnet.test}}
       LOG_ENABLED: "true"
       NODE_ENV: development
     volumes:
@@ -159,9 +159,10 @@ services:
       - ./scripts:/scripts:ro
       - ./data:/devnet-data
     environment:
-      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-devnet.test}
+      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-${DEVNET_DOMAIN:-devnet.test}}
       PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
-      HANDLE_DOMAIN: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
+      HANDLE_DOMAIN: ${DEVNET_HANDLE_DOMAIN:-.${DEVNET_DOMAIN:-devnet.test}}
+      DEVNET_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
       SEED_ACCOUNTS: ${DEVNET_SEED_ACCOUNTS:-true}
     entrypoint: /bin/sh
     command: ["/scripts/init.sh"]

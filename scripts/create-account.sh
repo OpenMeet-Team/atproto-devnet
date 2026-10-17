@@ -24,7 +24,7 @@ PDS_URL="${DEVNET_PDS_URL:-http://localhost:${DEVNET_PDS_PORT:-3000}}"
 PDS_ADMIN_PASSWORD="${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}"
 
 HANDLE="${1:?Usage: create-account.sh <handle> [email] [password]}"
-EMAIL="${2:-${HANDLE}@devnet.test}"
+EMAIL="${2:-${HANDLE}@${DEVNET_DOMAIN:-devnet.test}}"
 PASSWORD="${3:-$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 16)}"
 
 # Get or create invite code

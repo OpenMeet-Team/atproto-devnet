@@ -3,7 +3,8 @@ set -eu
 
 # The https devnet's certificates: one local CA, made once, and one leaf that nginx
 # serves for every devnet name: the three PDSes and their handles, plc.directory, and
-# every app at <name>.devnet.internal.
+# every app at <name>.devnet.internal. The PDS names sit under DEVNET_DOMAIN
+# (devnet.test by default; scripts/https-lib.sh), and the names below use the default.
 #
 # Usage: ./scripts/https-ca.sh
 #
@@ -12,11 +13,11 @@ set -eu
 # devnet; only the leaf is reissued. Delete data/https/ca.* to start over, and then
 # trust the new ca.crt again everywhere the old one was trusted.
 #
-# The CA can only vouch for servers under devnet.test, devnet.internal and
-# plc.directory (name constraints, serverAuth only, no IP addresses), so trusting it
-# on a host cannot put any other site at risk, even if ca.key leaks from the pod.
-# A name outside those makes the leaf fail its own check below; widening the list
-# means a new CA, trusted again.
+# The CA can only vouch for servers under the domain it was made for, devnet.internal
+# and plc.directory (name constraints, serverAuth only, no IP addresses), so trusting
+# it on a host cannot put any other site at risk, even if ca.key leaks from the pod.
+# A name outside those makes the leaf fail its own check below; widening the list, or
+# a new DEVNET_DOMAIN, means a new CA, trusted again.
 #
 # A TLS wildcard covers one label, so *.devnet.test does not cover a handle on the
 # regular PDS (<name>.regular.devnet.test); each PDS's handle domain has its own.
@@ -25,11 +26,13 @@ set -eu
 # (space-separated), for instance when a PDS is added.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${SCRIPT_DIR}/https-lib.sh"
+D="${DEVNET_DOMAIN}"
 OUT="${SCRIPT_DIR}/../data/https"
 mkdir -p "${OUT}"
 cd "${OUT}"
 
-NAMES="alpha.devnet.test regular.devnet.test prod.devnet.test *.devnet.test *.regular.devnet.test *.prod.devnet.test plc.directory *.devnet.internal ${HTTPS_EXTRA_NAMES:-}"
+NAMES="alpha.${D} regular.${D} prod.${D} *.${D} *.regular.${D} *.prod.${D} plc.directory *.devnet.internal ${HTTPS_EXTRA_NAMES:-}"
 
 umask 077
 
@@ -47,7 +50,7 @@ else
     -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
     -addext "keyUsage=critical,keyCertSign,cRLSign" \
     -addext "extendedKeyUsage=serverAuth" \
-    -addext "nameConstraints=critical,permitted;DNS:devnet.test,permitted;DNS:devnet.internal,permitted;DNS:plc.directory,excluded;IP:0.0.0.0/0.0.0.0,excluded;IP:0:0:0:0:0:0:0:0/0:0:0:0:0:0:0:0"
+    -addext "nameConstraints=critical,permitted;DNS:${D},permitted;DNS:devnet.internal,permitted;DNS:plc.directory,excluded;IP:0.0.0.0/0.0.0.0,excluded;IP:0:0:0:0:0:0:0:0/0:0:0:0:0:0:0:0"
   chmod 644 ca.crt
   echo "Made a new CA: $(openssl x509 -in ca.crt -noout -subject)" >&2
 fi
@@ -68,19 +71,30 @@ authorityKeyIdentifier=keyid,issuer
 subjectAltName=${SAN}
 EOF
 
+# Issued beside the current leaf, which is replaced only once the new one checks out.
 openssl req -new -nodes -sha256 \
   -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
-  -keyout leaf.key -out leaf.csr \
-  -subj "/O=atproto-devnet/CN=alpha.devnet.test"
+  -keyout leaf.key.new -out leaf.csr \
+  -subj "/O=atproto-devnet/CN=alpha.${D}"
 # 397 days: under the 398-day ceiling browsers apply to server certificates.
 openssl x509 -req -sha256 -days 397 \
   -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-  -extfile leaf.ext -out leaf.crt
+  -extfile leaf.ext -out leaf.crt.new
 rm -f leaf.csr leaf.ext
+
+if ! openssl verify -CAfile ca.crt leaf.crt.new >&2; then
+  rm -f leaf.crt.new leaf.key.new
+  echo "The CA cannot vouch for every leaf name, so the leaf is unchanged. If" >&2
+  echo "DEVNET_DOMAIN (${D}) changed since the CA was made, use a separate checkout, or" >&2
+  echo "delete data/https/ca.* to make a new CA for it (and trust that one again)." >&2
+  exit 1
+fi
+# Written in place, not renamed: nginx's single-file mounts follow the file, not the name.
+cat leaf.key.new > leaf.key
+cat leaf.crt.new > leaf.crt
+rm -f leaf.crt.new leaf.key.new
 chmod 644 leaf.crt
 # nginx reads the leaf key as root inside its container.
 chmod 600 leaf.key ca.key
-
-openssl verify -CAfile ca.crt leaf.crt >&2
 echo "Leaf names: $(openssl x509 -in leaf.crt -noout -ext subjectAltName | tail -n +2 | sed 's/^ *//')" >&2
 echo "Leaf valid until $(openssl x509 -in leaf.crt -noout -enddate | cut -d= -f2)" >&2

@@ -22,7 +22,8 @@
 //                      or a plain `npm i` of the two)
 //   PROBE_DID          the account to resolve and name in the PAR (default: the lexicon
 //                      authority, LEX_AUTHORITY_DID in data/devnet.env)
-//   PROBE_PDS          the PDS that DID must name (default https://alpha.devnet.test)
+//   PROBE_PDS          the PDS that DID must name (default https://alpha.<domain>, the
+//                      domain being DEVNET_DOMAIN in data/devnet.env, else devnet.test)
 //   PROBE_APP          the app name (default probe: https://probe.devnet.internal/)
 //   PROBE_CLIENT_PORT  where the client's documents are served (default 5480)
 //   PROBE_CLIENT_HOST  the address to serve on (default: the docker0 address, which is
@@ -43,15 +44,6 @@ if (!ATCUTE_DIR) {
 	console.log('FAIL setup: set ATCUTE_DIR to a directory node resolves @atcute/* from');
 	process.exit(2);
 }
-const PDS = process.env.PROBE_PDS ?? 'https://alpha.devnet.test';
-const APP = process.env.PROBE_APP ?? 'probe';
-const SITE = `https://${APP}.devnet.internal`;
-const TEST_SITE = `https://${APP}.devnet.test`;
-const PORT = Number(process.env.PROBE_CLIENT_PORT ?? 5480);
-const HOST =
-  process.env.PROBE_CLIENT_HOST ??
-  os.networkInterfaces().docker0?.find((a) => a.family === 'IPv4')?.address ??
-  '127.0.0.1';
 const devnetEnv = () => {
 	try {
 		return readFileSync(join(ROOT, 'data/devnet.env'), 'utf8');
@@ -59,6 +51,17 @@ const devnetEnv = () => {
 		return '';
 	}
 };
+const DOMAIN = (devnetEnv().match(/^DEVNET_DOMAIN=(.+)$/m)?.[1] ?? 'devnet.test').trim();
+const PDS = process.env.PROBE_PDS ?? `https://alpha.${DOMAIN}`;
+const APP = process.env.PROBE_APP ?? 'probe';
+const SITE = `https://${APP}.devnet.internal`;
+// Always a .test name, whatever the domain: check (c) is about the .test suffix.
+const TEST_SITE = `https://${APP}.devnet.test`;
+const PORT = Number(process.env.PROBE_CLIENT_PORT ?? 5480);
+const HOST =
+  process.env.PROBE_CLIENT_HOST ??
+  os.networkInterfaces().docker0?.find((a) => a.family === 'IPv4')?.address ??
+  '127.0.0.1';
 const did = (
 	process.env.PROBE_DID ??
 	devnetEnv().match(/^LEX_AUTHORITY_DID=(.+)$/m)?.[1] ??

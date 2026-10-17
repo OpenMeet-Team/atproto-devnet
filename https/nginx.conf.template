@@ -1,6 +1,8 @@
 # nginx for the https devnet (docker-compose.https.yml). One leaf certificate names
 # every host below; data/https/ca.crt is the CA that signed it (scripts/https-ca.sh).
-# Mounted as conf.d/default.conf, so this is the http block's whole server list.
+# A template: at start the image writes it to conf.d/default.conf with the DEVNET_DOMAIN
+# setting filled in, so this is the http block's whole server list. The comments below
+# name its default, devnet.test.
 
 # Docker's embedded DNS, re-asked every 10 s, so a recreated container's new
 # address is picked up without reloading nginx.
@@ -40,7 +42,7 @@ server {
 # *.devnet.test.
 server {
     listen 443 ssl;
-    server_name alpha.devnet.test *.devnet.test;
+    server_name alpha.${DEVNET_DOMAIN} *.${DEVNET_DOMAIN};
     location / {
         set $pds http://pds:3010;
         proxy_pass $pds;
@@ -49,7 +51,7 @@ server {
 
 server {
     listen 443 ssl;
-    server_name regular.devnet.test *.regular.devnet.test;
+    server_name regular.${DEVNET_DOMAIN} *.regular.${DEVNET_DOMAIN};
     location / {
         set $pds http://pds:3020;
         proxy_pass $pds;
@@ -58,7 +60,7 @@ server {
 
 server {
     listen 443 ssl;
-    server_name prod.devnet.test *.prod.devnet.test;
+    server_name prod.${DEVNET_DOMAIN} *.prod.${DEVNET_DOMAIN};
     location / {
         set $pds http://pds:3030;
         proxy_pass $pds;

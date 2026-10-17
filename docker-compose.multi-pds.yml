@@ -42,7 +42,7 @@ x-extra-pds-env: &extra-pds-env
   PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
   PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   PDS_EMAIL_SMTP_URL: ${DEVNET_SMTP_URL:-smtp://maildev:1025}
-  PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
+  PDS_EMAIL_FROM_ADDRESS: noreply@${DEVNET_DOMAIN:-devnet.test}
   PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
   LOG_ENABLED: "true"
   NODE_ENV: development
@@ -51,7 +51,7 @@ services:
   pds:
     environment:
       # All three would otherwise be did:web:localhost.
-      PDS_SERVICE_DID: did:web:alpha.devnet.test
+      PDS_SERVICE_DID: did:web:alpha.${DEVNET_DOMAIN:-devnet.test}
     ports: !override
       - "${DEVNET_SPACES_PDS_PORT:-3010}:${DEVNET_SPACES_PDS_PORT:-3010}"
       - "3020:3020"
@@ -64,8 +64,8 @@ services:
     environment:
       <<: *extra-pds-env
       PDS_PORT: "3020"
-      PDS_SERVICE_DID: did:web:regular.devnet.test
-      PDS_SERVICE_HANDLE_DOMAINS: .regular.devnet.test
+      PDS_SERVICE_DID: did:web:regular.${DEVNET_DOMAIN:-devnet.test}
+      PDS_SERVICE_HANDLE_DOMAINS: .regular.${DEVNET_DOMAIN:-devnet.test}
     volumes:
       - pds-regular-data:/pds/data
     healthcheck:
@@ -81,8 +81,8 @@ services:
     environment:
       <<: *extra-pds-env
       PDS_PORT: "3030"
-      PDS_SERVICE_DID: did:web:prod.devnet.test
-      PDS_SERVICE_HANDLE_DOMAINS: .prod.devnet.test
+      PDS_SERVICE_DID: did:web:prod.${DEVNET_DOMAIN:-devnet.test}
+      PDS_SERVICE_HANDLE_DOMAINS: .prod.${DEVNET_DOMAIN:-devnet.test}
     volumes:
       - pds-prod-data:/pds/data
     healthcheck:

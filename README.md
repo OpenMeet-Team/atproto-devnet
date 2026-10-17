@@ -598,6 +598,13 @@ the three PDSes as `wss://` hosts. On the machine, the names resolve to `127.0.0
 commands run under `scripts/https-run`, so every other program still reaches the real
 `plc.directory`.
 
+`devnet.test` is the default of one setting, `DEVNET_DOMAIN`, and every name in the table above
+(and in the rest of this README) uses it. Set it in the environment or in `.env` and the same
+stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
+`regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
+A checkout keeps one domain, because its CA can vouch only for the domain it was made for
+([The CA](#the-ca)); for a second domain, use a second checkout.
+
 The devnet knows no app. It has no app's accounts, invite codes, lexicons or ports. It gives an app
 tools to make its own (below), and using them is optional.
 
@@ -646,7 +653,8 @@ a new DID.
 
 - `data/devnet.env`: the devnet's own facts, nothing secret. `ALPHA_PDS_URL`, `REGULAR_PDS_URL`,
   `PROD_PDS_URL`, `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
-  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT` and `DEVNET_CA_FILE`.
+  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN` and
+  `DEVNET_CA_FILE`.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
 - `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the tools below add.
@@ -789,8 +797,8 @@ deeper names with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"`, then restart nginx. 
 under `devnet.test` is already covered. To start over, delete `data/https/ca.*` and trust the new
 `ca.crt` wherever the old one was trusted.
 
-The CA can only vouch for servers under `devnet.test`, `devnet.internal` and `plc.directory` (name
-constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
+The CA can only vouch for servers under `devnet.test` (the `DEVNET_DOMAIN` it was made for),
+`devnet.internal` and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
 when you're done with it.
 
@@ -867,12 +875,13 @@ All settings have sensible defaults. Override via `.env` or environment variable
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEVNET_PDS_HOSTNAME` | `devnet.test` | PDS service hostname |
+| `DEVNET_DOMAIN` | `devnet.test` | The domain every name sits under ([The https devnet](#the-https-devnet)) |
+| `DEVNET_PDS_HOSTNAME` | `DEVNET_DOMAIN` | PDS service hostname (the https devnet names its PDSes itself) |
 | `DEVNET_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
 | `DEVNET_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
 | `DEVNET_APPVIEW_URL` / `DEVNET_APPVIEW_DID` | `https://appview.invalid` / `did:example:invalid` | Where the PDS forwards app.bsky.* reads and methods it doesn't implement. Unresolvable, so nothing reaches Bluesky |
 | `DEVNET_REPORT_SERVICE_URL` / `DEVNET_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
-| `DEVNET_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts |
+| `DEVNET_HANDLE_DOMAIN` | `.` + `DEVNET_DOMAIN` | Handle suffix for accounts |
 | `DEVNET_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
 | `DEVNET_PDS_REGULAR_IMAGE` / `DEVNET_PDS_PROD_IMAGE` | `ghcr.io/bluesky-social/pds:0.4.5037` / a pinned production digest | The two extra PDS builds ([Several PDS builds side by side](#several-pds-builds-side-by-side)) |
 | `DEVNET_LEXICON_AUTHORITY_DID` | empty | The spaces PDS's lexicon authority ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons)) |

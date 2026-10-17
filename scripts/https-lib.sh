@@ -10,20 +10,18 @@ CA="${HTTPS_DIR}/ca.crt"
 # authority, and accounts made by https-account.sh).
 DEVNET_ACCOUNTS="${DATA_DIR}/accounts.env"
 
-# The three PDSes: short name, https name, handle domain.
+# The three PDSes: short name, https name, handle domain. Each is under DEVNET_DOMAIN
+# (set below), devnet.test by default.
 pds_name() {
   case "$1" in
-    alpha) echo alpha.devnet.test ;;
-    regular) echo regular.devnet.test ;;
-    prod) echo prod.devnet.test ;;
+    alpha | regular | prod) echo "$1.${DEVNET_DOMAIN}" ;;
     *) return 1 ;;
   esac
 }
 pds_domain() {
   case "$1" in
-    alpha) echo .devnet.test ;;
-    regular) echo .regular.devnet.test ;;
-    prod) echo .prod.devnet.test ;;
+    alpha) echo ".${DEVNET_DOMAIN}" ;;
+    regular | prod) echo ".$1.${DEVNET_DOMAIN}" ;;
     *) return 1 ;;
   esac
 }
@@ -54,6 +52,11 @@ env_get() {
   [ -f "$2" ] || return 0
   sed -n "s/^$1=//p" "$2" | tail -1
 }
+
+# The domain every devnet name sits under: from the environment, else from .env, else
+# devnet.test. Compose works it out the same way itself, so it is not exported.
+DEVNET_DOMAIN="${DEVNET_DOMAIN:-$(env_get DEVNET_DOMAIN "${ROOT_DIR}/.env" | tr -d "\"'")}"
+DEVNET_DOMAIN="${DEVNET_DOMAIN:-devnet.test}"
 
 # env_put <file> <regex of lines to drop>: replace those lines with stdin's lines. The
 # file stays mode 600 and is never readable by anyone else, even briefly.
@@ -88,7 +91,7 @@ add_name() {
 
 # render_apps: nginx's app routes, from data/https/apps (lines of "<name> <port>"), into
 # data/https/nginx/: one upstream per app at host.docker.internal:<port> (apps.conf) and
-# one map line per name (apps.map). See https/nginx.conf.
+# one map line per name (apps.map). See https/nginx.conf.template.
 render_apps() {
   mkdir -p "${HTTPS_DIR}/nginx"
   _apps="${HTTPS_DIR}/apps"

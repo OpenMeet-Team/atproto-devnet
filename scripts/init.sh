@@ -95,13 +95,13 @@ if [ "${SEED_ACCOUNTS}" = "true" ]; then
 
   create_account \
     "alice${HANDLE_DOMAIN}" \
-    "alice@devnet.test" \
+    "alice@${DEVNET_DOMAIN:-devnet.test}" \
     "alice-devnet-pass" \
     "ALICE"
 
   create_account \
     "bob${HANDLE_DOMAIN}" \
-    "bob@devnet.test" \
+    "bob@${DEVNET_DOMAIN:-devnet.test}" \
     "bob-devnet-pass" \
     "BOB"
 
