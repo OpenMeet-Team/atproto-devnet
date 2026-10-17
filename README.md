@@ -76,6 +76,15 @@ Changes to the default stack that existing setups will notice:
   `data/accounts.env` gets new DIDs and a new invite code.
 - **The PDS runs as root.** Release images already did. This lets `DEVNET_PDS_IMAGE` take monorepo
   images, which default to `node`.
+- **The https devnet's nginx config is a template now: rerun `scripts/https-up.sh` after pulling.**
+  `https/nginx.conf` became `https/nginx.conf.template`, which the nginx image fills in with
+  `DEVNET_DOMAIN` when it starts. An nginx container made before the pull still mounts the old file,
+  and once the file is gone that container cannot start again (Docker leaves an empty directory in
+  its place). `https-up.sh` recreates it on the new mount. Checking out an older version needs the
+  same rerun, the other way round. An overlay that mounts its own config over
+  `/etc/nginx/conf.d/default.conf` should mount it at `/etc/nginx/templates/default.conf.template`
+  instead, and one that replaces nginx's command must keep the image's entrypoint, which writes the
+  template out.
 
 ## Integrating into your project
 
@@ -415,7 +424,7 @@ unset ACCOUNTS_FILE
 { grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
   echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
   echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' data/devnet.env)"
-  echo "E2E_HANDLE_DOMAIN=devnet.test"
+  echo "E2E_HANDLE_DOMAIN=$(sed -n 's/^DEVNET_DOMAIN=//p' data/devnet.env)"
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 
