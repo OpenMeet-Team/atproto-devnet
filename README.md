@@ -603,8 +603,10 @@ commands run under `scripts/https-run`, so every other program still reaches the
 `DEVNET_PDS_HOSTNAME` and `DEVNET_HANDLE_DOMAIN`. Set it in the environment or in `.env` and the same
 stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
 `regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
-A checkout keeps one domain, because its CA can vouch only for the domain it was made for
-([The CA](#the-ca)); for a second domain, use a second checkout.
+In `.env`, write the domain itself (quotes, `export` and a trailing comment are fine); the scripts
+refuse a `${...}` there, which compose would expand and they would not. A checkout keeps one domain,
+because its CA can vouch only for the domain it was made for ([The CA](#the-ca)); for a second
+domain, use a second checkout.
 
 The devnet knows no app. It has no app's accounts, invite codes, lexicons or ports. It gives an app
 tools to make its own (below), and using them is optional.

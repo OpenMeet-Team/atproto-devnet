@@ -53,10 +53,30 @@ env_get() {
   sed -n "s/^$1=//p" "$2" | tail -1
 }
 
-# The domain every devnet name sits under: from the environment, else from .env, else
-# devnet.test. Compose works it out the same way itself, so it is not exported.
-DEVNET_DOMAIN="${DEVNET_DOMAIN:-$(env_get DEVNET_DOMAIN "${ROOT_DIR}/.env" | tr -d "\"'")}"
+# env_domain <file>: DEVNET_DOMAIN's last value in an env file, read as compose reads
+# it: an export prefix, quotes, a trailing " # comment" and a CRLF line end are allowed.
+env_domain() {
+  [ -f "$1" ] || return 0
+  sed -n -E 's/\r$//; s/^[[:space:]]*(export[[:space:]]+)?DEVNET_DOMAIN[[:space:]]*=[[:space:]]*//p' "$1" |
+    tail -1 |
+    sed -E "s/^\"([^\"]*)\".*/\1/; t; s/^'([^']*)'.*/\1/; t; s/[[:space:]]+#.*//; s/[[:space:]]+\$//"
+}
+
+# The domain every devnet name sits under, as compose works out ${DEVNET_DOMAIN:-devnet.test}:
+# set in the environment (even empty), that wins; else .env; empty means devnet.test.
+# Compose works it out itself, so it is not exported.
+if [ -z "${DEVNET_DOMAIN+set}" ]; then
+  DEVNET_DOMAIN="$(env_domain "${ROOT_DIR}/.env")"
+fi
 DEVNET_DOMAIN="${DEVNET_DOMAIN:-devnet.test}"
+# A domain name and nothing else. This also refuses ${...} in .env, which compose would
+# expand and these scripts do not.
+case "${DEVNET_DOMAIN}" in
+  *[!A-Za-z0-9.-]* | .* | *. | *..*)
+    echo "DEVNET_DOMAIN=${DEVNET_DOMAIN} is not a domain name (set in the environment or .env)" >&2
+    exit 1
+    ;;
+esac
 
 # env_put <file> <regex of lines to drop>: replace those lines with stdin's lines. The
 # file stays mode 600 and is never readable by anyone else, even briefly.
