@@ -28,7 +28,7 @@ if [ -f "${ROOT_DIR}/.env" ]; then
 fi
 
 PDS_URL="${DEVNET_PDS_URL:-http://localhost:${DEVNET_SPACES_PDS_PORT:-3010}}"
-HANDLE="${DEVNET_LEX_AUTHORITY_HANDLE:-lex-authority${DEVNET_HANDLE_DOMAIN:-.${DEVNET_DOMAIN:-devnet.test}}}"
+HANDLE="${DEVNET_LEX_AUTHORITY_HANDLE:-lex-authority${DEVNET_HANDLE_DOMAIN:-.devnet.test}}"
 PASSWORD="${DEVNET_LEX_AUTHORITY_PASSWORD:-lex-authority-devnet-pass}"
 
 DID=$(curl -s -X POST "${PDS_URL}/xrpc/com.atproto.server.createSession" \
@@ -45,7 +45,7 @@ if [ -z "${DID}" ]; then
     -H "Content-Type: application/json" \
     -d "{
       \"handle\": \"${HANDLE}\",
-      \"email\": \"lex-authority@${DEVNET_DOMAIN:-devnet.test}\",
+      \"email\": \"lex-authority@devnet.test\",
       \"password\": \"${PASSWORD}\",
       \"inviteCode\": \"${INVITE_CODE}\"
     }")
