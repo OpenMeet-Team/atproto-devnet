@@ -39,10 +39,16 @@ dc() {
 }
 
 # curl <https URL on a devnet name> [curl args...]: the name goes to nginx on
-# 127.0.0.1, and TLS is verified against the devnet CA.
+# 127.0.0.1, and TLS is verified against the devnet CA. With DEVNET_PUBLIC=1 the names
+# are public ones with a real certificate (a globe on the cluster), so the URL is used
+# as it stands, through public DNS and the system's CAs.
 devnet_curl() {
   _url="$1"
   shift
+  if [ "${DEVNET_PUBLIC:-}" = 1 ]; then
+    curl -sS "$@" "${_url}"
+    return
+  fi
   _host=$(printf '%s\n' "${_url}" | sed -E 's#^https://([^/:]+).*#\1#')
   curl -sS --resolve "${_host}:443:${DEVNET_BIND:-127.0.0.1}" --cacert "${CA}" "$@" "${_url}"
 }
