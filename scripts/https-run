@@ -61,7 +61,7 @@ TMP="$(mktemp "${DATA}/hosts.XXXXXX")"
   ' /etc/hosts
   echo "# https devnet (scripts/https-run)"
   set -f
-  printf '%s\n' ${NAMES} | awk 'NF && !seen[$0]++ { print "127.0.0.1 " $0 }'
+  printf '%s\n' ${NAMES} | awk -v bind="${DEVNET_BIND:-127.0.0.1}" 'NF && !seen[$0]++ { print bind " " $0 }'
   set +f
 } > "${TMP}"
 chmod 644 "${TMP}"

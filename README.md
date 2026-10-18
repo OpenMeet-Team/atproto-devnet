@@ -599,6 +599,7 @@ runs against it with no devnet code:
 | `regular.devnet.test`, `*.regular.devnet.test` | `pds-regular`, a current release, and its handles |
 | `prod.devnet.test`, `*.prod.devnet.test` | `pds-prod`, the build you run in prod, and its handles |
 | `plc.directory` | this stack's own PLC |
+| `slingshot.devnet.test` | `slingshot`, which answers a handle's DID and PDS (below) |
 | `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
 | `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/https-app.sh`, for the handles it hands out |
 
@@ -620,6 +621,26 @@ domain, use a second checkout.
 
 The devnet knows no app. It has no app's accounts, invite codes, lexicons or ports. It gives an app
 tools to make its own (below), and using them is optional.
+
+### Slingshot: handles and DIDs inside the network
+
+`slingshot` is [Slingshot](https://tangled.org/jola.dev/microcosm-rs/tree/main/slingshot) from
+microcosm-rs, built from a pinned commit (`slingshot/Dockerfile`; upstream publishes no image), set
+to this stack's PLC and this stack's Jetstream. The public Slingshot cannot see a devnet account;
+this one answers for it:
+
+```sh
+scripts/https-run curl -s \
+  'https://slingshot.devnet.test/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.devnet.test'
+# {"did":"did:plc:...","handle":"alice.devnet.test","pds":"https://alpha.devnet.test","signing_key":"zQ3..."}
+```
+
+It checks a handle both ways, which means it fetches `https://<handle>/.well-known/atproto-did`
+from inside the compose network, and a handle's name exists nowhere but in nginx. So it runs in
+the network namespace of `slingshot-dns` (the way the extra PDSes share the alpha's), a dnsmasq
+that answers nginx's address for any name under `DEVNET_DOMAIN` and nothing else, and its only
+root is the devnet CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
+handle: `https-account.sh` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
 
 ### Up and down
 
@@ -817,7 +838,7 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 `scripts/https-ca.sh` makes the CA once. `https-up.sh` runs it when there is no leaf, or when the
 leaf does not name `*.devnet.internal`. Rerunning it keeps the CA and only reissues the leaf, so a
 browser or OS that trusts `ca.crt` keeps trusting the devnet. The leaf names the three PDSes,
-`*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory`,
+`slingshot.devnet.test`, `*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory`,
 `*.devnet.internal`, and `*.<ending>.devnet.test` for each handle ending an app claimed; a TLS
 wildcard covers one label, so each handle domain needs its own. `https-app.sh` reissues the leaf
 when it claims an ending, and `https-up.sh` when the leaf lacks any of these names. Add deeper names

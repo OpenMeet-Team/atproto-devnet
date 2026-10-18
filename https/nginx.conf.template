@@ -67,6 +67,17 @@ server {
     }
 }
 
+# Slingshot shares slingshot-dns's network namespace (docker-compose.https.yml). An exact
+# name beats the alpha's *.${DEVNET_DOMAIN} wildcard, so "slingshot" is not a handle.
+server {
+    listen 443 ssl;
+    server_name slingshot.${DEVNET_DOMAIN};
+    location / {
+        set $slingshot http://slingshot-dns:8080;
+        proxy_pass $slingshot;
+    }
+}
+
 # This stack's PLC, standing in for the real directory.
 server {
     listen 443 ssl;

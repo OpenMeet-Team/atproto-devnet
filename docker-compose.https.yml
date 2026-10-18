@@ -17,6 +17,7 @@
 #   regular.devnet.test  *.regular.devnet.test   pds-regular  a current release
 #   prod.devnet.test     *.prod.devnet.test      pds-prod     the build you run in prod
 #   plc.directory                                plc          this stack's PLC
+#   slingshot.devnet.test                        slingshot    handle and DID lookups (resolveMiniDoc)
 #   <name>.devnet.internal                       an app on this machine, at the port
 #                                                scripts/https-app.sh recorded for <name>
 #
@@ -119,6 +120,54 @@ services:
     volumes:
       - *go-ca
 
+  # Slingshot (microcosm-rs) answers com.bad-example.identity.resolveMiniDoc, a handle's
+  # DID and PDS, from this stack's PLC and this stack's Jetstream. The public one cannot
+  # see a devnet account. It reaches the handles' names over TLS, which needs two things
+  # the other services do not: the CA as its only root, and a DNS that answers any name
+  # under the domain. slingshot-dns holds the network namespace Slingshot runs in, the
+  # way the extra PDSes share the alpha's, so nginx reaches Slingshot as slingshot-dns:8080.
+  slingshot-dns:
+    build: ./https/dns
+    image: atproto-devnet-dns:https-1
+    restart: unless-stopped
+    environment:
+      DEVNET_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
+    dns:
+      - 127.0.0.1
+    depends_on:
+      nginx:
+        condition: service_healthy
+    networks:
+      - atproto-devnet
+
+  slingshot:
+    build: ./slingshot
+    image: atproto-devnet-slingshot:${DEVNET_SLINGSHOT_COMMIT:-3137b07}
+    restart: unless-stopped
+    network_mode: service:slingshot-dns
+    depends_on:
+      slingshot-dns:
+        condition: service_started
+      plc:
+        condition: service_healthy
+      jetstream:
+        condition: service_healthy
+    environment:
+      SLINGSHOT_PLC_DIRECTORY: http://plc:2582
+      SLINGSHOT_JETSTREAM: ws://jetstream:6008/subscribe
+      SLINGSHOT_CACHE_DIR: /data
+      SLINGSHOT_BIND: 0.0.0.0:8080
+      # The devnet's CA is the only root; the names it reaches are all the devnet's.
+      SSL_CERT_FILE: /https/ca.crt
+    volumes:
+      - *devnet-ca
+      - slingshot-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   postgres:
     # The PLC's database, named, so a `down` without -v keeps every DID.
     volumes:
@@ -148,7 +197,7 @@ services:
       plc:
         condition: service_healthy
     ports:
-      - "127.0.0.1:443:443"
+      - "${DEVNET_BIND:-127.0.0.1}:443:443"
     extra_hosts:
       # This machine, where an app registered with scripts/https-app.sh listens.
       - host.docker.internal:host-gateway
@@ -177,3 +226,4 @@ services:
 
 volumes:
   plc-db:
+  slingshot-data:

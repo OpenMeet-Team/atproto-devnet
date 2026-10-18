@@ -44,7 +44,7 @@ devnet_curl() {
   _url="$1"
   shift
   _host=$(printf '%s\n' "${_url}" | sed -E 's#^https://([^/:]+).*#\1#')
-  curl -sS --resolve "${_host}:443:127.0.0.1" --cacert "${CA}" "$@" "${_url}"
+  curl -sS --resolve "${_host}:443:${DEVNET_BIND:-127.0.0.1}" --cacert "${CA}" "$@" "${_url}"
 }
 
 # env_get <NAME> <file>: the last value of NAME in an env file, or nothing.
@@ -120,7 +120,7 @@ app_handles() {
 # each ending an app claimed. HTTPS_EXTRA_NAMES adds names (space-separated).
 leaf_names() {
   _d="${DEVNET_DOMAIN}"
-  echo "alpha.${_d} regular.${_d} prod.${_d} *.${_d} *.regular.${_d} *.prod.${_d} plc.directory *.devnet.internal"
+  echo "alpha.${_d} regular.${_d} prod.${_d} slingshot.${_d} *.${_d} *.regular.${_d} *.prod.${_d} plc.directory *.devnet.internal"
   app_handles | sed "s/.*/*.&.${_d}/"
   echo "${HTTPS_EXTRA_NAMES:-}"
 }
