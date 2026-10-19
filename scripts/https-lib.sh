@@ -178,8 +178,8 @@ render_apps() {
 }
 
 # render_page: data/https/nginx/globe.json, what page/index.html shows at https://<domain>/.
-# A globe's page lists a globe's services (stamp.sh writes its globe.json); this names the
-# devnet's own, their health relays in page/devnet.conf, and the apps https-app.sh routed.
+# It names the devnet's own services, their health relays in page/devnet.conf, and the apps
+# https-app.sh routed.
 # App names are DNS labels, so they need no JSON escaping.
 render_page() {
   _apps="${HTTPS_DIR}/apps"

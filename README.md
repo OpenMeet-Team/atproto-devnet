@@ -702,13 +702,11 @@ handle: `https-account.sh` refuses it. To recreate `slingshot-dns`, recreate `sl
 
 ### The network's page
 
-`https://devnet.test/` is the same page a globe serves at `<globe>.snowglobe.at` (`page/index.html`,
-see `k8s/`): every service and its health, every account on the three PDSes, the apps
-`https-app.sh` routed, and the network's writes from Jetstream, the last week's and then live. nginx
-serves it with this stack's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
+`https://devnet.test/` is the network's own page (`page/index.html`): every service and its
+health, every account on the three PDSes, the apps `https-app.sh` routed, and the network's writes
+from Jetstream, the last week's and then live. nginx serves it with this stack's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
 asks nothing but `devnet.test`. `https-up.sh` and `https-app.sh` write what it lists into
-`data/https/nginx/globe.json`; a globe's own `globe.json` (from `k8s/stamp.sh`) names the globe's
-services instead. Open it from a browser set up as in [From a browser on your own
+`data/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
 computer](#from-a-browser-on-your-own-computer), or `scripts/https-run curl -s https://devnet.test/globe.json`.
 
 ### PDSls: browsing the network's records
