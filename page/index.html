@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snowglobe network</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --panel: #ffffff; --text: #1b1f24; --muted: #5b6470; --line: #dde1e6;
+    --accent: #2f6fd6; --ok: #1f8a4c; --warn: #b7791f; --bad: #c53030; --banner: #fff4d6; --banner-text: #6b4a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --panel: #1a1f26; --text: #e6e9ee; --muted: #9aa4b1; --line: #2c333d;
+      --accent: #7aa7ff; --ok: #4cc38a; --warn: #e0b04a; --bad: #f07171; --banner: #3a2f12; --banner-text: #f3dc9b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  p { margin: 0 0 8px; }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); }
+  .banner { background: var(--banner); color: var(--banner-text); border-radius: 8px; padding: 10px 14px; margin: 16px 0; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.85rem; border-top: none; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+  .apps { display: flex; flex-wrap: wrap; gap: 8px; }
+  .apps a { display: inline-block; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; text-decoration: none; }
+  .scroll { overflow-x: auto; }
+  .handle { overflow-wrap: anywhere; }
+  #feed { max-height: 360px; overflow-y: auto; }
+  .stat { font-size: 1.4rem; font-weight: 600; margin-right: 4px; }
+  @media (max-width: 600px) { .hide-narrow { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Snowglobe network</h1>
+  <p class="muted" id="subtitle"></p>
+  <div class="banner">Demo only. Everything on this network is test data and may be lost at any time.</div>
+
+  <section>
+    <h2>What this is</h2>
+    <p id="about">A sealed atproto network: its own account server, directory, relay and feed. It has no route to the
+      public internet, and its accounts live in its own directory, not the public one, so nothing here
+      reaches Bluesky and Bluesky cannot find anything here. Apps point at it to test against real
+      protocol services without touching real people's data.</p>
+  </section>
+
+  <section>
+    <h2>Apps on this network</h2>
+    <div class="apps" id="apps"><span class="muted">None attached.</span></div>
+  </section>
+
+  <section>
+    <h2>Services and health</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Service</th><th class="hide-narrow">What it does</th><th>Health</th></tr></thead>
+        <tbody id="services"></tbody>
+      </table>
+    </div>
+    <p class="muted" id="checked"></p>
+  </section>
+
+  <section>
+    <h2>Accounts</h2>
+    <p class="muted"><span id="accounts-note">Every account on the network: people on the account server, groups on the group host.</span>
+      Logins for the seeded test people are kept by the network's operator, not on this page.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Account</th><th>Kind</th></tr></thead>
+        <tbody id="accounts"><tr><td colspan="2" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Activity</h2>
+    <p><span class="stat" id="count">0</span><span class="muted">writes in the last week, newest first, then live</span>
+      <span class="muted" id="stream"></span></p>
+    <div class="scroll" id="feed">
+      <table>
+        <thead><tr><th>Time</th><th>Account</th><th>What</th></tr></thead>
+        <tbody id="events"><tr><td colspan="3" class="muted">Waiting for the next write on the network…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  // A globe's services. A network that differs (the local devnet) lists its own in globe.json as
+  // "services": [label, name, health key, what it does] each, where a name with a dot is a whole host
+  // name, one without hangs from the network's domain, and an empty one gets no link.
+  var SERVICES = [
+    ["Account server", "alpha", "pds", "Holds people's accounts and their records"],
+    ["Directory", "plc", "plc", "Maps each DID to its keys and account server"],
+    ["Relay", "relay", "relay", "Collects every account server's changes into one stream"],
+    ["Feed", "jetstream", "jetstream", "The relay's stream as JSON, for apps (and this page)"],
+    ["Handle lookup", "slingshot", "slingshot", "Resolves handles and records from this network only"],
+    ["Group host", "grouphost", "grouphost", "Holds groups, which are accounts of their own"],
+    ["Images", "cdn", "cdn", "Serves account images in Bluesky's CDN shape"],
+    ["Sync", "tap", "tap", "Backfills and syncs repos; locked by its admin password"]
+  ];
+  // Where each kind of account is listed: [relay path, kind]. globe.json may give its own as "accounts".
+  var ACCOUNTS = [["/people", "person"], ["/groups", "group"]];
+  var handles = {};
+
+  function el(tag, attrs, text) {
+    var e = document.createElement(tag);
+    for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function row(cells) {
+    var tr = el("tr");
+    cells.forEach(function (c) { var td = el("td"); if (c instanceof Node) td.appendChild(c); else td.textContent = c; tr.appendChild(td); });
+    return tr;
+  }
+  function getJSON(path) {
+    return fetch(path, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+
+  function health(domain, services) {
+    var body = document.getElementById("services");
+    body.textContent = "";
+    var marks = services.map(function (s) {
+      var dot = el("span", { "class": "dot" });
+      var status = el("span", {}, "checking");
+      var cell = el("span"); cell.appendChild(dot); cell.appendChild(status);
+      var name = el("div");
+      name.appendChild(el("div", {}, s[0]));
+      if (s[1]) {
+        var host = s[1].indexOf(".") >= 0 ? s[1] : s[1] + "." + domain;
+        name.appendChild(el("a", { "class": "mono", href: "https://" + host + "/" }, host));
+      }
+      var tr = row([name, s[3], cell]);
+      tr.children[1].className = "hide-narrow muted";
+      body.appendChild(tr);
+      return { key: s[2], dot: dot, status: status };
+    });
+    function check() {
+      marks.forEach(function (m) {
+        fetch("/health/" + m.key, { cache: "no-store" }).then(function (r) {
+          m.dot.className = "dot " + (r.ok ? "ok" : "bad");
+          m.status.textContent = r.ok ? (m.key === "tap" ? "up (locked)" : "up") : "down (" + r.status + ")";
+        }).catch(function () { m.dot.className = "dot bad"; m.status.textContent = "no answer"; });
+      });
+      document.getElementById("checked").textContent = "Checked " + new Date().toLocaleTimeString() + "; again every 30 seconds.";
+    }
+    check();
+    setInterval(check, 30000);
+  }
+
+  function listAll(base) {
+    var out = [];
+    function page(cursor) {
+      var q = base + "/listRepos?limit=100" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : "");
+      return getJSON(q).then(function (d) {
+        var repos = d.repos || [];
+        out = out.concat(repos);
+        return repos.length === 100 && d.cursor ? page(d.cursor) : out;
+      });
+    }
+    return page("");
+  }
+  function accounts(kinds) {
+    var body = document.getElementById("accounts");
+    return Promise.all(kinds.map(function (k) {
+      return listAll(k[0]).then(function (repos) {
+        return Promise.all(repos.map(function (r) {
+          return getJSON(k[0] + "/describeRepo?repo=" + encodeURIComponent(r.did))
+            .then(function (d) { return { did: r.did, handle: d.handle, kind: k[1], active: r.active }; })
+            .catch(function () { return { did: r.did, handle: "", kind: k[1], active: r.active }; });
+        }));
+      }).catch(function () { return [{ error: k[1] }]; });
+    })).then(function (lists) {
+      body.textContent = "";
+      var all = [].concat.apply([], lists);
+      all.sort(function (a, b) { return (a.kind + a.handle).localeCompare(b.kind + b.handle); });
+      all.forEach(function (a) {
+        if (a.error) { body.appendChild(row(["Could not list the " + a.error + " accounts", ""])); return; }
+        if (a.handle) handles[a.did] = a.handle;
+        var who = el("div");
+        who.appendChild(el("div", { "class": "handle" }, a.handle || "(no handle)"));
+        who.appendChild(el("div", { "class": "mono muted" }, a.did));
+        body.appendChild(row([who, a.kind + (a.active === false ? ", inactive" : "")]));
+      });
+      if (!all.length) body.appendChild(row(["No accounts yet", ""]));
+    });
+  }
+
+  // feed: the Jetstream subscribe URL; a path is taken on this page's own host.
+  function activity(feed) {
+    var body = document.getElementById("events");
+    // Start a week back, so a quiet network still shows what it did lately (Jetstream replays what it
+    // still holds); a reconnect resumes from the last event seen. Older events are dropped here.
+    var since = (Date.now() - 7 * 86400 * 1000) * 1000;
+    var count = 0, first = true, wait = 1000, cursor = since;
+    var stream = document.getElementById("stream");
+    function connect() {
+      var ws = new WebSocket(feed + "?cursor=" + cursor);
+      ws.onopen = function () { stream.textContent = " · live"; wait = 1000; };
+      ws.onclose = function () {
+        stream.textContent = " · reconnecting";
+        setTimeout(connect, wait);
+        wait = Math.min(wait * 2, 30000);
+      };
+      ws.onmessage = function (m) {
+        var e; try { e = JSON.parse(m.data); } catch (x) { return; }
+        if (e.time_us) { if (e.time_us < since) return; cursor = e.time_us; }
+        var what;
+        if (e.kind === "commit" && e.commit) what = e.commit.operation + " " + e.commit.collection;
+        else if (e.kind === "identity") what = "identity update";
+        else if (e.kind === "account") what = "account " + (e.account && e.account.active === false ? "deactivated" : "active");
+        else return;
+        if (first) { body.textContent = ""; first = false; }
+        count += 1;
+        document.getElementById("count").textContent = String(count);
+        var t = e.time_us ? new Date(e.time_us / 1000) : new Date();
+        var who = handles[e.did] || (e.identity && e.identity.handle) || e.did;
+        var when = t.toDateString() === new Date().toDateString() ? t.toLocaleTimeString() : t.toLocaleString();
+        body.insertBefore(row([when, who, el("span", { "class": "mono" }, what)]), body.firstChild);
+        while (body.children.length > 50) body.removeChild(body.lastChild);
+      };
+    }
+    connect();
+  }
+
+  getJSON("/globe.json").then(function (g) {
+    document.title = g.globe + " · Snowglobe network";
+    document.getElementById("title").textContent = g.globe;
+    document.getElementById("subtitle").textContent = "A Snowglobe network at " + g.domain;
+    var apps = document.getElementById("apps");
+    if (g.apps && g.apps.length) {
+      apps.textContent = "";
+      g.apps.forEach(function (a) { apps.appendChild(el("a", { href: a.url }, a.name)); });
+    }
+    if (g.about) document.getElementById("about").textContent = g.about;
+    if (g.accountsNote) document.getElementById("accounts-note").textContent = g.accountsNote;
+    var feed = g.feed || "wss://jetstream." + g.domain + "/subscribe";
+    if (feed.charAt(0) === "/") feed = "wss://" + location.host + feed;
+    health(g.domain, g.services || SERVICES);
+    // The feed names accounts by handle, so it waits for the account list.
+    accounts(g.accounts || ACCOUNTS).catch(function () {}).then(function () { activity(feed); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -123,10 +123,11 @@ app_handles() {
 
 # leaf_names: every name the leaf carries, one or more per line. A TLS wildcard covers one
 # label, so each handle domain has its own: the three PDSes', and *.<ending>.<domain> for
-# each ending an app claimed. HTTPS_EXTRA_NAMES adds names (space-separated).
+# each ending an app claimed. The bare domain, where the network's page is, needs its own
+# too. HTTPS_EXTRA_NAMES adds names (space-separated).
 leaf_names() {
   _d="${DEVNET_DOMAIN}"
-  echo "alpha.${_d} regular.${_d} prod.${_d} slingshot.${_d} *.${_d} *.regular.${_d} *.prod.${_d} plc.directory *.devnet.internal"
+  echo "${_d} alpha.${_d} regular.${_d} prod.${_d} slingshot.${_d} *.${_d} *.regular.${_d} *.prod.${_d} plc.directory *.devnet.internal"
   app_handles | sed "s/.*/*.&.${_d}/"
   echo "${HTTPS_EXTRA_NAMES:-}"
 }
@@ -149,7 +150,8 @@ leaf_lacks() {
 # render_apps: nginx's app routes, from data/https/apps (lines of "<name> <port>
 # [<ending>]"), into data/https/nginx/: one upstream per app at host.docker.internal:<port>
 # and, for an app that claimed a handle ending, a server for *.<ending>.<domain> (apps.conf),
-# and one map line per name (apps.map). See https/nginx.conf.template.
+# and one map line per name (apps.map). See https/nginx.conf.template. Also the network
+# page's globe.json, which links each app (render_page).
 render_apps() {
   mkdir -p "${HTTPS_DIR}/nginx"
   _apps="${HTTPS_DIR}/apps"
@@ -172,4 +174,40 @@ render_apps() {
   } > "${_out}/apps.map.tmp"
   mv "${_out}/apps.conf.tmp" "${_out}/apps.conf"
   mv "${_out}/apps.map.tmp" "${_out}/apps.map"
+  render_page
+}
+
+# render_page: data/https/nginx/globe.json, what page/index.html shows at https://<domain>/.
+# A globe's page lists a globe's services (stamp.sh writes its globe.json); this names the
+# devnet's own, their health relays in page/devnet.conf, and the apps https-app.sh routed.
+# App names are DNS labels, so they need no JSON escaping.
+render_page() {
+  _apps="${HTTPS_DIR}/apps"
+  _json=""
+  if [ -f "${_apps}" ]; then
+    _json="$(awk 'NF >= 2 { printf "%s{\"name\": \"%s\", \"url\": \"https://%s.devnet.internal\"}", (n++ ? ", " : ""), $1, $1 }' "${_apps}")"
+  fi
+  cat > "${HTTPS_DIR}/nginx/globe.json.tmp" <<JSON
+{
+  "globe": "Local devnet",
+  "domain": "${DEVNET_DOMAIN}",
+  "apps": [${_json}],
+  "about": "An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under scripts/https-run reach it at the real network's names.",
+  "accountsNote": "Every account on the network, on each of its three account servers.",
+  "feed": "/subscribe",
+  "services": [
+    ["Account server", "alpha", "pds", "The spaces alpha: people's accounts and their records"],
+    ["Account server", "regular", "regular", "A current release, which serves no spaces"],
+    ["Account server", "prod", "prod", "The build run in production"],
+    ["Directory", "", "plc", "Maps each DID to its keys and account server; plc.directory under https-run"],
+    ["Relay", "", "relay", "Collects every account server's changes into one stream"],
+    ["Feed", "", "jetstream", "The relay's stream as JSON, for apps (and this page)"],
+    ["Handle lookup", "slingshot", "slingshot", "Resolves handles and records from this network only"],
+    ["Sync", "", "sync", "TAP: backfills and syncs repos"],
+    ["Mail", "", "mail", "Catches every message the account servers send"]
+  ],
+  "accounts": [["/people", "person, alpha"], ["/people/regular", "person, regular"], ["/people/prod", "person, prod"]]
+}
+JSON
+  mv "${HTTPS_DIR}/nginx/globe.json.tmp" "${HTTPS_DIR}/nginx/globe.json"
 }

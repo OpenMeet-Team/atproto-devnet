@@ -600,6 +600,7 @@ runs against it with no devnet code:
 | `prod.devnet.test`, `*.prod.devnet.test` | `pds-prod`, the build you run in prod, and its handles |
 | `plc.directory` | this stack's own PLC |
 | `slingshot.devnet.test` | `slingshot`, which answers a handle's DID and PDS (below) |
+| `devnet.test` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
 | `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
 | `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/https-app.sh`, for the handles it hands out |
 
@@ -641,6 +642,17 @@ the network namespace of `slingshot-dns` (the way the extra PDSes share the alph
 that answers nginx's address for any name under `DEVNET_DOMAIN` and nothing else, and its only
 root is the devnet CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
 handle: `https-account.sh` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
+
+### The network's page
+
+`https://devnet.test/` is the same page a globe serves at `<globe>.snowglobe.at` (`page/index.html`,
+see `k8s/`): every service and its health, every account on the three PDSes, the apps
+`https-app.sh` routed, and the network's writes from Jetstream, the last week's and then live. nginx
+serves it with this stack's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
+asks nothing but `devnet.test`. `https-up.sh` and `https-app.sh` write what it lists into
+`data/https/nginx/globe.json`; a globe's own `globe.json` (from `k8s/stamp.sh`) names the globe's
+services instead. Open it from a browser set up as in [From a browser on your own
+computer](#from-a-browser-on-your-own-computer), or `scripts/https-run curl -s https://devnet.test/globe.json`.
 
 ### Up and down
 
@@ -687,13 +699,14 @@ a new DID.
 
 - `data/devnet.env`: the devnet's own facts, nothing secret. `ALPHA_PDS_URL`, `REGULAR_PDS_URL`,
   `PROD_PDS_URL`, `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
-  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN` and
-  `DEVNET_CA_FILE`.
+  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN`,
+  `PAGE_URL` (`https://devnet.test/`) and `DEVNET_CA_FILE`.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
 - `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the tools below add.
 - `data/https/`: `ca.crt` and `ca.key` (the CA), `leaf.crt` and `leaf.key` (what nginx serves),
-  `names` (the handles `https-run` maps), `apps` and `nginx/` (the app routes), and `hosts` (the
+  `names` (the handles `https-run` maps), `apps` and `nginx/` (the app routes and the page's
+  `globe.json`), and `hosts` (the
   hosts file `https-run` last generated).
 
 ### Running a command against it: `https-run`
@@ -837,7 +850,7 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 
 `scripts/https-ca.sh` makes the CA once. `https-up.sh` runs it when there is no leaf, or when the
 leaf does not name `*.devnet.internal`. Rerunning it keeps the CA and only reissues the leaf, so a
-browser or OS that trusts `ca.crt` keeps trusting the devnet. The leaf names the three PDSes,
+browser or OS that trusts `ca.crt` keeps trusting the devnet. The leaf names `devnet.test` itself, the three PDSes,
 `slingshot.devnet.test`, `*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory`,
 `*.devnet.internal`, and `*.<ending>.devnet.test` for each handle ending an app claimed; a TLS
 wildcard covers one label, so each handle domain needs its own. `https-app.sh` reissues the leaf
@@ -863,10 +876,10 @@ nginx runs in the dev container. To use the devnet from a browser on the host:
 
    ```
    rem cmd.exe; in PowerShell, write $env:TEMP for %TEMP%
-   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP *.devnet.test 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
+   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP devnet.test 127.0.0.1, MAP *.devnet.test 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
    ```
 
-   A wildcard rule also covers the three PDS names. Hosts-file entries work too, one name at a time;
+   The wildcard rule covers the three PDS names; the bare `devnet.test`, the network's page, needs its own. Hosts-file entries work too, one name at a time;
    they need admin, and they point `plc.directory` at the devnet for every program on the computer
    until you remove the line.
 3. **Trust the CA, once.** If your host already trusts this `ca.crt`, there is nothing to do:

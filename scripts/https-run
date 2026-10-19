@@ -3,8 +3,8 @@ set -eu
 
 # Run a command as if the https devnet were the real network, for that command's
 # process tree only:
-#   - the three PDS names (alpha.devnet.test, regular.devnet.test, prod.devnet.test,
-#     under DEVNET_DOMAIN if it is set; scripts/https-lib.sh),
+#   - the network's page (devnet.test) and the three PDS names (alpha.devnet.test,
+#     regular.devnet.test, prod.devnet.test, all under DEVNET_DOMAIN if it is set; scripts/https-lib.sh),
 #     plc.directory, every handle in data/https/names (scripts/https-account.sh and
 #     https-up.sh add them) and every app in data/https/apps, as <name>.devnet.internal
 #     (scripts/https-app.sh), resolve to 127.0.0.1, where nginx answers on 443;
@@ -40,7 +40,7 @@ fi
 
 # In a subshell: https-lib.sh sets ROOT_DIR, DATA_DIR and the like, and where the caller
 # exported one of those, the command would see ours instead.
-NAMES="$(. "${SCRIPT_DIR}/https-lib.sh" && echo "$(pds_name alpha) $(pds_name regular) $(pds_name prod)")"
+NAMES="$(. "${SCRIPT_DIR}/https-lib.sh" && echo "${DEVNET_DOMAIN} $(pds_name alpha) $(pds_name regular) $(pds_name prod)")"
 NAMES="${NAMES} plc.directory"
 if [ -f "${DATA}/names" ]; then
   NAMES="${NAMES} $(grep -E '^[A-Za-z0-9.-]+$' "${DATA}/names" | tr '\n' ' ')"

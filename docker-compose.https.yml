@@ -18,6 +18,7 @@
 #   prod.devnet.test     *.prod.devnet.test      pds-prod     the build you run in prod
 #   plc.directory                                plc          this stack's PLC
 #   slingshot.devnet.test                        slingshot    handle and DID lookups (resolveMiniDoc)
+#   devnet.test                                  nginx        the network's page (page/), as a globe has
 #   <name>.devnet.internal                       an app on this machine, at the port
 #                                                scripts/https-app.sh recorded for <name>
 #
@@ -210,8 +211,12 @@ services:
       - ./https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./data/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
       - ./data/https/leaf.key:/etc/nginx/https/leaf.key:ro
-      # The app routes scripts/https-app.sh writes (a directory, so a rewrite shows up).
+      # The app routes and the page's globe.json, which scripts/https-app.sh writes (a
+      # directory, so a rewrite shows up).
       - ./data/https/nginx:/etc/nginx/devnet:ro
+      # The network's page, the one a globe serves, and this stack's relays for it.
+      - ./page/index.html:/srv/page/index.html:ro
+      - ./page/devnet.conf:/etc/nginx/page/devnet.conf:ro
     networks:
       atproto-devnet:
         aliases:
