@@ -971,7 +971,8 @@ address and any port but 443.
    - Linux (GNOME): Settings, Network, Network Proxy, Automatic, with the URL.
    - Firefox: Settings, Network Settings, "Use system proxy settings" (the default, but check it:
      any other choice ignores the Windows setting). Or, for Firefox alone, "Automatic proxy
-     configuration URL" with the same URL. Restart Firefox after changing the system setting.
+     configuration URL" with the same URL. Both browsers pick up a change to the Windows setting on
+     the next page load; no restart.
 
 **Then** open `https://devnet.test/`, the network's page. Its apps link to themselves, for instance
 `https://atmo.devnet.internal` once atmo is routed (below).
