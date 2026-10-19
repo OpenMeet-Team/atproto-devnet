@@ -40,7 +40,7 @@ fi
 
 # In a subshell: https-lib.sh sets ROOT_DIR, DATA_DIR and the like, and where the caller
 # exported one of those, the command would see ours instead.
-NAMES="$(. "${SCRIPT_DIR}/https-lib.sh" && d="${DEVNET_DOMAIN}" && echo "${d} $(pds_name alpha) $(pds_name regular) $(pds_name prod) slingshot.${d} plc.${d} relay.${d} jetstream.${d}")"
+NAMES="$(. "${SCRIPT_DIR}/https-lib.sh" && d="${DEVNET_DOMAIN}" && echo "${d} $(pds_name alpha) $(pds_name regular) $(pds_name prod) slingshot.${d} plc.${d} relay.${d} jetstream.${d} pdsls.${d}")"
 NAMES="${NAMES} plc.directory"
 if [ -f "${DATA}/names" ]; then
   NAMES="${NAMES} $(grep -E '^[A-Za-z0-9.-]+$' "${DATA}/names" | tr '\n' ' ')"

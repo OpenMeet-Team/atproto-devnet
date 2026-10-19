@@ -1,0 +1,294 @@
+From c6cdd20285d5d8cc029b2c7178f4c2e1d8ac12b8 Mon Sep 17 00:00:00 2001
+From: Tom Scanlan <tompscanlan@gmail.com>
+Date: Mon, 19 Oct 2026 15:43:08 -0400
+Subject: [PATCH] network: a host page can point PDSls at another atproto
+ network
+
+globalThis.PDSLS_NETWORK, set before the app loads, gives the PLC directory,
+DNS-over-HTTPS resolver, a fixed lexicon authority, the Bluesky API, Constellation,
+the stream instances, and whether to sign in with client metadata at the page's
+own origin. Unset, every address is the public network's, as before. null turns a
+feature off, so a private network falls back to no public service.
+---
+ src/auth/oauth-config.ts    |  8 ++++--
+ src/auth/session-manager.ts |  4 ++-
+ src/components/search.tsx   |  8 +++---
+ src/lib/api.ts              | 49 +++++++++++++++++++++++++------------
+ src/lib/network.ts          | 37 ++++++++++++++++++++++++++++
+ src/views/settings.tsx      |  3 ++-
+ src/views/stream/config.ts  |  7 +++---
+ 7 files changed, 91 insertions(+), 25 deletions(-)
+ create mode 100644 src/lib/network.ts
+
+diff --git a/src/auth/oauth-config.ts b/src/auth/oauth-config.ts
+index 95afb85..30188cd 100644
+--- a/src/auth/oauth-config.ts
++++ b/src/auth/oauth-config.ts
+@@ -2,6 +2,7 @@ import { LocalActorResolver } from "@atcute/identity-resolver";
+ import { configureOAuth } from "@atcute/oauth-browser-client";
+ 
+ import { didDocumentResolver, handleResolver } from "../lib/api";
++import { network } from "../lib/network";
+ 
+ const reactiveDidDocumentResolver = {
+   resolve: async (did: string) => didDocumentResolver().resolve(did as any),
+@@ -9,8 +10,11 @@ const reactiveDidDocumentResolver = {
+ 
+ configureOAuth({
+   metadata: {
+-    client_id: import.meta.env.VITE_OAUTH_CLIENT_ID,
+-    redirect_uri: import.meta.env.VITE_OAUTH_REDIRECT_URL,
++    // A host that serves its own client metadata signs in as itself, wherever it is served.
++    client_id: network.oauthAtOrigin
++      ? `${location.origin}/oauth-client-metadata.json`
++      : import.meta.env.VITE_OAUTH_CLIENT_ID,
++    redirect_uri: network.oauthAtOrigin ? `${location.origin}/` : import.meta.env.VITE_OAUTH_REDIRECT_URL,
+   },
+   identityResolver: new LocalActorResolver({
+     handleResolver: handleResolver,
+diff --git a/src/auth/session-manager.ts b/src/auth/session-manager.ts
+index 4e65228..3ea2115 100644
+--- a/src/auth/session-manager.ts
++++ b/src/auth/session-manager.ts
+@@ -8,6 +8,7 @@ import {
+ } from "@atcute/oauth-browser-client";
+ 
+ import { resolveDidDoc } from "../lib/api";
++import { network } from "../lib/network";
+ import { oauthScopeStringToIds, scopeIdsToString } from "./scope-utils";
+ import { Sessions, setAgent, setSessions } from "./state";
+ 
+@@ -21,8 +22,9 @@ export const loadSessionsFromStorage = (): Sessions | null => {
+ };
+ 
+ export const getAvatar = async (did: Did): Promise<string | undefined> => {
++  if (!network.appviewUrl) return undefined;
+   const rpc = new Client({
+-    handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
++    handler: simpleFetchHandler({ service: network.appviewUrl }),
+   });
+   const res = await rpc.get("app.bsky.actor.getProfile", { params: { actor: did } });
+   if (res.ok) {
+diff --git a/src/components/search.tsx b/src/components/search.tsx
+index 16039aa..b049d21 100644
+--- a/src/components/search.tsx
++++ b/src/components/search.tsx
+@@ -16,6 +16,7 @@ import { agent, avatars, sessions } from "../auth/state.js";
+ import { resolveLexiconAuthority, resolveLexiconAuthorityDirect } from "../lib/api";
+ import { appHandleLink, appList, AppUrl } from "../lib/app-urls";
+ import { createDebouncedValue } from "../lib/debounced";
++import { network } from "../lib/network";
+ import { carFileAccept, createFileChangeHandler } from "../views/car/file-handlers.js";
+ import { queueCarFile } from "../views/car/state.js";
+ 
+@@ -92,9 +93,9 @@ const recentIcon = (type: RecentSearch["type"]) => {
+ 
+ export const Search = () => {
+   const navigate = useNavigate();
+-  const rpc = new Client({
+-    handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
+-  });
++  const rpc = network.appviewUrl
++    ? new Client({ handler: simpleFetchHandler({ service: network.appviewUrl }) })
++    : null;
+ 
+   let searchRoot!: HTMLDivElement;
+   let searchPanel!: HTMLDivElement;
+@@ -116,6 +117,7 @@ export const Search = () => {
+     const actorQuery = prefix === "@" ? query : value;
+     if (!actorQuery.length || actorQuery.includes("/") || /^https?:/i.test(actorQuery)) return [];
+ 
++    if (!rpc) return [];
+     const response = await rpc.get("app.bsky.actor.searchActorsTypeahead", {
+       params: { q: actorQuery, limit: 5 },
+     });
+diff --git a/src/lib/api.ts b/src/lib/api.ts
+index a706ebc..8ca2c95 100644
+--- a/src/lib/api.ts
++++ b/src/lib/api.ts
+@@ -23,6 +23,7 @@ import { createMemo } from "solid-js";
+ import { createStore } from "solid-js/store";
+ 
+ import { plcDirectory } from "../views/settings";
++import { network } from "./network";
+ 
+ const proxyFetch = (rewrite: (url: URL) => string): typeof fetch => {
+   return async (input, init) => {
+@@ -61,17 +62,26 @@ export const didDocumentResolver = createMemo(
+     }),
+ );
+ 
+-export const handleResolver = new CompositeHandleResolver({
+-  strategy: "dns-first",
+-  methods: {
+-    dns: new DohJsonHandleResolver({ dohUrl: "https://dns.google/resolve?", fetch: dnsProxyFetch }),
+-    http: new WellKnownHandleResolver({ fetch: handleHttpProxyFetch }),
+-  },
+-});
+-
+-const authorityResolver = new DohJsonLexiconAuthorityResolver({
+-  dohUrl: "https://dns.google/resolve?",
+-});
++// With no DNS on the network, a handle is resolved over HTTP only.
++export const handleResolver = network.dohUrl
++  ? new CompositeHandleResolver({
++      strategy: "dns-first",
++      methods: {
++        dns: new DohJsonHandleResolver({ dohUrl: network.dohUrl, fetch: dnsProxyFetch }),
++        http: new WellKnownHandleResolver({ fetch: handleHttpProxyFetch }),
++      },
++    })
++  : new WellKnownHandleResolver({ fetch: handleHttpProxyFetch });
++
++const authorityResolver = network.lexiconAuthority
++  ? { resolve: async (_nsid: Nsid) => network.lexiconAuthority as AtprotoDid }
++  : network.dohUrl
++    ? new DohJsonLexiconAuthorityResolver({ dohUrl: network.dohUrl })
++    : {
++        resolve: async (_nsid: Nsid): Promise<AtprotoDid> => {
++          throw new Error("No lexicon authority lookups on this network");
++        },
++      };
+ 
+ const schemaResolver = createMemo(
+   () =>
+@@ -153,7 +163,9 @@ const resolveLexiconAuthority = async (nsid: Nsid) => {
+ };
+ 
+ const resolveLexiconAuthorityDirect = async (authority: string) => {
+-  const dohUrl = "https://dns.google/resolve?";
++  if (network.lexiconAuthority) return network.lexiconAuthority;
++  const dohUrl = network.dohUrl;
++  if (!dohUrl) throw new Error("No lexicon authority lookups on this network");
+   const reversedAuthority = authority.split(".").reverse().join(".");
+   const domain = `_lexicon.${reversedAuthority}`;
+   const url = new URL(dohUrl);
+@@ -263,7 +275,8 @@ const getConstellation = async (
+   cursor?: string,
+   limit?: number,
+ ) => {
+-  const url = new URL("https://constellation.microcosm.blue");
++  if (!network.constellationUrl) throw new Error("Backlinks are not available on this network");
++  const url = new URL(network.constellationUrl);
+   url.pathname = endpoint;
+   url.searchParams.set("target", target);
+   if (collection) {
+@@ -299,11 +312,17 @@ export interface HandleResolveResult {
+ }
+ 
+ export const resolveHandleDetailed = async (handle: Handle) => {
+-  const dnsResolver = new DohJsonHandleResolver({ dohUrl: "https://dns.google/resolve?" });
++  const dnsResolver = network.dohUrl
++    ? new DohJsonHandleResolver({ dohUrl: network.dohUrl })
++    : {
++        resolve: async (_handle: Handle): Promise<AtprotoDid> => {
++          throw new Error("No DNS lookups on this network");
++        },
++      };
+   const httpResolver = new WellKnownHandleResolver({ fetch: handleHttpProxyFetch });
+ 
+   const tryResolve = async (
+-    resolver: DohJsonHandleResolver | WellKnownHandleResolver,
++    resolver: { resolve: (handle: Handle) => Promise<string> },
+     timeoutMs: number = 5000,
+   ): Promise<HandleResolveResult> => {
+     try {
+diff --git a/src/lib/network.ts b/src/lib/network.ts
+new file mode 100644
+index 0000000..cc75ea4
+--- /dev/null
++++ b/src/lib/network.ts
+@@ -0,0 +1,37 @@
++// The atproto network PDSls looks at. A host page can point it at a private network (a devnet, a
++// sandbox) by setting globalThis.PDSLS_NETWORK before the app loads; unset, every address is the
++// public network's, as before. A setting given as null turns its feature off, for a network that
++// has no such service, so nothing falls back to a public one.
++type NetworkSettings = {
++  /** Default PLC directory (a visitor can still change it in settings). */
++  plcDirectory?: string;
++  /** DNS-over-HTTPS resolver for handles and lexicon authorities; null: no DNS lookups. */
++  dohUrl?: string | null;
++  /** A DID that answers for every NSID, for a network whose lexicons have no DNS. */
++  lexiconAuthority?: string;
++  /** Bluesky API for actor search and avatars; null: off. */
++  appviewUrl?: string | null;
++  /** Constellation, for backlinks; null: off. */
++  constellationUrl?: string | null;
++  /** Default stream instances; null: that stream is off. */
++  jetstreamUrl?: string | null;
++  firehoseUrl?: string | null;
++  spacedustUrl?: string | null;
++  /** Sign in with a client whose metadata is at this page's own origin. */
++  oauthAtOrigin?: boolean;
++};
++
++const given: NetworkSettings = (globalThis as { PDSLS_NETWORK?: NetworkSettings }).PDSLS_NETWORK ?? {};
++const pick = <T>(value: T | undefined, fallback: T): T => (value === undefined ? fallback : value);
++
++export const network = {
++  plcDirectory: given.plcDirectory ?? "https://plc.directory",
++  dohUrl: pick(given.dohUrl, "https://dns.google/resolve?"),
++  lexiconAuthority: given.lexiconAuthority,
++  appviewUrl: pick(given.appviewUrl, "https://public.api.bsky.app"),
++  constellationUrl: pick(given.constellationUrl, "https://constellation.microcosm.blue"),
++  jetstreamUrl: pick(given.jetstreamUrl, "wss://jetstream1.us-east.bsky.network/subscribe"),
++  firehoseUrl: pick(given.firehoseUrl, "wss://bsky.network"),
++  spacedustUrl: pick(given.spacedustUrl, "wss://spacedust.microcosm.blue/subscribe"),
++  oauthAtOrigin: given.oauthAtOrigin === true,
++};
+diff --git a/src/views/settings.tsx b/src/views/settings.tsx
+index bed49ff..787a60e 100644
+--- a/src/views/settings.tsx
++++ b/src/views/settings.tsx
+@@ -2,10 +2,11 @@ import { createSignal } from "solid-js";
+ 
+ import { TextInput } from "../components/text-input.jsx";
+ import { ThemeSelection } from "../components/theme.jsx";
++import { network } from "../lib/network";
+ 
+ export const [hideMedia, setHideMedia] = createSignal(localStorage.hideMedia === "true");
+ const [plcDirectory, setPlcDirectory] = createSignal(
+-  localStorage.plcDirectory || "https://plc.directory",
++  localStorage.plcDirectory || network.plcDirectory,
+ );
+ export { plcDirectory };
+ 
+diff --git a/src/views/stream/config.ts b/src/views/stream/config.ts
+index a56c540..b68bd81 100644
+--- a/src/views/stream/config.ts
++++ b/src/views/stream/config.ts
+@@ -1,3 +1,4 @@
++import { network } from "../../lib/network";
+ import { localDateFromTimestamp } from "../../utils/format";
+ 
+ export type StreamType = "jetstream" | "firehose" | "spacedust";
+@@ -37,7 +38,7 @@ export const STREAM_CONFIGS: Record<StreamType, StreamConfig> = {
+     label: "Jetstream",
+     description: "A simplified event stream with support for collection and DID filtering.",
+     icon: "lucide--radio-tower",
+-    defaultInstance: "wss://jetstream1.us-east.bsky.network/subscribe",
++    defaultInstance: network.jetstreamUrl ?? "",
+     useFirehoseLib: false,
+     collectionsLabel: "Top Collections",
+     fields: [
+@@ -101,7 +102,7 @@ export const STREAM_CONFIGS: Record<StreamType, StreamConfig> = {
+     label: "Firehose",
+     description: "The raw event stream from a relay or PDS.",
+     icon: "lucide--rss",
+-    defaultInstance: "wss://bsky.network",
++    defaultInstance: network.firehoseUrl ?? "",
+     useFirehoseLib: true,
+     collectionsLabel: "Top Collections",
+     fields: [
+@@ -136,7 +137,7 @@ export const STREAM_CONFIGS: Record<StreamType, StreamConfig> = {
+     label: "Spacedust",
+     description: "A stream of links showing interactions across the network.",
+     icon: "lucide--sparkles",
+-    defaultInstance: "wss://spacedust.microcosm.blue/subscribe",
++    defaultInstance: network.spacedustUrl ?? "",
+     useFirehoseLib: false,
+     collectionsLabel: "Top Sources",
+     fields: [
+-- 
+2.56.0
+

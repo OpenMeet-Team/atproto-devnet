@@ -183,9 +183,10 @@ render_apps() {
 # App names are DNS labels, so they need no JSON escaping.
 render_page() {
   _apps="${HTTPS_DIR}/apps"
-  _json=""
+  # The devnet's own pdsls comes first, then each routed app.
+  _json="{\"name\": \"pdsls\", \"url\": \"https://pdsls.${DEVNET_DOMAIN}\"}"
   if [ -f "${_apps}" ]; then
-    _json="$(awk 'NF >= 2 { printf "%s{\"name\": \"%s\", \"url\": \"https://%s.devnet.internal\"}", (n++ ? ", " : ""), $1, $1 }' "${_apps}")"
+    _json="${_json}$(awk 'NF >= 2 { printf ", {\"name\": \"%s\", \"url\": \"https://%s.devnet.internal\"}", $1, $1 }' "${_apps}")"
   fi
   cat > "${HTTPS_DIR}/nginx/globe.json.tmp" <<JSON
 {
@@ -204,7 +205,8 @@ render_page() {
     ["Feed", "jetstream", "jetstream", "The relay's stream as JSON, for apps (and this page)"],
     ["Handle lookup", "slingshot", "slingshot", "Resolves handles and records from this network only"],
     ["Sync", "", "sync", "TAP: backfills and syncs repos"],
-    ["Mail", "", "mail", "Catches every message the account servers send"]
+    ["Mail", "", "mail", "Catches every message the account servers send"],
+    ["Record browser", "pdsls", "pdsls", "PDSls, for this network's repos and records"]
   ],
   "accounts": [["/people", "person, alpha"], ["/people/regular", "person, regular"], ["/people/prod", "person, prod"]]
 }

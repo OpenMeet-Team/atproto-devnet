@@ -109,6 +109,16 @@ server {
     }
 }
 
+# PDSls, the record browser apps link to (pdsls/), as a globe has it at pdsls.<globe>.
+server {
+    listen 443 ssl;
+    server_name pdsls.${DEVNET_DOMAIN};
+    location / {
+        set $pdsls http://pdsls:8080;
+        proxy_pass $pdsls;
+    }
+}
+
 # The network's own page at the bare name, as a globe serves it at <globe>.snowglobe.at: the same
 # page/index.html, with this stack's relays (page/devnet.conf) and a globe.json naming its
 # services, which scripts/https-up.sh and https-app.sh write.

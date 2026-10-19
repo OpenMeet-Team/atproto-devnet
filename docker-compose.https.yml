@@ -20,6 +20,7 @@
 #   slingshot.devnet.test                        slingshot    handle and DID lookups (resolveMiniDoc)
 #   plc.devnet.test                              plc          the same PLC, by a name under the domain
 #   relay.devnet.test, jetstream.devnet.test     relay, jetstream, for an app's browser code
+#   pdsls.devnet.test                            pdsls        the record browser apps link to
 #   devnet.test                                  nginx        the network's page (page/), as a globe has
 #   <name>.devnet.internal                       an app on this machine, at the port
 #                                                scripts/https-app.sh recorded for <name>
@@ -193,6 +194,35 @@ services:
       - atproto-devnet
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:1080/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # PDSls, the record browser apps link to, at pdsls.<domain>: built from a pinned commit with
+  # pdsls/network.patch and given this network's addresses by pdsls/server.mjs, which also answers its
+  # handle and did:web lookups through nginx, for names under the domain only.
+  pdsls:
+    build: ./pdsls
+    image: atproto-devnet-pdsls:https-1
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      PDSLS_PUBLIC_URL: https://pdsls.${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_PLC_URL: https://plc.${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_JETSTREAM_URL: wss://jetstream.${DEVNET_DOMAIN:-devnet.test}/subscribe
+      PDSLS_FIREHOSE_URL: wss://relay.${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_LEXICON_AUTHORITY: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+      PDSLS_UPSTREAM: nginx:443
+      NODE_EXTRA_CA_CERTS: /https/ca.crt
+    volumes:
+      - *devnet-ca
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/_health"]
       interval: 5s
       timeout: 3s
       retries: 10

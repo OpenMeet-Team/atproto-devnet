@@ -75,7 +75,7 @@ up_stack() {
   dc up -d
   wait_done init
   wait_done relay-init
-  dc up -d --wait postgres plc maildev pds pds-regular pds-prod nginx relay jetstream tap slingshot-dns slingshot proxy
+  dc up -d --wait postgres plc maildev pds pds-regular pds-prod nginx relay jetstream tap slingshot-dns slingshot proxy pdsls
 }
 
 # A rerun starts the PDSes with the authority they already have, so pass 1 changes nothing.

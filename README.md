@@ -656,6 +656,7 @@ runs against it with no devnet code:
 | `plc.directory` | this stack's own PLC |
 | `slingshot.devnet.test` | `slingshot`, which answers a handle's DID and PDS (below) |
 | `plc.devnet.test`, `relay.devnet.test`, `jetstream.devnet.test` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
+| `pdsls.devnet.test` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
 | `devnet.test` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
 | `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
 | `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/https-app.sh`, for the handles it hands out |
@@ -709,6 +710,24 @@ asks nothing but `devnet.test`. `https-up.sh` and `https-app.sh` write what it l
 `data/https/nginx/globe.json`; a globe's own `globe.json` (from `k8s/stamp.sh`) names the globe's
 services instead. Open it from a browser set up as in [From a browser on your own
 computer](#from-a-browser-on-your-own-computer), or `scripts/https-run curl -s https://devnet.test/globe.json`.
+
+### PDSls: browsing the network's records
+
+`https://pdsls.devnet.test/` is [PDSls](https://github.com/notjuliet/pdsls), the record browser at
+pds.ls, for this network: `https://pdsls.devnet.test/at://alice.devnet.test` shows her repo, its
+collections and records, as `https://pds.ls/at://...` does on the real network. Apps that link to
+pds.ls point their links here on a devnet or a globe. `pdsls/` builds it from a pinned upstream commit
+with `pdsls/network.patch`, which lets the page that loads it give it a network's addresses (unset,
+it is the public network's, unchanged), and `pdsls/server.mjs` serves it with this network's: the PLC
+at `plc.devnet.test`, Jetstream and the relay as the stream page's defaults, and the lexicon authority
+for every NSID. It looks up handles and `did:web` documents for names under `devnet.test` only, and
+turns off what has no stand-in here: DNS lookups, Bluesky search and avatars, backlinks, Spacedust,
+the public font host, link previews. Signing in uses a client at its own address, so editing records
+works against the devnet's PDSes.
+
+A record's Schema tab shows its lexicon when the authority holds it and pdsls's parser accepts it.
+Measured 2026-10-19: the opensocial proposal's lexicons (a `space` definition, a `space-ref` format)
+and atmo's permission set fail that parser, as they would on pds.ls; the record view is unaffected.
 
 ### Up and down
 
