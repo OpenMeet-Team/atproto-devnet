@@ -700,7 +700,8 @@ a new DID.
 - `data/devnet.env`: the devnet's own facts, nothing secret. `ALPHA_PDS_URL`, `REGULAR_PDS_URL`,
   `PROD_PDS_URL`, `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
   `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN`,
-  `PAGE_URL` (`https://devnet.test/`) and `DEVNET_CA_FILE`.
+  `PAGE_URL` (`https://devnet.test/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
+  `DEVNET_CA_FILE`.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
 - `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the tools below add.
@@ -866,7 +867,36 @@ when you're done with it.
 
 ### From a browser on your own computer
 
-nginx runs in the dev container. To use the devnet from a browser on the host:
+nginx runs in the dev container. There are two ways in from a browser on the host. The proxy is the
+one to try first: no launch flags, your usual browser, and every handle works.
+
+#### Through the devnet's proxy (Chrome, Edge, Firefox)
+
+The `proxy` service (`https/proxy/server.mjs`) is a SOCKS5 proxy and the PAC file that points at it,
+on one port, `127.0.0.1:1080` (`DEVNET_PROXY_PORT`). The PAC sends `devnet.test`, `*.devnet.test` and
+`*.devnet.internal` to the proxy and everything else direct. A browser hands a SOCKS5 proxy the name
+itself, and the proxy connects every devnet name to nginx, so a handle made a second ago resolves
+with nothing to update. It refuses any other name, any IP address and any port but 443.
+
+1. **Forward port 1080**, in VS Code's Ports view. Any host port will do: the PAC names the address
+   it was fetched from.
+2. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (with the forwarded port):
+   - Chrome and Edge follow the system's setting. On Windows: Settings, Network & internet, Proxy,
+     "Use setup script", script address the URL above.
+   - Firefox: Settings, Network Settings, "Automatic proxy configuration URL". Its default, "Use
+     system proxy settings", picks up the Windows setting too.
+3. **Trust the CA**, as in step 3 below.
+
+`proxy.pac` leaves `plc.directory` alone, so a system-wide setting does not move the real directory
+for your everyday browsing. A browser profile used only for the devnet can take
+`http://127.0.0.1:1080/proxy-with-plc.pac` instead, where `plc.directory` is this devnet's PLC, for an
+app whose browser code looks DIDs up there. Measured in the pod on 2026-10-19 with Playwright 1.59's full
+Chromium and its Firefox, each set only to the PAC URL: the page, a new handle's own name and a
+public site all loaded. Playwright's default headless shell ignores `--proxy-pac-url`; real Chrome
+and Edge are the full build. Not measured: the Windows setting itself, and whether Firefox on Windows
+trusts the CA from the Windows store without being told to.
+
+#### With launch flags (Chrome, Edge)
 
 1. **Forward port 443**, in VS Code's Ports view: container 443 to host **443** exactly. The PDS's
    URLs carry no port, and VS Code quietly picks another local port when 443 is taken, so check the

@@ -30,9 +30,10 @@
 # scripts/https-run, so every other program still reaches the real plc.directory.
 #
 # Published ports, all on 127.0.0.1: 443 (nginx), the PLC (DEVNET_PLC_PORT), Jetstream
-# (DEVNET_JETSTREAM_PORT, DEVNET_JETSTREAM_METRICS_PORT) and maildev
-# (DEVNET_MAILDEV_WEB_PORT, DEVNET_MAILDEV_SMTP_PORT). The PDS, relay, TAP and Postgres
-# ports are not published: reach a PDS by its https name.
+# (DEVNET_JETSTREAM_PORT, DEVNET_JETSTREAM_METRICS_PORT), maildev
+# (DEVNET_MAILDEV_WEB_PORT, DEVNET_MAILDEV_SMTP_PORT) and the browser proxy
+# (DEVNET_PROXY_PORT). The PDS, relay, TAP and Postgres ports are not published: reach a
+# PDS by its https name.
 
 x-devnet-ca: &devnet-ca ./data/https/ca.crt:/https/ca.crt:ro
 x-app-names: &app-names ./https/app-names.cjs:/https/app-names.cjs:ro
@@ -165,6 +166,31 @@ services:
       - slingshot-data:/data
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # A browser on another computer reaches the devnet through this, with no launch flags and no
+  # hosts file: point the browser at http://127.0.0.1:<DEVNET_PROXY_PORT>/proxy.pac and the devnet's
+  # names go to this SOCKS5 proxy, which sends each one to nginx and refuses everything else
+  # (https/proxy/server.mjs). Forward the port to the browser's machine; the CA is still trusted
+  # there as before.
+  proxy:
+    build: ./https/proxy
+    image: atproto-devnet-proxy:https-1
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      PROXY_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
+      PROXY_UPSTREAM: nginx:443
+    ports:
+      - "127.0.0.1:${DEVNET_PROXY_PORT:-1080}:1080"
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:1080/proxy.pac"]
       interval: 5s
       timeout: 3s
       retries: 10

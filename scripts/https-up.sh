@@ -32,7 +32,7 @@ fi
 # scripts/https-account.sh, https-invite.sh and https-lexicons.sh. Nothing secret is
 # printed. The tool ports come from the usual variables (DEVNET_PLC_PORT,
 # DEVNET_JETSTREAM_PORT, DEVNET_JETSTREAM_METRICS_PORT, DEVNET_MAILDEV_WEB_PORT,
-# DEVNET_MAILDEV_SMTP_PORT); pass the same ones on every run.
+# DEVNET_MAILDEV_SMTP_PORT, DEVNET_PROXY_PORT); pass the same ones on every run.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/https-lib.sh"
@@ -75,7 +75,7 @@ up_stack() {
   dc up -d
   wait_done init
   wait_done relay-init
-  dc up -d --wait postgres plc maildev pds pds-regular pds-prod nginx relay jetstream tap slingshot-dns slingshot
+  dc up -d --wait postgres plc maildev pds pds-regular pds-prod nginx relay jetstream tap slingshot-dns slingshot proxy
 }
 
 # A rerun starts the PDSes with the authority they already have, so pass 1 changes nothing.
@@ -116,6 +116,7 @@ DENV="${DATA_DIR}/devnet.env"
   echo "PLC_URL=https://plc.directory"
   echo "JETSTREAM_URL=ws://127.0.0.1:${DEVNET_JETSTREAM_PORT:-6008}"
   echo "MAILDEV_URL=http://127.0.0.1:${DEVNET_MAILDEV_WEB_PORT:-1081}"
+  echo "PROXY_PAC_URL=http://127.0.0.1:${DEVNET_PROXY_PORT:-1080}/proxy.pac"
   echo "LEX_AUTHORITY_DID=${AUTH_DID}"
   echo "LEX_AUTHORITY_HANDLE=$(env_get LEX_AUTHORITY_HANDLE "${DEVNET_ACCOUNTS}")"
   echo "DEVNET_CA_FILE=${CA}"
