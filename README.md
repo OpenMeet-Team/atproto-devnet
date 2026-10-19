@@ -404,10 +404,65 @@ HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
 - `HTTPS_RUN_EXTRA_NAMES` maps, for atmo's process, the handle of the group you are about to
   create, since `https-run` reads its names only at start.
 
-Open `https://atmo.devnet.internal` in the browser set up above. Its `*.devnet.internal` rule covers
-the name, and only port 443 needs forwarding. Sign in, then create the group under groups. The form
+Open `https://atmo.devnet.internal` in the browser set up above, or from the network's page at
+`https://devnet.test/`, which links every routed app. The proxy's PAC, or the launch flags' `*.devnet.internal` rule, covers
+the name, and only the proxy's port (or 443) needs forwarding. Sign in, then create the group under groups. The form
 mints the group's account on the alpha, then has you sign in as the group to link it. The groups
 e2e below creates a group the same way on every run, through atmo's own create.
+
+**Sealed, as on a globe.** The `deploy/snowglobe` branch of atmo runs with
+`PUBLIC_ATPROTO_SEALED=true`: it refuses to start without its network's addresses and turns off every
+public service with no stand-in. The devnet has an https name for each, so the settings mirror a
+globe's. Walked on 2026-10-19 from the network's page to atmo and a signed-in session, in Chromium
+and Firefox through the proxy, with no request leaving the devnet.
+
+1. Lexicons, from the devnet checkout: the two permission sets above, and the proposal's lexicons
+   from its `main` branch. Its `lex-refactor` branch changed `group.opensocial.meta`, and atmo's
+   sign-in then fails at the PDS with `Unable to retrieve space declarations`.
+
+   ```bash
+   mkdir -p data/proposal-main
+   git -C ../opensocial-proposal archive origin/main lexicons | tar -x -C data/proposal-main
+   ./scripts/https-lexicons.sh data/proposal-main/lexicons
+   ```
+
+   Without `dig`, look up a lexicon authority over DNS-over-HTTPS in the copy loop above:
+   `curl -s -H 'accept: application/dns-json' "https://cloudflare-dns.com/dns-query?name=_lexicon.$authority&type=TXT" | jq -r '.Answer[0].data'`.
+2. An account to sign in with, made before atmo starts: `./scripts/https-account.sh <name> <PREFIX>`.
+3. Route atmo, then from `atmo-events/apps/web` make its `.env` with its own script (it writes the
+   cookie secret and client key and prints neither), and its tables:
+
+   ```bash
+   ../../atproto-devnet/scripts/https-app.sh atmo 5454     # from apps/web; or run it from the devnet checkout
+   npx tsx src/lib/atproto/scripts/setup-dev.ts
+   pnpm exec wrangler d1 migrations apply DB --local
+   ```
+4. Add to `.env`:
+
+   ```
+   OAUTH_PUBLIC_URL=https://atmo.devnet.internal
+   PUBLIC_ATPROTO_SEALED=true
+   PUBLIC_ATPROTO_PLC_URL=https://plc.devnet.test
+   PUBLIC_ATPROTO_SLINGSHOT_URL=https://slingshot.devnet.test
+   PUBLIC_ATPROTO_JETSTREAM_URLS=wss://jetstream.devnet.test
+   PUBLIC_ATPROTO_RELAY_URLS=https://relay.devnet.test
+   PUBLIC_ATPROTO_SIGNUP_PDS=https://alpha.devnet.test
+   PUBLIC_ATPROTO_BLOB_URL_TEMPLATE=https://alpha.devnet.test/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}
+   PUBLIC_NETWORK_NOTICE=Local devnet: not Bluesky, test data only.
+   PUBLIC_NETWORK_NOTICE_URL=https://devnet.test/
+   ```
+
+   The image template reaches the alpha's own blobs only; a globe's image service finds any
+   account's server.
+5. Run it under `https-run`, on every address so nginx can reach it:
+
+   ```bash
+   __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
+     ../../atproto-devnet/scripts/https-run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
+   ```
+
+Open `https://devnet.test/` and follow its atmo link. Signing in sends you to
+`https://alpha.devnet.test` for the password and the consent page, and back to atmo.
 
 **The groups e2e.** It makes its fixtures with the same tools. From the devnet checkout, after the
 lexicons above:
@@ -600,6 +655,7 @@ runs against it with no devnet code:
 | `prod.devnet.test`, `*.prod.devnet.test` | `pds-prod`, the build you run in prod, and its handles |
 | `plc.directory` | this stack's own PLC |
 | `slingshot.devnet.test` | `slingshot`, which answers a handle's DID and PDS (below) |
+| `plc.devnet.test`, `relay.devnet.test`, `jetstream.devnet.test` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
 | `devnet.test` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
 | `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
 | `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/https-app.sh`, for the handles it hands out |
@@ -852,7 +908,7 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 `scripts/https-ca.sh` makes the CA once. `https-up.sh` runs it when there is no leaf, or when the
 leaf does not name `*.devnet.internal`. Rerunning it keeps the CA and only reissues the leaf, so a
 browser or OS that trusts `ca.crt` keeps trusting the devnet. The leaf names `devnet.test` itself, the three PDSes,
-`slingshot.devnet.test`, `*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory`,
+`slingshot.devnet.test` (and, through `*.devnet.test`, `plc.`, `relay.` and `jetstream.devnet.test`), `*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory`,
 `*.devnet.internal`, and `*.<ending>.devnet.test` for each handle ending an app claimed; a TLS
 wildcard covers one label, so each handle domain needs its own. `https-app.sh` reissues the leaf
 when it claims an ending, and `https-up.sh` when the leaf lacks any of these names. Add deeper names
@@ -863,38 +919,75 @@ under `devnet.test` is already covered. To start over, delete `data/https/ca.*` 
 The CA can only vouch for servers under `devnet.test` (the `DEVNET_DOMAIN` it was made for),
 `devnet.internal` and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
-when you're done with it.
+when you're done with it. On Windows: `certutil -user -delstore Root "<its name>"`, the name being the
+CN that `openssl x509 -in data/https/ca.crt -noout -subject` prints.
+
+Each CA made since 2026-10-19 has a name of its own, `atproto-devnet local CA <date> <hex>`; older
+ones are all `atproto-devnet local CA`. Two CAs with one name break each other: a browser that trusts
+one checks the other's certificates against the wrong key and rejects them as a bad signature, which
+it will not let you click through. So a second checkout's devnet, with a CA of its own, gets an
+ordinary unknown-issuer warning instead, until its CA is trusted too.
 
 ### From a browser on your own computer
 
-nginx runs in the dev container. There are two ways in from a browser on the host. The proxy is the
-one to try first: no launch flags, your usual browser, and every handle works.
+nginx runs in the dev container, so a browser on your own computer needs two things: a way to send
+the devnet's names to it, and trust in the devnet's CA. The proxy below does the first with a
+setting you make once, in the browser you already use. Launch flags (further down) are the older way.
 
 #### Through the devnet's proxy (Chrome, Edge, Firefox)
 
 The `proxy` service (`https/proxy/server.mjs`) is a SOCKS5 proxy and the PAC file that points at it,
 on one port, `127.0.0.1:1080` (`DEVNET_PROXY_PORT`). The PAC sends `devnet.test`, `*.devnet.test` and
-`*.devnet.internal` to the proxy and everything else direct. A browser hands a SOCKS5 proxy the name
-itself, and the proxy connects every devnet name to nginx, so a handle made a second ago resolves
-with nothing to update. It refuses any other name, any IP address and any port but 443.
+`*.devnet.internal` to the proxy and everything else direct, so the rest of your browsing is
+untouched. The browser hands the proxy the name, and the proxy connects every devnet name to nginx,
+so a handle made a second ago works with nothing to update. It refuses any other name, any IP
+address and any port but 443.
 
-1. **Forward port 1080**, in VS Code's Ports view. Any host port will do: the PAC names the address
-   it was fetched from.
-2. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (with the forwarded port):
-   - Chrome and Edge follow the system's setting. On Windows: Settings, Network & internet, Proxy,
-     "Use setup script", script address the URL above.
-   - Firefox: Settings, Network Settings, "Automatic proxy configuration URL". Its default, "Use
-     system proxy settings", picks up the Windows setting too.
-3. **Trust the CA**, as in step 3 below.
+**Once per computer:**
 
-`proxy.pac` leaves `plc.directory` alone, so a system-wide setting does not move the real directory
-for your everyday browsing. A browser profile used only for the devnet can take
-`http://127.0.0.1:1080/proxy-with-plc.pac` instead, where `plc.directory` is this devnet's PLC, for an
-app whose browser code looks DIDs up there. Measured in the pod on 2026-10-19 with Playwright 1.59's full
-Chromium and its Firefox, each set only to the PAC URL: the page, a new handle's own name and a
-public site all loaded. Playwright's default headless shell ignores `--proxy-pac-url`; real Chrome
-and Edge are the full build. Not measured: the Windows setting itself, and whether Firefox on Windows
-trusts the CA from the Windows store without being told to.
+1. **Trust the devnet's CA** (more in [The CA](#the-ca)). Copy `data/https/ca.crt` from the devnet
+   checkout to your computer, then:
+   - Windows, for Chrome, Edge and Firefox: `certutil -user -addstore Root ca.crt` (no admin; Windows
+     asks you to confirm). Firefox reads the Windows store: a Firefox on Windows set up this way
+     found the trusted CA on 2026-10-19.
+   - macOS, for Chrome, Edge and Safari:
+     `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db ca.crt`.
+     Firefox: Settings, Privacy & Security, View Certificates, Authorities, Import.
+   - Linux: Chrome and Edge read `~/.pki/nssdb`:
+     `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n atproto-devnet -i ca.crt` (from `libnss3-tools`).
+     Firefox: import it as on macOS.
+
+   Without this step the proxy still works, but each devnet name gets a certificate warning you click
+   through once, and an app's own calls from the page to a PDS fail where no one can click.
+2. **Forward the proxy's port.** In VS Code's Ports view, forward port 1080 of the dev container
+   (`DEVNET_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
+   fetched from.
+3. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (the forwarded port):
+   - Windows, for Chrome, Edge and Firefox: Settings, Network & internet, Proxy, "Use setup script",
+     with the URL as the script address.
+   - macOS: System Settings, Network, your connection, Details, Proxies, "Automatic proxy
+     configuration", with the URL.
+   - Linux (GNOME): Settings, Network, Network Proxy, Automatic, with the URL.
+   - Firefox follows the system setting by default ("Use system proxy settings"). To set it for
+     Firefox alone: Settings, Network Settings, "Automatic proxy configuration URL".
+
+**Then** open `https://devnet.test/`, the network's page. Its apps link to themselves, for instance
+`https://atmo.devnet.internal` once atmo is routed (below).
+
+**When you are done**, turn the setting off, or leave it: it sends only devnet names anywhere, and
+those fail anyway while the devnet is down. What a browser does when it cannot fetch the PAC itself
+was not measured.
+
+`proxy.pac` leaves `plc.directory` alone, so the setting never moves the real directory for your
+everyday browsing; apps on the devnet use `https://plc.devnet.test`. For an app that insists on
+`plc.directory` in the browser, a profile used only for the devnet can take
+`http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this devnet's PLC.
+
+Measured on 2026-10-19: Firefox on Windows through the Windows "Use setup script" setting reached the
+page and a handle's own name; in the dev container, full Chromium and Firefox set only to the PAC URL
+went from the page to atmo and signed in through the alpha's sign-in and consent pages, asking no
+host outside the devnet. Not measured: Chrome and Edge on Windows, macOS, Linux desktops. Playwright's
+default headless shell ignores `--proxy-pac-url`; real Chrome and Edge are the full build.
 
 #### With launch flags (Chrome, Edge)
 
@@ -909,19 +1002,10 @@ trusts the CA from the Windows store without being told to.
    chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP devnet.test 127.0.0.1, MAP *.devnet.test 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
    ```
 
-   The wildcard rule covers the three PDS names; the bare `devnet.test`, the network's page, needs its own. Hosts-file entries work too, one name at a time;
-   they need admin, and they point `plc.directory` at the devnet for every program on the computer
-   until you remove the line.
-3. **Trust the CA, once.** If your host already trusts this `ca.crt`, there is nothing to do:
-   `https-ca.sh` keeps the CA. Otherwise copy `data/https/ca.crt` to the host and add it to your
-   user's root store: `certutil -user -addstore Root ca.crt` (no admin; Windows asks you to confirm).
-   Remove it later with `certutil -user -delstore Root "<its name>"`; the name is the CN that
-   `openssl x509 -in data/https/ca.crt -noout -subject` prints. Each CA made since 2026-10-19 has its
-   own name (`atproto-devnet local CA <date> <hex>`); older ones are all `atproto-devnet local CA`.
-   Two CAs with one name break each other: a browser that trusts one rejects the other's
-   certificates as a bad signature, which it will not let you click through. Clicking through a
-   certificate warning instead covers only the page you clicked through, not the requests an app's
-   code in the browser makes to `plc.directory` or a PDS.
+   The wildcard rule covers the PDS names and the handles; the bare `devnet.test`, the network's
+   page, needs its own. Hosts-file entries work too, one name at a time; they need admin, and they
+   point `plc.directory` at the devnet for every program on the computer until you remove the line.
+3. **Trust the CA**, as in step 1 of the proxy's steps.
 
 ## Worked scenarios
 

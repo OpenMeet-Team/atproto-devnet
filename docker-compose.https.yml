@@ -18,6 +18,8 @@
 #   prod.devnet.test     *.prod.devnet.test      pds-prod     the build you run in prod
 #   plc.directory                                plc          this stack's PLC
 #   slingshot.devnet.test                        slingshot    handle and DID lookups (resolveMiniDoc)
+#   plc.devnet.test                              plc          the same PLC, by a name under the domain
+#   relay.devnet.test, jetstream.devnet.test     relay, jetstream, for an app's browser code
 #   devnet.test                                  nginx        the network's page (page/), as a globe has
 #   <name>.devnet.internal                       an app on this machine, at the port
 #                                                scripts/https-app.sh recorded for <name>

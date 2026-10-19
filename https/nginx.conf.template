@@ -78,6 +78,37 @@ server {
     }
 }
 
+# The directory, the relay and the feed at https names under the domain, as a globe has them
+# (plc.<globe>, relay.<globe>, jetstream.<globe>), so an app's browser code, which cannot use
+# plain http or the host's ports, reaches them too. Exact names, so none of the three is a handle.
+# The relay shares the alpha's network namespace, so it is pds:2470.
+server {
+    listen 443 ssl;
+    server_name plc.${DEVNET_DOMAIN};
+    location / {
+        set $plc http://plc:2582;
+        proxy_pass $plc;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name relay.${DEVNET_DOMAIN};
+    location / {
+        set $relay http://pds:2470;
+        proxy_pass $relay;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name jetstream.${DEVNET_DOMAIN};
+    location / {
+        set $jetstream http://jetstream:6008;
+        proxy_pass $jetstream;
+    }
+}
+
 # The network's own page at the bare name, as a globe serves it at <globe>.snowglobe.at: the same
 # page/index.html, with this stack's relays (page/devnet.conf) and a globe.json naming its
 # services, which scripts/https-up.sh and https-app.sh write.

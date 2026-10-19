@@ -199,9 +199,9 @@ render_page() {
     ["Account server", "alpha", "pds", "The spaces alpha: people's accounts and their records"],
     ["Account server", "regular", "regular", "A current release, which serves no spaces"],
     ["Account server", "prod", "prod", "The build run in production"],
-    ["Directory", "", "plc", "Maps each DID to its keys and account server; plc.directory under https-run"],
-    ["Relay", "", "relay", "Collects every account server's changes into one stream"],
-    ["Feed", "", "jetstream", "The relay's stream as JSON, for apps (and this page)"],
+    ["Directory", "plc", "plc", "Maps each DID to its keys and account server; also plc.directory under https-run"],
+    ["Relay", "relay", "relay", "Collects every account server's changes into one stream"],
+    ["Feed", "jetstream", "jetstream", "The relay's stream as JSON, for apps (and this page)"],
     ["Handle lookup", "slingshot", "slingshot", "Resolves handles and records from this network only"],
     ["Sync", "", "sync", "TAP: backfills and syncs repos"],
     ["Mail", "", "mail", "Catches every message the account servers send"]
