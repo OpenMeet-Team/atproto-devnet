@@ -43,10 +43,15 @@ elif [ -f ca.crt ] || [ -f ca.key ]; then
   echo "both to make a new CA (which must then be trusted again)." >&2
   exit 1
 else
+  # Each CA has a name of its own. Two CAs with one name confuse a browser that trusts one of
+  # them: Firefox checks the other's leaf against the trusted key and calls it a bad signature,
+  # with no way to click through, where an unknown CA could be. CAs made before 2026-10-19 are
+  # all "atproto-devnet local CA" and are kept as they are.
+  CA_NAME="atproto-devnet local CA $(date -u +%Y-%m-%d) $(openssl rand -hex 3)"
   openssl req -x509 -new -nodes -sha256 -days 730 \
     -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
     -keyout ca.key -out ca.crt \
-    -subj "/O=atproto-devnet/CN=atproto-devnet local CA" \
+    -subj "/O=atproto-devnet/CN=${CA_NAME}" \
     -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
     -addext "keyUsage=critical,keyCertSign,cRLSign" \
     -addext "extendedKeyUsage=serverAuth" \

@@ -915,7 +915,11 @@ trusts the CA from the Windows store without being told to.
 3. **Trust the CA, once.** If your host already trusts this `ca.crt`, there is nothing to do:
    `https-ca.sh` keeps the CA. Otherwise copy `data/https/ca.crt` to the host and add it to your
    user's root store: `certutil -user -addstore Root ca.crt` (no admin; Windows asks you to confirm).
-   Remove it later with `certutil -user -delstore Root "atproto-devnet local CA"`. Clicking through a
+   Remove it later with `certutil -user -delstore Root "<its name>"`; the name is the CN that
+   `openssl x509 -in data/https/ca.crt -noout -subject` prints. Each CA made since 2026-10-19 has its
+   own name (`atproto-devnet local CA <date> <hex>`); older ones are all `atproto-devnet local CA`.
+   Two CAs with one name break each other: a browser that trusts one rejects the other's
+   certificates as a bad signature, which it will not let you click through. Clicking through a
    certificate warning instead covers only the page you clicked through, not the requests an app's
    code in the browser makes to `plc.directory` or a PDS.
 
