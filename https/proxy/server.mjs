@@ -1,15 +1,22 @@
 // A way into the https devnet for a browser on another computer, with no launch flags and no
-// hosts file: a SOCKS5 proxy and the PAC file that points a browser at it, on one port. The browser
-// asks the PAC which names go through the proxy; for those it hands the proxy the name itself
-// (SOCKS5 resolves at the proxy), and the proxy connects every one of them to nginx. So every handle
-// works the moment its account exists, and nothing the browser looks up anywhere else changes.
+// hosts file: a proxy and the PAC file that points a browser at it, on one port. The browser asks the
+// PAC which names go through the proxy; for those it hands the proxy the name itself, and the proxy
+// connects every one of them to nginx. So every handle works the moment its account exists, and
+// nothing the browser looks up anywhere else changes.
+//
+// The PAC names an HTTP proxy (CONNECT), which every PAC reader understands. SOCKS5 is answered on
+// the same port too, for a client set to it directly. Firefox on Windows set to "Use system proxy
+// settings" fetched no PAC of its own and never reached a SOCKS5 line (2026-10-19); Windows itself
+// had fetched the PAC, and reads no SOCKS5 in one.
 //
 // The proxy reaches nginx and nothing else: a name outside the devnet, an IP address, a port other
-// than 443 or a command other than CONNECT is refused. On the one port:
+// than 443, or anything but a CONNECT is refused. On the one port:
 //
 //   GET /proxy.pac           the devnet's names: <domain>, *.<domain>, *.devnet.internal
 //   GET /proxy-with-plc.pac  the same plus plc.directory, for a browser used only for the devnet:
 //                            plc.directory then means this devnet's PLC for every page in it
+//   GET /_health             200, for the container's healthcheck (not logged)
+//   CONNECT <name>:443       an HTTP proxy tunnel
 //   anything starting 0x05   SOCKS5
 //
 // The PAC names the proxy by the Host its request came in on, so it is right whatever port the
@@ -33,15 +40,15 @@ export function allowed(name, port, domain = DOMAIN) {
   return n === domain || n.endsWith(`.${domain}`) || n.endsWith('.devnet.internal') || n === 'plc.directory'
 }
 
-/** The PAC file: the devnet's names go to the SOCKS5 proxy at `proxy` (host:port), the rest direct. */
+/** The PAC file: the devnet's names go to the proxy at `proxy` (host:port), the rest direct. */
 export function pac(proxy, domain = DOMAIN, withPlc = false) {
   const names = [`host == ${JSON.stringify(domain)}`, `dnsDomainIs(host, ${JSON.stringify(`.${domain}`)})`, 'dnsDomainIs(host, ".devnet.internal")']
   if (withPlc) names.push('host == "plc.directory"')
-  return `// The https devnet at ${domain}: its names through its SOCKS5 proxy, which resolves them; the rest direct.
+  return `// The https devnet at ${domain}: its names through its proxy, which resolves them; the rest direct.
 function FindProxyForURL(url, host) {
   host = host.toLowerCase();
   if (${names.join(' ||\n      ')}) {
-    return "SOCKS5 ${proxy}";
+    return "PROXY ${proxy}";
   }
   return "DIRECT";
 }
@@ -118,23 +125,28 @@ export function readConnect(sock, first) {
   })
 }
 
-async function socks(sock, first) {
-  const req = await readConnect(sock, first)
-  if (!req) return
-  if (!allowed(req.name, req.port)) {
-    console.log(`proxy: refused ${req.name}:${req.port}`)
-    reply(sock, REP.notAllowed)
+/**
+ * Splice `sock` to nginx for `name`:`port`, or refuse it. `answer` writes the protocol's reply:
+ * answer('ok'), answer('notAllowed'), answer('refused') or answer('unreachable'). `head` is anything
+ * the client sent after its request.
+ */
+function tunnel(how, sock, name, port, answer, head) {
+  if (!allowed(name, port)) {
+    console.log(`proxy: ${how} refused ${name}:${port}`)
+    answer('notAllowed')
     return sock.end()
   }
+  console.log(`proxy: ${how} ${name}:${port}`)
   const up = net.connect(Number(UP_PORT), UP_HOST)
   up.once('connect', () => {
-    reply(sock, REP.ok)
+    answer('ok')
+    if (head?.length) up.write(head)
     sock.pipe(up).pipe(sock)
   })
   up.on('error', (err) => {
-    console.error(`proxy: ${req.name}: ${err.message}`)
+    console.error(`proxy: ${name}: ${err.message}`)
     if (!sock.destroyed) {
-      reply(sock, err.code === 'ECONNREFUSED' ? REP.refused : REP.unreachable)
+      answer(err.code === 'ECONNREFUSED' ? 'refused' : 'unreachable')
       sock.end()
     }
   })
@@ -142,14 +154,44 @@ async function socks(sock, first) {
   sock.once('close', () => up.destroy())
 }
 
+async function socks(sock, first) {
+  const req = await readConnect(sock, first)
+  if (!req) return
+  tunnel('socks', sock, req.name, req.port, (r) => reply(sock, REP[r]))
+}
+
+/** The name and port a CONNECT names (`name:port`), or null for an address or anything else. */
+export function connectTarget(target) {
+  const m = /^([A-Za-z0-9.-]+):([0-9]{1,5})$/.exec(String(target))
+  if (!m || /^[0-9.]+$/.test(m[1])) return null
+  return { name: m[1], port: Number(m[2]) }
+}
+
+const STATUS = { ok: '200 Connection Established', notAllowed: '403 Forbidden', refused: '502 Bad Gateway', unreachable: '504 Gateway Timeout' }
+
 const pacServer = http.createServer((req, res) => {
   const path = new URL(req.url ?? '/', 'http://x').pathname
+  if (path === '/_health') return res.writeHead(200).end('ok\n')
   const proxy = proxyAddress(req.headers.host)
+  // Who fetched the PAC is the first thing to know when a browser seems to ignore it.
+  console.log(`pac: ${req.method} ${path} host=${req.headers.host ?? '-'} agent=${req.headers['user-agent'] ?? '-'}`)
   if (req.method !== 'GET' && req.method !== 'HEAD') return res.writeHead(405).end()
   if ((path !== '/proxy.pac' && path !== '/proxy-with-plc.pac') || !proxy) return res.writeHead(404).end('not here\n')
   const body = pac(proxy, DOMAIN, path === '/proxy-with-plc.pac')
   res.writeHead(200, { 'content-type': 'application/x-ns-proxy-autoconfig', 'cache-control': 'no-cache' })
   res.end(req.method === 'HEAD' ? undefined : body)
+})
+
+pacServer.on('connect', (req, sock, head) => {
+  sock.on('error', () => {})
+  const t = connectTarget(req.url)
+  const answer = (r) => sock.write(`HTTP/1.1 ${STATUS[r]}\r\n\r\n`)
+  if (!t) {
+    console.log(`proxy: http refused ${req.url}`)
+    answer('notAllowed')
+    return sock.end()
+  }
+  tunnel('http', sock, t.name, t.port, answer, head)
 })
 
 if (import.meta.url === `file://${process.argv[1]}`) {

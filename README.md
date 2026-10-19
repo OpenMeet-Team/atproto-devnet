@@ -936,8 +936,9 @@ setting you make once, in the browser you already use. Launch flags (further dow
 
 #### Through the devnet's proxy (Chrome, Edge, Firefox)
 
-The `proxy` service (`https/proxy/server.mjs`) is a SOCKS5 proxy and the PAC file that points at it,
-on one port, `127.0.0.1:1080` (`DEVNET_PROXY_PORT`). The PAC sends `devnet.test`, `*.devnet.test` and
+The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
+port, `127.0.0.1:1080` (`DEVNET_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
+reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `devnet.test`, `*.devnet.test` and
 `*.devnet.internal` to the proxy and everything else direct, so the rest of your browsing is
 untouched. The browser hands the proxy the name, and the proxy connects every devnet name to nginx,
 so a handle made a second ago works with nothing to update. It refuses any other name, any IP
@@ -983,11 +984,14 @@ everyday browsing; apps on the devnet use `https://plc.devnet.test`. For an app 
 `plc.directory` in the browser, a profile used only for the devnet can take
 `http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this devnet's PLC.
 
-Measured on 2026-10-19: Firefox on Windows through the Windows "Use setup script" setting reached the
-page and a handle's own name; in the dev container, full Chromium and Firefox set only to the PAC URL
-went from the page to atmo and signed in through the alpha's sign-in and consent pages, asking no
-host outside the devnet. Not measured: Chrome and Edge on Windows, macOS, Linux desktops. Playwright's
-default headless shell ignores `--proxy-pac-url`; real Chrome and Edge are the full build.
+Measured on 2026-10-19, on Windows: Chrome through the Windows "Use setup script" setting, and
+Firefox through its own "Automatic proxy configuration URL", reached the page and a handle's own name.
+Firefox set to "Use system proxy settings" fetched no PAC of its own and reached nothing while the
+PAC named a SOCKS5 proxy (Windows itself had fetched it); the PAC names an HTTP proxy since. In the dev
+container, full Chromium and Firefox set only to the PAC URL went from the page to atmo and signed in
+through the alpha's sign-in and consent pages, asking no host outside the devnet, with either kind
+of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headless shell ignores
+`--proxy-pac-url`; real Chrome and Edge are the full build.
 
 #### With launch flags (Chrome, Edge)
 

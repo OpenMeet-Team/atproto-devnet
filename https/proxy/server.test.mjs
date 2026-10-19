@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process'
 import net from 'node:net'
 import { once } from 'node:events'
 import { test } from 'node:test'
-import { allowed, pac, proxyAddress } from './server.mjs'
+import { allowed, connectTarget, pac, proxyAddress } from './server.mjs'
 
 test('only the devnet names on 443 go to nginx', () => {
   for (const n of ['devnet.test', 'alpha.devnet.test', 'alice.devnet.test', 'x.regular.devnet.test', 'atmo.devnet.internal', 'plc.directory', 'ALPHA.devnet.test.']) {
@@ -22,9 +22,9 @@ const runPac = (src, host) => new Function('dnsDomainIs', `${src}; return FindPr
 
 test('the PAC sends the devnet names to the proxy and the rest direct', () => {
   const src = pac('127.0.0.1:1090', 'devnet.test')
-  for (const h of ['devnet.test', 'alice.devnet.test', 'Alpha.Devnet.Test', 'atmo.devnet.internal']) assert.equal(runPac(src, h), 'SOCKS5 127.0.0.1:1090', h)
+  for (const h of ['devnet.test', 'alice.devnet.test', 'Alpha.Devnet.Test', 'atmo.devnet.internal']) assert.equal(runPac(src, h), 'PROXY 127.0.0.1:1090', h)
   for (const h of ['plc.directory', 'bsky.app', 'evil-devnet.test', 'devnet.test.example.com']) assert.equal(runPac(src, h), 'DIRECT', h)
-  assert.equal(runPac(pac('127.0.0.1:1090', 'devnet.test', true), 'plc.directory'), 'SOCKS5 127.0.0.1:1090')
+  assert.equal(runPac(pac('127.0.0.1:1090', 'devnet.test', true), 'plc.directory'), 'PROXY 127.0.0.1:1090')
 })
 
 test('the PAC names the proxy only by a plain host:port', () => {
@@ -110,6 +110,40 @@ test('the same port serves the PAC, naming the address it was asked on', async (
   const port = await harness(t)
   const res = await fetch(`http://127.0.0.1:${port}/proxy.pac`)
   assert.equal(res.status, 200)
-  assert.match(await res.text(), new RegExp(`SOCKS5 127\\.0\\.0\\.1:${port}`))
+  assert.match(await res.text(), new RegExp(`PROXY 127\\.0\\.0\\.1:${port}`))
   assert.equal((await fetch(`http://127.0.0.1:${port}/`)).status, 404)
+})
+
+test('a CONNECT names a name and a port, never an address', () => {
+  assert.deepEqual(connectTarget('alice.devnet.test:443'), { name: 'alice.devnet.test', port: 443 })
+  for (const t of ['127.0.0.1:443', '[::1]:443', 'alice.devnet.test', 'a b:443', '/path']) assert.equal(connectTarget(t), null, t)
+})
+
+// Send an HTTP CONNECT and read the status line and anything after the blank line.
+async function httpConnect(port, target) {
+  const s = net.connect(port, '127.0.0.1')
+  s.on('error', () => {})
+  await once(s, 'connect')
+  s.write(`CONNECT ${target} HTTP/1.1\r\nHost: ${target}\r\n\r\n`)
+  let buf = ''
+  while (!buf.includes('\r\n\r\n')) {
+    const [d] = await Promise.race([once(s, 'data'), once(s, 'end').then(() => [''])])
+    if (!d) break
+    buf += d
+  }
+  return { sock: s, status: buf.split('\r\n')[0] }
+}
+
+test('HTTP CONNECT: an allowed name is spliced to nginx, the rest refused', async (t) => {
+  const port = await harness(t)
+  const ok = await httpConnect(port, 'alice.devnet.test:443')
+  assert.equal(ok.status, 'HTTP/1.1 200 Connection Established')
+  ok.sock.write('hello')
+  assert.equal(String(await read(ok.sock, 5)), 'hello')
+  ok.sock.destroy()
+  for (const target of ['bsky.social:443', 'alpha.devnet.test:80', '127.0.0.1:443']) {
+    const no = await httpConnect(port, target)
+    assert.equal(no.status, 'HTTP/1.1 403 Forbidden', target)
+    no.sock.destroy()
+  }
 })

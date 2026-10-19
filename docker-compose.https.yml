@@ -174,9 +174,9 @@ services:
 
   # A browser on another computer reaches the devnet through this, with no launch flags and no
   # hosts file: point the browser at http://127.0.0.1:<DEVNET_PROXY_PORT>/proxy.pac and the devnet's
-  # names go to this SOCKS5 proxy, which sends each one to nginx and refuses everything else
-  # (https/proxy/server.mjs). Forward the port to the browser's machine; the CA is still trusted
-  # there as before.
+  # names go to this proxy (HTTP CONNECT, or SOCKS5), which sends each one to nginx and refuses
+  # everything else (https/proxy/server.mjs). Forward the port to the browser's machine; the CA is
+  # still trusted there as before.
   proxy:
     build: ./https/proxy
     image: atproto-devnet-proxy:https-1
@@ -192,7 +192,7 @@ services:
     networks:
       - atproto-devnet
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:1080/proxy.pac"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:1080/_health"]
       interval: 5s
       timeout: 3s
       retries: 10
