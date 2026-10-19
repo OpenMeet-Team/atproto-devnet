@@ -4,10 +4,8 @@
 // connects every one of them to nginx. So every handle works the moment its account exists, and
 // nothing the browser looks up anywhere else changes.
 //
-// The PAC names an HTTP proxy (CONNECT), which every PAC reader understands. SOCKS5 is answered on
-// the same port too, for a client set to it directly. Firefox on Windows set to "Use system proxy
-// settings" fetched no PAC of its own and never reached a SOCKS5 line (2026-10-19); Windows itself
-// had fetched the PAC, and reads no SOCKS5 in one.
+// The PAC names an HTTP proxy (CONNECT), the kind every PAC reader understands, Windows' own
+// included. SOCKS5 is answered on the same port too, for a client set to it directly.
 //
 // The proxy reaches nginx and nothing else: a name outside the devnet, an IP address, a port other
 // than 443, or anything but a CONNECT is refused. On the one port:

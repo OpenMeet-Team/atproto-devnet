@@ -969,8 +969,9 @@ address and any port but 443.
    - macOS: System Settings, Network, your connection, Details, Proxies, "Automatic proxy
      configuration", with the URL.
    - Linux (GNOME): Settings, Network, Network Proxy, Automatic, with the URL.
-   - Firefox follows the system setting by default ("Use system proxy settings"). To set it for
-     Firefox alone: Settings, Network Settings, "Automatic proxy configuration URL".
+   - Firefox: Settings, Network Settings, "Use system proxy settings" (the default, but check it:
+     any other choice ignores the Windows setting). Or, for Firefox alone, "Automatic proxy
+     configuration URL" with the same URL. Restart Firefox after changing the system setting.
 
 **Then** open `https://devnet.test/`, the network's page. Its apps link to themselves, for instance
 `https://atmo.devnet.internal` once atmo is routed (below).
@@ -984,10 +985,11 @@ everyday browsing; apps on the devnet use `https://plc.devnet.test`. For an app 
 `plc.directory` in the browser, a profile used only for the devnet can take
 `http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this devnet's PLC.
 
-Measured on 2026-10-19, on Windows: Chrome through the Windows "Use setup script" setting, and
-Firefox through its own "Automatic proxy configuration URL", reached the page and a handle's own name.
-Firefox set to "Use system proxy settings" fetched no PAC of its own and reached nothing while the
-PAC named a SOCKS5 proxy (Windows itself had fetched it); the PAC names an HTTP proxy since. In the dev
+Measured on 2026-10-19, on Windows: Chrome through the Windows "Use setup script" setting (the PAC
+then named a SOCKS5 proxy), and Firefox both through its own "Automatic proxy configuration URL" and
+through "Use system proxy settings" (an HTTP proxy), reached the page and a handle's own name. Firefox
+uses the Windows setting only when its Network Settings say "Use system proxy settings": with any other
+choice it fetches no PAC and the devnet's names do not resolve. In the dev
 container, full Chromium and Firefox set only to the PAC URL went from the page to atmo and signed in
 through the alpha's sign-in and consent pages, asking no host outside the devnet, with either kind
 of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headless shell ignores
