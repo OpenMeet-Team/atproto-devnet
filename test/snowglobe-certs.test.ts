@@ -21,7 +21,7 @@ const D = 'certs.test';
 const NAMES = [D, `alpha.${D}`, `*.${D}`, `regular.${D}`, `*.regular.${D}`, `plc.${D}`, 'plc.directory', '*.devnet.internal'];
 const hasOpenssl = spawnSync('openssl', ['version']).status === 0;
 
-// A root with bin/ and lib/ and a rendered globe's leaf-names, as https-up.sh leaves it.
+// A root with bin/ and lib/ and a rendered globe's leaf-names, as snowglobe up leaves it.
 function globeRoot(names = NAMES) {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-certs-'));
   for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(r, d), { recursive: true });

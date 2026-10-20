@@ -1,7 +1,7 @@
 {
   "globe": "devnet",
   "domain": "devnet.test",
-  "about": "An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under scripts/https-run reach it at the real network's names.",
+  "about": "An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under snowglobe run reach it at the real network's names.",
   "accountsNote": "Every account on the network, on each of its 3 account servers.",
   "feed": "/subscribe",
   "services": [
@@ -27,7 +27,7 @@
       "Directory",
       "plc",
       "plc",
-      "Maps each DID to its keys and account server; also plc.directory under https-run"
+      "Maps each DID to its keys and account server; also plc.directory under snowglobe run"
     ],
     [
       "Relay",

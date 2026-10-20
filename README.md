@@ -76,25 +76,32 @@ Changes to the default stack that existing setups will notice:
   `data/accounts.env` gets new DIDs and a new invite code.
 - **The PDS runs as root.** Release images already did. This lets `DEVNET_PDS_IMAGE` take monorepo
   images, which default to `node`.
-- **The https devnet's nginx config is a template now: rerun `scripts/https-up.sh` after pulling.**
+- **The https devnet's nginx config is a template now: rerun `bin/snowglobe.mjs up` after pulling.**
   `https/nginx.conf` became `https/nginx.conf.template`, which the nginx image fills in with
   `DEVNET_DOMAIN` when it starts. An nginx container made before the pull still mounts the old file,
   and once the file is gone that container cannot start again (Docker leaves an empty directory in
-  its place). `https-up.sh` recreates it on the new mount. Checking out an older version needs the
+  its place). `snowglobe up` recreates it on the new mount. Checking out an older version needs the
   same rerun, the other way round. An overlay that mounts its own config over
   `/etc/nginx/conf.d/default.conf` should mount it at `/etc/nginx/templates/default.conf.template`
   instead, and one that replaces nginx's command must keep the image's entrypoint, which writes the
   template out.
 - **The https devnet is rendered from a `snowglobe.yml` now, and a running one starts over.**
-  `https-up.sh` writes `data/globe/` with `bin/snowglobe.mjs render` (from `SNOWGLOBE_FILE`, else
+  `snowglobe up` writes `data/globe/` with `bin/snowglobe.mjs render` (from `SNOWGLOBE_FILE`, else
   `snowglobe.default.yml`: the same alpha, regular and prod) and runs that one compose file;
   `docker-compose.https.yml` is gone. Each PDS is its own service on the compose network, named
   `pds-<name>`, so the alpha is `pds-alpha`, not `pds`, and its data volume is `pds-alpha-data`, not
   `pds-data` (`pds-regular-data` and `pds-prod-data` keep their names). On a devnet brought up
   before this, the alpha would start on a new, empty volume while the PLC still holds its accounts'
   DIDs, and the old `pds` container would be left running beside it. So take such a devnet down with
-  the previous checkout first, `-v` included, and the next `https-up.sh` starts it fresh. The plain
+  the previous checkout first, `-v` included, and the next `snowglobe up` starts it fresh. The plain
   http stacks are unchanged.
+- **The `scripts/https-*` tools are gone: use `bin/snowglobe.mjs up`, `down` and `run`.** To keep
+  the old layout, check out tag `v0.2.0`, the last version that has them. `https-up.sh` is `up`
+  (the file can also be its argument, and `up` now seeds the file's `accounts`, `lexicons.publish`
+  and `apps`), `https-down.sh` is `down`, which takes
+  `-v` and nothing else, and `https-run` is `run`. `run` now maps every name the rendered globe
+  answers to, each PDS in the file included, not a fixed three, to `DEVNET_BIND`. `data/devnet.env`
+  takes the Jetstream, maildev and proxy ports from `.env` too, as compose does.
 - **snowglobe is `bin/snowglobe.mjs` now.** Its code moved from `scripts/` to `lib/`, one file per
   command under `lib/commands/`. `scripts/snowglobe` still runs it, so a script that calls the old
   path keeps working.
@@ -304,7 +311,7 @@ checked out beside the devnet as `atmo-events/`, and the
 scope includes two permission sets, `rsvp.atmo.permissionSet` and `app.bsky.authCreatePosts`. If the
 authority does not hold them, the PDS cannot expand the scope and the consent page fails. Copy both
 from their real authorities, then publish them, and the proposal's lexicons for groups. From the
-devnet checkout, outside `https-run`, because the copy reads the real `plc.directory`:
+devnet checkout, outside `snowglobe run`, because the copy reads the real `plc.directory`:
 
 ```bash
 mkdir -p data/atmo-lexicons
@@ -322,7 +329,7 @@ done
 
 **An account.** `alice.devnet.test` and `bob.devnet.test` are already there (see
 [Seeded test accounts](#seeded-test-accounts)). To use another, make it with
-`bin/snowglobe.mjs account` before you start atmo, because `https-run` maps only the handles it knows
+`bin/snowglobe.mjs account` before you start atmo, because `snowglobe run` maps only the handles it knows
 when the command starts.
 
 **Configure atmo.** In `atmo-events/apps/web`, after `pnpm install`, write a git-ignored `.env`.
@@ -349,10 +356,10 @@ Then create atmo's tables in its local D1 database. Without them, atmo logs
 pnpm exec wrangler d1 migrations apply DB --local
 ```
 
-**Run atmo** under `https-run`, from `atmo-events/apps/web`:
+**Run atmo** under `snowglobe run`, from `atmo-events/apps/web`:
 
 ```bash
-../../../atproto-devnet/scripts/https-run pnpm dev     # http://127.0.0.1:5454
+../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev     # http://127.0.0.1:5454
 ```
 
 **Use it from a browser.** Set up a browser on your computer as in
@@ -369,11 +376,11 @@ and approve, then back to atmo, signed in.
 | `https://<handle>/.well-known/atproto-did` | the handle's PDS, with the handle's DID |
 | `https://plc.directory/<did>` | the devnet's PLC, with the DID document |
 
-**Use it from the shell.** The same names work under `https-run`. curl does not read
+**Use it from the shell.** The same names work under `snowglobe run`. curl does not read
 `NODE_EXTRA_CA_CERTS`, so give it the CA. From the devnet checkout:
 
 ```bash
-dn() { ./scripts/https-run curl -s --cacert data/https/ca.crt "$@"; }
+dn() { ./bin/snowglobe.mjs run curl -s --cacert data/https/ca.crt "$@"; }
 dn https://alpha.devnet.test/xrpc/_health                # {"version":"0.5.32"}
 dn https://alice.devnet.test/.well-known/atproto-did     # alice's DID
 did=$(sed -n 's/^ALICE_DID=//p' data/accounts.env)
@@ -402,12 +409,12 @@ printf "CLIENT_ASSERTION_KEY='%s'\n" \
   "$(npx tsx src/lib/atproto/scripts/generate-key.ts 2>/dev/null | tail -1)" >> .env
 ```
 
-Run atmo where nginx can reach it, still under `https-run`:
+Run atmo where nginx can reach it, still under `snowglobe run`:
 
 ```bash
 __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
 HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
-  ../../../atproto-devnet/scripts/https-run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
+  ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
 ```
 
 - `--host` replaces the `127.0.0.1` in atmo's `vite.config.ts`. Use the address that
@@ -415,7 +422,7 @@ HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
   `docker exec <project>-nginx-1 getent hosts host.docker.internal`.
 - `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` lets vite answer requests for `atmo.devnet.internal`.
 - `HTTPS_RUN_EXTRA_NAMES` maps, for atmo's process, the handle of the group you are about to
-  create, since `https-run` reads its names only at start.
+  create, since `snowglobe run` reads its names only at start.
 
 Open `https://atmo.devnet.internal` in the browser set up above, or from the network's page at
 `https://devnet.test/`, which links every routed app. The proxy's PAC, or the launch flags' `*.devnet.internal` rule, covers
@@ -467,11 +474,11 @@ and Firefox through the proxy, with no request leaving the devnet.
 
    The image template reaches the alpha's own blobs only; a globe's image service finds any
    account's server.
-5. Run it under `https-run`, on every address so nginx can reach it:
+5. Run it under `snowglobe run`, on every address so nginx can reach it:
 
    ```bash
    __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
-     ../../../atproto-devnet/scripts/https-run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
+     ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
    ```
 
 Open `https://devnet.test/` and follow its atmo link. Signing in sends you to
@@ -496,18 +503,18 @@ unset ACCOUNTS_FILE
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 
-Then from atmo's `apps/web`, under `https-run`. Start it after the accounts exist, so their handles
+Then from atmo's `apps/web`, under `snowglobe run`. Start it after the accounts exist, so their handles
 are mapped:
 
 ```bash
-../../../atproto-devnet/scripts/https-run sh -c \
+../../../atproto-devnet/bin/snowglobe.mjs run sh -c \
   'set -a; . ../../../atproto-devnet/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
 # ...
 # SUMMARY: 49 passed, 0 failed
 ```
 
-The test refuses any host that is not this machine. Under `https-run` the devnet's names resolve to
-127.0.0.1, so it admits them. Without `https-run` it refuses them before any login. The test is
+The test refuses any host that is not this machine. Under `snowglobe run` the devnet's names resolve to
+127.0.0.1, so it admits them. Without `snowglobe run` it refuses them before any login. The test is
 `apps/web/scripts/groups-e2e.mjs` on the `feat/groups-opensocial` branch of
 [tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial/apps/web/scripts).
 
@@ -659,10 +666,16 @@ image, and the patch has to apply.
 The stacks above serve every PDS at `http://localhost:<port>`, so an app has to be told it is on a
 devnet before it will sign in there: allow plain http, and ask the devnet PLC instead of
 `plc.directory`. The https devnet goes the other way. It is the globe a `snowglobe.yml` describes
-(`snowglobe.default.yml` unless `SNOWGLOBE_FILE` names another), which `scripts/https-up.sh`
+(`snowglobe.default.yml` unless you name another; [the file](#the-file-and-the-commands)), which `bin/snowglobe.mjs up`
 renders into one compose file (`bin/snowglobe.mjs render`) and brings up. It looks like the real
-network, so an app built for the real network runs against it with no devnet code. With the
-default file:
+network, so an app built for the real network runs against it with no devnet code.
+
+It runs on Linux, and on Windows under WSL 2; both are tested with `node scripts/smoke.mjs`
+([Test suite](#test-suite)). macOS is not supported yet: nobody working on it has a Mac to test on.
+If you have one, please try it and [open an issue](https://github.com/OpenMeet-Team/atproto-devnet/issues)
+with what broke, or that it worked; we'll add Mac support over time.
+
+With the default file:
 
 | Name | Served by |
 | --- | --- |
@@ -683,7 +696,7 @@ all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's 
 issuer and DID document endpoint is `https://<its name>`, and the relay crawls every PDS as a
 `wss://` host. Inside the compose network nginx also answers to every PDS's name, so the PDSes,
 the relay and TAP reach each other over TLS; no service shares another's network but Slingshot. On the machine, the names resolve to `127.0.0.1` only for
-commands run under `scripts/https-run`, so every other program still reaches the real
+commands run under `bin/snowglobe.mjs run`, so every other program still reaches the real
 `plc.directory`.
 
 `devnet.test` is the default file's domain, and every name in the table above (and in the rest of
@@ -707,7 +720,7 @@ to this stack's PLC and this stack's Jetstream. The public Slingshot cannot see 
 this one answers for it:
 
 ```sh
-scripts/https-run curl -sS --cacert data/https/ca.crt \
+bin/snowglobe.mjs run curl -sS --cacert data/https/ca.crt \
   'https://slingshot.devnet.test/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.devnet.test'
 # {"did":"did:plc:...","handle":"alice.devnet.test","pds":"https://alpha.devnet.test","signing_key":"zQ3..."}
 ```
@@ -728,7 +741,7 @@ health, every account on each PDS, the apps `snowglobe app` routed, and the netw
 from Jetstream, the last week's and then live. nginx serves it with this stack's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
 asks nothing but `devnet.test`. `snowglobe render` and `snowglobe app` write what it lists into
 `data/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
-computer](#from-a-browser-on-your-own-computer), or `scripts/https-run curl -s https://devnet.test/globe.json`.
+computer](#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://devnet.test/globe.json`.
 
 ### PDSls: browsing the network's records
 
@@ -748,6 +761,81 @@ A record's Schema tab shows its lexicon when the authority holds it and pdsls's 
 Measured 2026-10-19: the opensocial proposal's lexicons (a `space` definition, a `space-ref` format)
 and atmo's permission set fail that parser, as they would on pds.ls; the record view is unaffected.
 
+### The file and the commands
+
+One file says what a globe runs: `snowglobe.yml`. It belongs in an app's repo, next to the lexicons
+it publishes, and is committed. Everything the globe makes while it runs (the CA's key, passwords,
+invite codes, app routes) goes under this checkout's `data/`, which is git-ignored and never
+committed ([What it writes](#what-it-writes)).
+
+```yaml
+globe: bookclub                  # lowercase letters and digits; the globe's own name
+domain: devnet.test              # every name below is under it (devnet.test if left out)
+
+pds:                             # at least one; each is pds-<name> at https://<name>.<domain>
+  - name: alpha
+    image: spaces-alpha          # a short name (pinned by digest), or any image reference
+    bare_handles: true           # handles <name>.<domain>; at most one PDS. Others: <name>.<pds>.<domain>
+    invites: required            # open (default) or required
+  - name: regular
+    image: ghcr.io/bluesky-social/pds:0.4.5037
+
+services:                        # each true or false; these are the defaults
+  relay: auto                    # auto: on when there is more than one PDS
+  jetstream: true
+  tap: true
+  slingshot: true                # needs jetstream
+  pdsls: true
+
+lexicons:
+  authority: alpha               # the PDS lex-authority is made on (the bare-handle PDS by default)
+  publish: lexicons              # a folder next to this file; up publishes every lexicon in it
+
+accounts:                        # <name>@<pds>; up makes each one
+  - owner@alpha
+  - reader@regular
+
+apps:
+  - name: bookclub
+    local: { port: 5173, handles: bc }   # https://bookclub.devnet.internal and handles *.bc.<domain>
+```
+
+`bin/snowglobe.mjs check` says what is wrong with a file, one line per problem, and touches
+nothing. A name used twice, a PDS named like a service, an app's handle ending that is a PDS's
+name, a handle longer than DNS allows: each fails here, before anything starts. `grouphosts`,
+`hosted` and an app's `hosted` are read and checked, for a globe hosted on the cluster; a local
+globe does not run them yet.
+
+`up` seeds what the file asks for, every run, and a rerun changes nothing that is already there:
+
+- **accounts**: each one is made with `snowglobe account` (below). Its login goes to
+  `data/accounts.env` as `<NAME>_*` on the PDS with bare handles (else the first), where init's
+  `alice` and `bob` are, so `alice@alpha` is init's own alice; on any other PDS as
+  `<NAME>_<PDS>_*`, so `reader@regular` is `READER_REGULAR_*`. Passwords are generated and never
+  printed.
+- **lexicons.publish**: every lexicon in the folder, at any depth, goes into the authority as
+  `snowglobe lexicons` does; an unchanged one is left alone, and other JSON is skipped.
+- **apps[].local**: the route `snowglobe app <name> <port> [<handles>]` would make, set before the
+  certificate and nginx, so both have it. A route made by hand with `snowglobe app` stays.
+
+The commands, each `bin/snowglobe.mjs <command>`:
+
+| Command | What it does |
+| --- | --- |
+| `check [<file>]` | checks a file |
+| `render [<file>]` | writes the globe it describes into `data/globe/` (`up` does this itself) |
+| `certs [--check]` | makes the CA and the leaf nginx serves (`up` does this itself) |
+| `up [<file>]` | brings the globe up as `DEVNET_PROJECT` and seeds it ([Up and down](#up-and-down)) |
+| `down [-v]` | stops it; `-v` drops its volumes too |
+| `run [--] <cmd>` | runs a command that reaches the globe at the real network's names (Linux) |
+| `account`, `invite`, `lexicons`, `app` | make an app's own accounts, invite codes, lexicons and routes ([Tools for an app](#tools-for-an-app)) |
+
+With no `<file>`, `up` reads `SNOWGLOBE_FILE` if it is set; past that, each command reads
+`./snowglobe.yml` in the folder it runs in if there is one, else `snowglobe.default.yml` here:
+alpha, regular and prod, with `alice` and `bob`. Exit 2 means
+the command was called wrong, 1 that the globe refused, 3 that `up` or `down` refused the shared
+devnet.
+
 ### Up and down
 
 Every run names its compose project with `DEVNET_PROJECT`; there is no default. The scripts refuse
@@ -755,18 +843,18 @@ the shared project `devnet-spaces` unless `DEVNET_RESET_OK=1`, and exit before c
 
 ```bash
 export DEVNET_PROJECT=devnet-mine
-./scripts/https-up.sh     # certificates, two-pass authority boot, data/devnet.env
-./scripts/https-down.sh   # stop it; -v also drops its volumes (every account and DID)
+bin/snowglobe.mjs up      # certificates, two-pass authority boot, data/devnet.env
+bin/snowglobe.mjs down    # stop it; -v also drops its volumes (every account and DID)
 ```
 
-Both run the one compose file `https-up.sh` last rendered, from the repo root:
+Both run the one compose file `snowglobe up` last rendered, from the repo root:
 
 ```bash
-SNOWGLOBE_FILE=../myapp/snowglobe.yml ./scripts/https-up.sh   # another globe than the default
+bin/snowglobe.mjs up ../myapp/snowglobe.yml   # another globe than the default (or SNOWGLOBE_FILE)
 docker compose -p "$DEVNET_PROJECT" --project-directory . -f data/globe/compose.yml ps
 ```
 
-`https-up.sh` is safe to rerun; a rerun leaves the running services as they are, and only the
+`snowglobe up` is safe to rerun; a rerun leaves the running services as they are, and only the
 one-shot `init` and `relay-init` run again. A rerun on a changed file stops what the file no longer
 runs, and when it adds a PDS beside a running relay it restarts the relay, which otherwise can wait
 a long time before it redials a PDS that went away and came back. It refuses a PDS named for a handle ending an app
@@ -784,13 +872,13 @@ Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`DEVNET_PLC_PORT
 values on every run. The PDS, relay, TAP and Postgres ports are not published: reach a PDS by its
 https name. nginx needs port 443 itself, so a second https devnet also takes another loopback
 address, `DEVNET_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
-environment or `.env`; the scripts read it as compose does, `https-run` maps the names to it, and
+environment or `.env`; the scripts read it as compose does, `snowglobe run` maps the names to it, and
 `data/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the devnet's
 logins are throwaway, so it is never published beyond this machine.
 
-`https-down.sh` passes its arguments to `docker compose down` and never deletes `data/`. The PLC's
+`snowglobe down` runs `docker compose down` (with `-v` when given) and never deletes `data/`. The PLC's
 database is a named volume (`plc-db`), so a `down` without `-v` keeps every DID along with the
-PDSes. After `-v`, the next `https-up.sh` starts over: init reseeds `alice` and `bob` and rewrites
+PDSes. After `-v`, the next `snowglobe up` starts over: init reseeds `alice` and `bob` and rewrites
 `data/accounts.env` from scratch, so the logins the tools wrote there are gone along with their
 accounts (run `snowglobe account` and `snowglobe invite` again), and the authority is made again with
 a new DID.
@@ -810,23 +898,24 @@ a new DID.
   `LEX_AUTHORITY_*`, and whatever the tools below add.
 - `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's server
   and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
-  `https-up.sh` writes it again on every run; `bin/snowglobe.mjs render` writes it alone.
+  `snowglobe up` writes it again on every run; `bin/snowglobe.mjs render` writes it alone.
 - `data/https/`: `ca.crt` and `ca.key` (the CA), `leaf.crt` and `leaf.key` (what nginx serves),
-  `names` (the handles `https-run` maps), `apps` and `nginx/` (the app routes and the page's
+  `names` (the handles `snowglobe run` maps), `apps` and `nginx/` (the app routes and the page's
   `globe.json`), and `hosts` (the
-  hosts file `https-run` last generated).
+  hosts file `snowglobe run` last generated).
 
-### Running a command against it: `https-run`
+### Running a command against it: `snowglobe run`
 
 ```bash
-scripts/https-run getent hosts plc.directory     # 127.0.0.1 inside; the real address outside
-(cd ../bookclub && ../atproto-devnet/scripts/https-run npm run dev)
+bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the real address outside
+(cd ../bookclub && ../atproto-devnet/bin/snowglobe.mjs run npm run dev)
 ```
 
-`https-run <cmd>` runs the command with two changes, for its process tree only:
+`snowglobe run <cmd>` runs the command with two changes, for its process tree only:
 
-- the three PDS names, `plc.directory`, every handle in `data/https/names` and every app in
-  `data/https/apps` (as `<name>.devnet.internal`) resolve to `127.0.0.1`.
+- the globe's names (its page, every PDS, its services and `plc.directory`, as the rendered globe
+  lists them), every handle in `data/https/names` and every app in `data/https/apps` (as
+  `<name>.devnet.internal`) resolve to `DEVNET_BIND` (`127.0.0.1` by default).
   [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
   with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
   `HTTPS_RUN_EXTRA_NAMES` adds names.
@@ -834,8 +923,10 @@ scripts/https-run getent hosts plc.directory     # 127.0.0.1 inside; the real ad
   Miniflare's source passes the same file to workerd, so a Worker's `fetch` should trust it too.
 
 The names are read when the command starts. Handles are listed one by one (there is no wildcard
-DNS), so restart a command under `https-run` to pick up a handle or app made after it started.
-Node's certificate checks stay on: `https-run` only adds a CA for them to trust.
+DNS), so restart a command under `snowglobe run` to pick up a handle or app made after it started.
+Node's certificate checks stay on: `snowglobe run` only adds a CA for them to trust. It needs Linux
+and bubblewrap; on a Mac it says so and exits, and an app there reaches the devnet through its
+proxy instead (`PROXY_PAC_URL` in `data/devnet.env`).
 
 ### Tools for an app
 
@@ -882,7 +973,7 @@ already holds the same document. Or publish with the app's own tooling: sign in 
 `LEX_AUTHORITY_*` login in `data/accounts.env` and `putRecord` each document into
 `com.atproto.lexicon.schema` with the NSID as the record key.
 
-**An app route**, so the app has an https origin that both the PDSes and `https-run`'s processes
+**An app route**, so the app has an https origin that both the PDSes and `snowglobe run`'s processes
 reach: `bin/snowglobe.mjs app <name> <port>`.
 
 ```bash
@@ -911,7 +1002,7 @@ nginx then sends every name under `gh.devnet.test` to the app, Host and all, so 
 `/.well-known/atproto-did` for its handles and they resolve from anywhere on the devnet. The leaf
 gains `*.gh.devnet.test` from the same CA, so nothing has to be trusted again. `alpha`, `regular` and
 `prod` belong to the PDSes, and an ending belongs to one app. A rerun without the ending drops it.
-Under `https-run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any handle.
+Under `snowglobe run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any handle.
 
 `scripts/https-probe.mjs` checks the whole path for any app name. It resolves an account through
 `https://plc.directory` with stock atcute at its defaults, serves a confidential client at
@@ -921,7 +1012,7 @@ Under `https-run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any 
 
 ```bash
 bin/snowglobe.mjs app probe 5480
-ATCUTE_DIR=<dir> PROBE_DID=<did> scripts/https-run node scripts/https-probe.mjs
+ATCUTE_DIR=<dir> PROBE_DID=<did> bin/snowglobe.mjs run node scripts/https-probe.mjs
 ```
 
 ```
@@ -960,7 +1051,7 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 
 ### The CA
 
-`bin/snowglobe.mjs certs` makes the CA once, in Node (no openssl needed). `https-up.sh` runs it
+`bin/snowglobe.mjs certs` makes the CA once, in Node (no openssl needed). `snowglobe up` runs it
 when there is no leaf, or when the leaf lacks a name. Rerunning it keeps the CA and reissues the
 leaf only when it lacks a name, so a browser or OS that trusts `ca.crt` keeps trusting the devnet.
 A CA made by the old `scripts/https-ca.sh` is kept the same way. `bin/snowglobe.mjs certs --check`
@@ -970,7 +1061,7 @@ with bare handles, `*.<name>.devnet.test` for each other), `plc.`, `relay.`, `je
 `slingshot.` and `pdsls.devnet.test`, `plc.directory` and `*.devnet.internal`; and
 `*.<ending>.devnet.test` for each handle ending an app claimed. A TLS wildcard covers one label, so
 each handle domain needs its own. `snowglobe app` reissues the leaf
-when it claims an ending, and `https-up.sh` when the leaf lacks any of these names. Add deeper names
+when it claims an ending, and `snowglobe up` when the leaf lacks any of these names. Add deeper names
 with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"` on every run, then restart nginx. A name one label
 under `devnet.test` is already covered. To start over, delete `data/https/ca.*` and trust the new
 `ca.crt` wherever the old one was trusted.
@@ -1180,6 +1271,13 @@ The test suite validates all major operations against a running devnet:
 | `firehose.test.ts` | Raw PDS firehose emits CBOR events |
 | `isolation.test.ts` | PDS, Jetstream and TAP point only at the local PLC and the local PDS or relay, with no crawlers and no Bluesky AppView. It checks settings, not traffic |
 | `tap.test.ts` | TAP accepts a DID to track. Live sync is not tested yet |
+
+The `snowglobe-*.test.ts` files need no Docker: they check the file, what is rendered from it and
+each command's refusals. For the https devnet end to end on a machine, `node scripts/smoke.mjs`
+runs the whole sequence (`check`, `up`, `account` on two PDSes, `invite`, `lexicons`, `app` add and
+remove, `run`, `down -v`) on a copy of the checkout, as compose project `snowglobe-smoke` on
+`127.0.0.3`, and prints one line per step; it exits 0 only when every step passed. The checkout's
+own `data/` is not touched. It takes a few minutes, more on a first run that pulls the images.
 
 ## License
 

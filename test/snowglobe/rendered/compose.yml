@@ -1,6 +1,6 @@
 # Written by bin/snowglobe.mjs render from snowglobe.default.yml; render again instead of editing.
 # The https globe "devnet" at devnet.test: alpha, regular, prod.
-# Run it with scripts/https-up.sh, which renders this file first.
+# Run it with bin/snowglobe.mjs up, which renders this file first.
 
 services:
   postgres:
@@ -432,6 +432,10 @@ services:
     volumes:
       - ./data/https/ca.crt:/https/ca.crt:ro
       - slingshot-data:/data
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     healthcheck:
       test:
         - CMD-SHELL
