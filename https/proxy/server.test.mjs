@@ -114,6 +114,17 @@ test('the same port serves the PAC, naming the address it was asked on', async (
   assert.equal((await fetch(`http://127.0.0.1:${port}/`)).status, 404)
 })
 
+test('a request whose target is not a URL gets 400, and the proxy stays up', async (t) => {
+  const port = await harness(t)
+  const s = net.connect(port, '127.0.0.1')
+  s.on('error', () => {})
+  await once(s, 'connect')
+  s.write('GET //[ HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n')
+  assert.match(String(await read(s, 12)), /^HTTP\/1\.1 400/)
+  s.destroy()
+  assert.equal((await fetch(`http://127.0.0.1:${port}/_health`)).status, 200)
+})
+
 test('a CONNECT names a name and a port, never an address', () => {
   assert.deepEqual(connectTarget('alice.devnet.test:443'), { name: 'alice.devnet.test', port: 443 })
   for (const t of ['127.0.0.1:443', '[::1]:443', 'alice.devnet.test', 'a b:443', '/path']) assert.equal(connectTarget(t), null, t)

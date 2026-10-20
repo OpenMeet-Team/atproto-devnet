@@ -339,7 +339,7 @@ pnpm exec wrangler d1 migrations apply DB --local
 **Run atmo** under `https-run`, from `atmo-events/apps/web`:
 
 ```bash
-../../atproto-devnet/scripts/https-run pnpm dev     # http://127.0.0.1:5454
+../../../atproto-devnet/scripts/https-run pnpm dev     # http://127.0.0.1:5454
 ```
 
 **Use it from a browser.** Set up a browser on your computer as in
@@ -394,7 +394,7 @@ Run atmo where nginx can reach it, still under `https-run`:
 ```bash
 __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
 HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
-  ../../atproto-devnet/scripts/https-run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
+  ../../../atproto-devnet/scripts/https-run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
 ```
 
 - `--host` replaces the `127.0.0.1` in atmo's `vite.config.ts`. Use the address that
@@ -433,7 +433,7 @@ and Firefox through the proxy, with no request leaving the devnet.
    cookie secret and client key and prints neither), and its tables:
 
    ```bash
-   ../../atproto-devnet/scripts/https-app.sh atmo 5454     # from apps/web; or run it from the devnet checkout
+   ../../../atproto-devnet/scripts/https-app.sh atmo 5454     # from apps/web; or run it from the devnet checkout
    npx tsx src/lib/atproto/scripts/setup-dev.ts
    pnpm exec wrangler d1 migrations apply DB --local
    ```
@@ -458,7 +458,7 @@ and Firefox through the proxy, with no request leaving the devnet.
 
    ```bash
    __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
-     ../../atproto-devnet/scripts/https-run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
+     ../../../atproto-devnet/scripts/https-run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
    ```
 
 Open `https://devnet.test/` and follow its atmo link. Signing in sends you to
@@ -487,8 +487,8 @@ Then from atmo's `apps/web`, under `https-run`. Start it after the accounts exis
 are mapped:
 
 ```bash
-../../atproto-devnet/scripts/https-run sh -c \
-  'set -a; . ../../atproto-devnet/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
+../../../atproto-devnet/scripts/https-run sh -c \
+  'set -a; . ../../../atproto-devnet/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
 # ...
 # SUMMARY: 49 passed, 0 failed
 ```
@@ -985,7 +985,10 @@ address and any port but 443.
    through once, and an app's own calls from the page to a PDS fail where no one can click.
 2. **Forward the proxy's port.** In VS Code's Ports view, forward port 1080 of the dev container
    (`DEVNET_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
-   fetched from.
+   fetched from. The proxy asks no one to sign in, so whoever can reach the forwarded port reaches
+   the whole devnet: every PDS, the PLC, the network page, and every app of yours routed with
+   `https-app.sh`, each behind only its own sign-in. Keep the forwarded port on your computer's
+   loopback address and don't open it to a network.
 3. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (the forwarded port):
    - Windows, for Chrome, Edge and Firefox: Settings, Network & internet, Proxy, "Use setup script",
      with the URL as the script address.

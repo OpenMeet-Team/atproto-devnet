@@ -27,7 +27,7 @@ import dns from 'node:dns'
 import { readFileSync, statSync } from 'node:fs'
 import http from 'node:http'
 import https from 'node:https'
-import { extname, join, normalize } from 'node:path'
+import { extname, join, resolve, sep } from 'node:path'
 
 const env = process.env
 const PUBLIC_URL = (env.PDSLS_PUBLIC_URL ?? '').replace(/\/+$/, '')
@@ -120,10 +120,13 @@ function lookup(host, path, accept) {
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.wasm': 'application/wasm', '.xml': 'application/xml', '.cur': 'image/x-icon' }
 
+/** The file of the app at URL path `path` (still percent-encoded), or null. */
 function file(path) {
   try {
-    const full = normalize(join(DIST, path))
-    if (!full.startsWith(normalize(DIST)) || !statSync(full).isFile()) return null
+    // Inside the folder, not merely starting with its name: /..%2fdist-backup/x is /app/dist-backup/x.
+    const root = resolve(DIST)
+    const full = join(root, decodeURIComponent(path))
+    if (!full.startsWith(root + sep) || !statSync(full).isFile()) return null
     return full
   } catch {
     return null
@@ -164,7 +167,7 @@ async function serve(req, res) {
     return send(404, 'text/plain', 'not on this network\n')
   }
 
-  const path = file(decodeURIComponent(url.pathname))
+  const path = file(url.pathname)
   if (path && !path.endsWith('index.html')) {
     const immutable = url.pathname.startsWith('/assets/')
     return send(200, TYPES[extname(path)] ?? 'application/octet-stream', readFileSync(path), {

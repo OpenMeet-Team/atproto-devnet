@@ -168,7 +168,13 @@ export function connectTarget(target) {
 const STATUS = { ok: '200 Connection Established', notAllowed: '403 Forbidden', refused: '502 Bad Gateway', unreachable: '504 Gateway Timeout' }
 
 const pacServer = http.createServer((req, res) => {
-  const path = new URL(req.url ?? '/', 'http://x').pathname
+  // Node passes on a target URL can't parse (`GET //[`); thrown here, it would end the proxy.
+  let path
+  try {
+    path = new URL(req.url ?? '/', 'http://x').pathname
+  } catch {
+    return res.writeHead(400).end()
+  }
   if (path === '/_health') return res.writeHead(200).end('ok\n')
   const proxy = proxyAddress(req.headers.host)
   // Who fetched the PAC is the first thing to know when a browser seems to ignore it.
