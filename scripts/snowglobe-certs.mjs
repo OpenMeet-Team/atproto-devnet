@@ -165,7 +165,10 @@ export async function ensureCerts({ dir, domain, names, force = false, now = new
   const leaf = await x509.X509CertificateGenerator.create({
     serialNumber: serial(),
     subject: `O=atproto-devnet, CN=${domain}`,
-    issuer: ca.subject,
+    // The CA's subject as its own bytes. Rebuilt from text, its strings come out PrintableString
+    // where the CA has UTF8String; openssl and Node match names loosely and accept that, but Go
+    // (the relay, TAP) matches the bytes, and calls the CA unknown.
+    issuer: ca.subjectName,
     notBefore: now,
     notAfter: new Date(now.getTime() + LEAF_DAYS * DAY),
     signingAlgorithm: SIGN,

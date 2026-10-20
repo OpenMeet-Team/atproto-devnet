@@ -9,6 +9,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, sym
 import { createServer } from 'node:https';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { AsnConvert } from '@peculiar/asn1-schema';
+import { Certificate } from '@peculiar/asn1-x509';
 // @ts-expect-error: a plain .mjs module, without types
 import { ensureCerts, leafLacks, leafNames } from '../scripts/snowglobe-certs.mjs';
 // @ts-expect-error: a plain .mjs module, without types
@@ -41,6 +43,12 @@ const https = (r: string) => join(r, 'data/https');
 const cert = (r: string, f: string) => new X509Certificate(readFileSync(join(https(r), f)));
 const sans = (c: X509Certificate) => (c.subjectAltName ?? '').split(', ').map((s) => s.replace(/^DNS:/, ''));
 const openssl = (...args: string[]) => spawnSync('openssl', args, { encoding: 'utf8' });
+// The leaf's issuer and the CA's subject as bytes. Go (the relay, TAP) finds a leaf's CA by these
+// bytes alone, where openssl and Node also accept an issuer that only reads the same.
+const der = (r: string, f: string) => Buffer.from(readFileSync(join(https(r), f), 'utf8').replace(/-----[^-]+-----|\s/g, ''), 'base64');
+const tbs = (r: string, f: string) => AsnConvert.parse(der(r, f), Certificate).tbsCertificate;
+const issuerBytesMatch = (r: string) =>
+  Buffer.from(AsnConvert.serialize(tbs(r, 'leaf.crt').issuer)).equals(Buffer.from(AsnConvert.serialize(tbs(r, 'ca.crt').subject)));
 
 // A CA and leaf made with the same openssl commands as the old scripts/https-ca.sh (at 62ee2c2).
 function oldScriptCerts(dir: string, names: string[]) {
@@ -75,6 +83,7 @@ describe('snowglobe certs', () => {
     expect(leaf.verify(ca.publicKey)).toBe(true);
     expect(sans(leaf).sort()).toEqual([...NAMES].sort());
     expect(leaf.subject).toBe(`O=atproto-devnet\nCN=${D}`);
+    expect(issuerBytesMatch(r)).toBe(true);
     for (const f of ['ca.key', 'leaf.key']) expect(statSync(join(https(r), f)).mode & 0o777, f).toBe(0o600);
     for (const f of ['ca.crt', 'leaf.crt']) expect(statSync(join(https(r), f)).mode & 0o777, f).toBe(0o644);
     expect(createPrivateKey(readFileSync(join(https(r), 'leaf.key'))).asymmetricKeyDetails?.namedCurve).toBe('prime256v1');
@@ -153,6 +162,7 @@ describe('snowglobe certs', () => {
     expect(more.status, more.stderr).toBe(0);
     expect(cert(r, 'ca.crt').fingerprint256).toBe(ca);
     expect(cert(r, 'leaf.crt').verify(cert(r, 'ca.crt').publicKey)).toBe(true);
+    expect(issuerBytesMatch(r)).toBe(true);
     const verify = openssl('verify', '-CAfile', join(https(r), 'ca.crt'), join(https(r), 'leaf.crt'));
     expect(verify.status, verify.stderr).toBe(0);
   });
