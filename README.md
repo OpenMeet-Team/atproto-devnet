@@ -953,9 +953,11 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 
 ### The CA
 
-`scripts/https-ca.sh` makes the CA once. `https-up.sh` runs it when there is no leaf, or when the
-leaf lacks a name. Rerunning it keeps the CA and only reissues the leaf, so a browser or OS that
-trusts `ca.crt` keeps trusting the devnet. The leaf names what the render lists in
+`scripts/snowglobe certs` makes the CA once, in Node (no openssl needed). `https-up.sh` runs it
+when there is no leaf, or when the leaf lacks a name. Rerunning it keeps the CA and reissues the
+leaf only when it lacks a name, so a browser or OS that trusts `ca.crt` keeps trusting the devnet.
+A CA made by the old `scripts/https-ca.sh` is kept the same way. `scripts/snowglobe certs --check`
+only says whether the leaf lacks a name (exit 1) or not (exit 0). The leaf names what the render lists in
 `data/globe/leaf-names`: `devnet.test` itself, each PDS and its handles (`*.devnet.test` for the one
 with bare handles, `*.<name>.devnet.test` for each other), `plc.`, `relay.`, `jetstream.`,
 `slingshot.` and `pdsls.devnet.test`, `plc.directory` and `*.devnet.internal`; and
@@ -970,7 +972,7 @@ The CA can only vouch for servers under `devnet.test` (the `DEVNET_DOMAIN` it wa
 `devnet.internal` and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
 when you're done with it. On Windows: `certutil -user -delstore Root "<its name>"`, the name being the
-CN that `openssl x509 -in data/https/ca.crt -noout -subject` prints.
+CN that `scripts/snowglobe certs` prints ("Keeping the existing CA: ...").
 
 Each CA made since 2026-10-19 has a name of its own, `atproto-devnet local CA <date> <hex>`; older
 ones are all `atproto-devnet local CA`. Two CAs with one name break each other: a browser that trusts

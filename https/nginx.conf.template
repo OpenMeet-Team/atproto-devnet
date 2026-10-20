@@ -1,5 +1,5 @@
 # nginx for the https devnet (the globe's compose.yml, scripts/snowglobe render). One leaf
-# certificate names every host below; data/https/ca.crt is the CA that signed it (scripts/https-ca.sh).
+# certificate names every host below; data/https/ca.crt is the CA that signed it (scripts/snowglobe certs).
 # A template: at start the image writes it to conf.d/default.conf with the DEVNET_DOMAIN
 # setting filled in, so this is the http block's whole server list. The comments below
 # name its default, devnet.test.

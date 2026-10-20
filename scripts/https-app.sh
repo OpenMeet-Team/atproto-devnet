@@ -82,7 +82,7 @@ else
   # The CA is kept, and a new leaf is written over the old file, which nginx's mount follows.
   NEW_CERTS=""
   if leaf_lacks; then
-    "${SCRIPT_DIR}/https-ca.sh"
+    node "${SCRIPT_DIR}/snowglobe" certs
     NEW_CERTS=1
   fi
   render_apps

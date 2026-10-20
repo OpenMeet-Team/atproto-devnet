@@ -21,7 +21,7 @@ fi
 #   1. scripts/snowglobe render: data/globe/ from SNOWGLOBE_FILE, or the default globe
 #      (snowglobe.default.yml: alpha, regular and prod). DEVNET_DOMAIN, from the
 #      environment or .env, replaces the file's domain.
-#   2. scripts/https-ca.sh, if data/https has no leaf yet, or it lacks a name (the CA is kept)
+#   2. scripts/snowglobe certs, if data/https has no leaf yet, or it lacks a name (the CA is kept)
 #   3. nginx's app routes, from data/https/apps (scripts/https-app.sh)
 #   4. pass 1: up. The base init seeds alice, bob and DEVNET_INVITE_CODE into
 #      data/accounts.env on the PDS with bare handles (else the first), as it does for the
@@ -60,11 +60,11 @@ rm -rf "${_ahead}"
 render_globe
 mkdir -p "${HTTPS_DIR}/nginx"
 
-# The leaf must carry every name leaf_names lists: a leaf from before the app routes lacks
+# The leaf must carry every name (scripts/snowglobe-certs.mjs): a leaf from before the app routes lacks
 # *.devnet.internal, and one from before an app claimed a handle ending lacks its wildcard.
 NEW_CERTS=""
 if leaf_lacks; then
-  "${SCRIPT_DIR}/https-ca.sh"
+  node "${SCRIPT_DIR}/snowglobe" certs
   NEW_CERTS=1
 fi
 

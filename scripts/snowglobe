@@ -3,6 +3,7 @@
 //
 //   scripts/snowglobe check [<file>]
 //   scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]
+//   scripts/snowglobe certs [--check]
 //
 // check checks the file and exits 0 if it is sound, 1 with one line per problem if not.
 // render checks it the same way, then writes the https globe it describes into <dir>
@@ -12,6 +13,11 @@
 //
 // With no <file>, ./snowglobe.yml if there is one, else the default globe beside this script
 // (snowglobe.default.yml: today's https devnet).
+//
+// certs makes the globe's CA if there is none, and issues the leaf nginx serves when it lacks one
+// of the rendered globe's names (scripts/snowglobe-certs.mjs). --check only says whether it would:
+// exit 0 when the leaf carries every name, 1 when it lacks one. HTTPS_EXTRA_NAMES adds names
+// (space-separated), on every run.
 
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -20,9 +26,12 @@ import { loadGlobe } from './snowglobe-config.mjs';
 import { loadBase, renderGlobe } from './snowglobe-render.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const usage = 'Usage: scripts/snowglobe check [<file>]\n       scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]';
+const usage =
+  'Usage: scripts/snowglobe check [<file>]\n       scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]\n' +
+  '       scripts/snowglobe certs [--check]';
 
 const [cmd, ...args] = process.argv.slice(2);
+if (cmd === 'certs') await certs(args);
 const opts = {};
 const positional = [];
 for (let i = 0; i < args.length; i++) {
@@ -64,4 +73,22 @@ console.log(`${path}: wrote ${out}: globe ${globe.globe} at ${globe.domain}, PDS
 function fail() {
   console.error(usage);
   process.exit(2);
+}
+
+async function certs(args) {
+  if (args.length > 1 || (args.length === 1 && args[0] !== '--check')) fail();
+  try {
+    // Loaded here, so check and render do without the certificate library.
+    const { ensureCerts, leafLacks, leafNames } = await import('./snowglobe-certs.mjs');
+    const { paths, resolveDomain } = await import('./snowglobe-env.mjs');
+    const p = paths(ROOT);
+    const { domain } = resolveDomain({ root: ROOT });
+    const names = leafNames(p, domain, process.env.HTTPS_EXTRA_NAMES);
+    if (args[0] === '--check') process.exit(leafLacks(p.https, names) ? 1 : 0);
+    await ensureCerts({ dir: p.https, domain, names, log: (m) => console.error(m) });
+    process.exit(0);
+  } catch (e) {
+    console.error(`snowglobe certs: ${e.message}`);
+    process.exit(2);
+  }
 }

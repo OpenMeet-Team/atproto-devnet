@@ -30,7 +30,7 @@ if [ $# -eq 0 ]; then
   exit 2
 fi
 if [ ! -f "${CA}" ]; then
-  echo "https-run: no ${CA}; run scripts/https-ca.sh (or scripts/https-up.sh) first" >&2
+  echo "https-run: no ${CA}; run scripts/snowglobe certs (or scripts/https-up.sh) first" >&2
   exit 1
 fi
 if ! command -v bwrap >/dev/null 2>&1; then

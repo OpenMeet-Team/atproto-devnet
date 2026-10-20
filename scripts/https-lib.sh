@@ -159,39 +159,10 @@ add_name() {
   grep -qxF "$1" "${HTTPS_DIR}/names" || echo "$1" >> "${HTTPS_DIR}/names"
 }
 
-# app_handles: the handle endings apps claimed with scripts/https-app.sh, one per line.
-app_handles() {
-  [ -f "${HTTPS_DIR}/apps" ] || return 0
-  awk 'NF >= 3 { print $3 }' "${HTTPS_DIR}/apps"
-}
-
-# leaf_names: every name the leaf carries, one or more per line: the rendered globe's (its
-# page, each PDS and its handles, its services, plc.directory and *.devnet.internal), and
-# *.<ending>.<domain> for each ending an app claimed. A TLS wildcard covers one label, so each
-# handle domain has its own. HTTPS_EXTRA_NAMES adds names (space-separated).
-leaf_names() {
-  if [ ! -f "${GLOBE_DIR}/leaf-names" ]; then
-    echo "No ${GLOBE_DIR}/leaf-names: run scripts/https-up.sh, which renders it" >&2
-    return 1
-  fi
-  cat "${GLOBE_DIR}/leaf-names"
-  app_handles | sed "s/.*/*.&.${DEVNET_DOMAIN}/"
-  echo "${HTTPS_EXTRA_NAMES:-}"
-}
-
-# leaf_lacks: true when there is no leaf, or it lacks a name leaf_names lists.
+# leaf_lacks: true when there is no leaf, or it lacks one of the rendered globe's names, an app's
+# ending or HTTPS_EXTRA_NAMES (scripts/snowglobe certs --check).
 leaf_lacks() {
-  [ -f "${HTTPS_DIR}/leaf.crt" ] && [ -f "${HTTPS_DIR}/leaf.key" ] || return 0
-  _san="$(openssl x509 -in "${HTTPS_DIR}/leaf.crt" -noout -ext subjectAltName 2>/dev/null | tr -d ' ' | tr ',' '\n')"
-  set -f # a wildcard name is a name, not a glob
-  for _n in $(leaf_names); do
-    if ! printf '%s\n' "${_san}" | grep -qxF "DNS:${_n}"; then
-      set +f
-      return 0
-    fi
-  done
-  set +f
-  return 1
+  ! node "${ROOT_DIR}/scripts/snowglobe" certs --check
 }
 
 # render_apps: nginx's app routes, from data/https/apps (lines of "<name> <port>
