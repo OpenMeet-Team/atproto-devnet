@@ -861,7 +861,9 @@ scripts/https-app.sh bookclub 5600     # https://bookclub.devnet.internal -> por
 
 The app must listen where Docker's host gateway lands (`host.docker.internal` inside the
 containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `data/https/apps` (a
-rerun with the same name changes the port), and nginx in `DEVNET_PROJECT`'s stack is reloaded. A
+rerun with the same name changes the port), and nginx in `DEVNET_PROJECT`'s stack is reloaded.
+`scripts/https-app.sh --remove bookclub` drops the route the same way, and the app comes off the
+network page. A
 `.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
 OAuth client can use `https://bookclub.devnet.internal/...` as its client_id: the PDS fetches its
 metadata and keys from there over TLS. A client_id under `.test` is refused by the PDS

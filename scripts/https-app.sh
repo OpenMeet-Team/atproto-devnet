@@ -6,6 +6,7 @@ set -eu
 # https origin the devnet's PDSes and https-run's processes both reach.
 #
 # Usage: ./scripts/https-app.sh <name> <port> [<ending>]
+#        ./scripts/https-app.sh --remove <name>
 #   <name>    one lowercase DNS label; the app is https://<name>.devnet.internal
 #   <port>    where the app listens on this machine. Listen on the address Docker's host
 #             gateway lands on (host.docker.internal; the docker0 address here), or on
@@ -23,6 +24,10 @@ set -eu
 # data/devnet.env names). If the stack is down, the route is kept and nginx loads it when
 # https-up.sh starts it.
 #
+# --remove drops <name>'s route (and its ending, if it claimed one), re-renders and reloads
+# the same way, so a stopped app stops showing on the network page. The leaf keeps the
+# ending's name; an extra name on a certificate is harmless.
+#
 # A name with no route gets a 404 from nginx and reaches nothing. Inside https-run the
 # name resolves to 127.0.0.1; restart a process already running under it to pick up a
 # new name.
@@ -30,43 +35,61 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/https-lib.sh"
 
-NAME="${1:-}"
-PORT="${2:-}"
-ENDING="${3:-}"
 label() { echo "$1" | grep -qxE '[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?'; }
-if ! label "${NAME}" || ! echo "${PORT}" | grep -qxE '[1-9][0-9]{0,4}' || [ "${PORT}" -gt 65535 ] \
-   || { [ -n "${ENDING}" ] && ! label "${ENDING}"; } || [ $# -gt 3 ]; then
-  echo "Usage: https-app.sh <name> <port> [<ending>]   (name, ending: one lowercase DNS label each)" >&2
-  exit 2
-fi
+USAGE="Usage: https-app.sh <name> <port> [<ending>] | --remove <name>   (name, ending: one lowercase DNS label each)"
 
 mkdir -p "${HTTPS_DIR}"
 APPS="${HTTPS_DIR}/apps"
 touch "${APPS}"
-if [ -n "${ENDING}" ]; then
-  case "${ENDING}" in
-    alpha | regular | prod)
-      echo "https-app: ${ENDING}.${DEVNET_DOMAIN} is a PDS's own" >&2
-      exit 1
-      ;;
-  esac
-  OWNER="$(awk -v n="${NAME}" -v e="${ENDING}" '$1 != n && $3 == e { print $1; exit }' "${APPS}")"
-  if [ -n "${OWNER}" ]; then
-    echo "https-app: handles under ${ENDING}.${DEVNET_DOMAIN} already go to ${OWNER} (data/https/apps)" >&2
+
+if [ "${1:-}" = --remove ]; then
+  NAME="${2:-}"
+  if ! label "${NAME}" || [ $# -ne 2 ]; then
+    echo "${USAGE}" >&2
+    exit 2
+  fi
+  if ! awk -v n="${NAME}" '$1 == n { found = 1 } END { exit !found }' "${APPS}"; then
+    echo "https-app: no route named ${NAME} in data/https/apps; routed: $(awk '{ print $1 }' "${APPS}" | paste -sd ' ' -)" >&2
     exit 1
   fi
+  awk -v n="${NAME}" '$1 != n' "${APPS}" > "${APPS}.tmp"
+  mv "${APPS}.tmp" "${APPS}"
+  render_apps
+  echo "Removed https://${NAME}.devnet.internal (data/https/apps)" >&2
+else
+  NAME="${1:-}"
+  PORT="${2:-}"
+  ENDING="${3:-}"
+  if ! label "${NAME}" || ! echo "${PORT}" | grep -qxE '[1-9][0-9]{0,4}' || [ "${PORT}" -gt 65535 ] \
+     || { [ -n "${ENDING}" ] && ! label "${ENDING}"; } || [ $# -gt 3 ]; then
+    echo "${USAGE}" >&2
+    exit 2
+  fi
+  if [ -n "${ENDING}" ]; then
+    case "${ENDING}" in
+      alpha | regular | prod)
+        echo "https-app: ${ENDING}.${DEVNET_DOMAIN} is a PDS's own" >&2
+        exit 1
+        ;;
+    esac
+    OWNER="$(awk -v n="${NAME}" -v e="${ENDING}" '$1 != n && $3 == e { print $1; exit }' "${APPS}")"
+    if [ -n "${OWNER}" ]; then
+      echo "https-app: handles under ${ENDING}.${DEVNET_DOMAIN} already go to ${OWNER} (data/https/apps)" >&2
+      exit 1
+    fi
+  fi
+  { awk -v n="${NAME}" '$1 != n' "${APPS}"; echo "${NAME} ${PORT}${ENDING:+ ${ENDING}}"; } > "${APPS}.tmp"
+  mv "${APPS}.tmp" "${APPS}"
+  # The CA is kept, and a new leaf is written over the old file, which nginx's mount follows.
+  NEW_CERTS=""
+  if leaf_lacks; then
+    "${SCRIPT_DIR}/https-ca.sh"
+    NEW_CERTS=1
+  fi
+  render_apps
+  echo "https://${NAME}.devnet.internal -> port ${PORT} on this machine (data/https/apps)" >&2
+  [ -z "${ENDING}" ] || echo "https://<handle>.${ENDING}.${DEVNET_DOMAIN} -> the same port" >&2
 fi
-{ awk -v n="${NAME}" '$1 != n' "${APPS}"; echo "${NAME} ${PORT}${ENDING:+ ${ENDING}}"; } > "${APPS}.tmp"
-mv "${APPS}.tmp" "${APPS}"
-# The CA is kept, and a new leaf is written over the old file, which nginx's mount follows.
-NEW_CERTS=""
-if leaf_lacks; then
-  "${SCRIPT_DIR}/https-ca.sh"
-  NEW_CERTS=1
-fi
-render_apps
-echo "https://${NAME}.devnet.internal -> port ${PORT} on this machine (data/https/apps)" >&2
-[ -z "${ENDING}" ] || echo "https://<handle>.${ENDING}.${DEVNET_DOMAIN} -> the same port" >&2
 
 DEVNET_PROJECT="${DEVNET_PROJECT:-$(env_get DEVNET_PROJECT "${DATA_DIR}/devnet.env")}"
 if [ -z "${DEVNET_PROJECT}" ]; then
