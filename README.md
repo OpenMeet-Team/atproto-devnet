@@ -85,6 +85,16 @@ Changes to the default stack that existing setups will notice:
   `/etc/nginx/conf.d/default.conf` should mount it at `/etc/nginx/templates/default.conf.template`
   instead, and one that replaces nginx's command must keep the image's entrypoint, which writes the
   template out.
+- **The https devnet is rendered from a `snowglobe.yml` now, and a running one starts over.**
+  `https-up.sh` writes `data/globe/` with `scripts/snowglobe render` (from `SNOWGLOBE_FILE`, else
+  `snowglobe.default.yml`: the same alpha, regular and prod) and runs that one compose file;
+  `docker-compose.https.yml` is gone. Each PDS is its own service on the compose network, named
+  `pds-<name>`, so the alpha is `pds-alpha`, not `pds`, and its data volume is `pds-alpha-data`, not
+  `pds-data` (`pds-regular-data` and `pds-prod-data` keep their names). On a devnet brought up
+  before this, the alpha would start on a new, empty volume while the PLC still holds its accounts'
+  DIDs, and the old `pds` container would be left running beside it. So take such a devnet down with
+  the previous checkout first, `-v` included, and the next `https-up.sh` starts it fresh. The plain
+  http stacks are unchanged.
 
 ## Integrating into your project
 
@@ -644,13 +654,15 @@ image, and the patch has to apply.
 
 The stacks above serve every PDS at `http://localhost:<port>`, so an app has to be told it is on a
 devnet before it will sign in there: allow plain http, and ask the devnet PLC instead of
-`plc.directory`. `docker-compose.https.yml` goes the other way. Stacked last on the five files above,
-it makes the whole spaces stack look like the real network, so an app built for the real network
-runs against it with no devnet code:
+`plc.directory`. The https devnet goes the other way. It is the globe a `snowglobe.yml` describes
+(`snowglobe.default.yml` unless `SNOWGLOBE_FILE` names another), which `scripts/https-up.sh`
+renders into one compose file (`scripts/snowglobe render`) and brings up. It looks like the real
+network, so an app built for the real network runs against it with no devnet code. With the
+default file:
 
 | Name | Served by |
 | --- | --- |
-| `alpha.devnet.test`, `*.devnet.test` | `pds`, the spaces alpha (`79d6307e`), and its handles; invites required |
+| `alpha.devnet.test`, `*.devnet.test` | `pds-alpha`, the spaces alpha (`79d6307e`), and its handles; invites required |
 | `regular.devnet.test`, `*.regular.devnet.test` | `pds-regular`, a current release, and its handles |
 | `prod.devnet.test`, `*.prod.devnet.test` | `pds-prod`, the build you run in prod, and its handles |
 | `plc.directory` | this stack's own PLC |
@@ -661,16 +673,19 @@ runs against it with no devnet code:
 | `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
 | `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/https-app.sh`, for the handles it hands out |
 
-nginx answers all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's
-public URL, OAuth issuer and DID document endpoint is `https://<its name>`, and the relay crawls
-the three PDSes as `wss://` hosts. On the machine, the names resolve to `127.0.0.1` only for
+Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.devnet.test`; the one with
+`bare_handles` takes `*.devnet.test`, and every other its own `*.<name>.devnet.test`. nginx answers
+all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's public URL, OAuth
+issuer and DID document endpoint is `https://<its name>`, and the relay crawls every PDS as a
+`wss://` host. Inside the compose network nginx also answers to every PDS's name, so the PDSes,
+the relay and TAP reach each other over TLS; no service shares another's network but Slingshot. On the machine, the names resolve to `127.0.0.1` only for
 commands run under `scripts/https-run`, so every other program still reaches the real
 `plc.directory`.
 
-`devnet.test` is the default of one setting, `DEVNET_DOMAIN`, and every name in the table above
-(and in the rest of this README) uses it. Only the https devnet reads it; the plain stack keeps
-`DEVNET_PDS_HOSTNAME` and `DEVNET_HANDLE_DOMAIN`. Set it in the environment or in `.env` and the same
-stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
+`devnet.test` is the default file's domain, and every name in the table above (and in the rest of
+this README) uses it. `DEVNET_DOMAIN` replaces it. Only the https devnet reads it; the plain stack
+keeps `DEVNET_PDS_HOSTNAME` and `DEVNET_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
+the same stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
 `regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
 In `.env`, write the domain itself (quotes, `export` and a trailing comment are fine); the scripts
 refuse a `${...}` there, which compose would expand and they would not. A checkout keeps one domain,
@@ -695,7 +710,7 @@ scripts/https-run curl -sS --cacert data/https/ca.crt \
 
 It checks a handle both ways, which means it fetches `https://<handle>/.well-known/atproto-did`
 from inside the compose network, and a handle's name exists nowhere but in nginx. So it runs in
-the network namespace of `slingshot-dns` (the way the extra PDSes share the alpha's), a dnsmasq
+the network namespace of `slingshot-dns`, a dnsmasq
 that answers nginx's address for any name under `DEVNET_DOMAIN` and nothing else, and its only
 root is the devnet CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
 handle: `https-account.sh` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
@@ -740,20 +755,24 @@ export DEVNET_PROJECT=devnet-mine
 ./scripts/https-down.sh   # stop it; -v also drops its volumes (every account and DID)
 ```
 
-Both pass the same six files, the https overlay last:
+Both run the one compose file `https-up.sh` last rendered, from the repo root:
 
 ```bash
-F="-f docker-compose.yml -f docker-compose.test.yml -f docker-compose.spaces.yml"
-F="$F -f docker-compose.multi-pds.yml -f docker-compose.relay.yml -f docker-compose.https.yml"
-docker compose -p "$DEVNET_PROJECT" $F ps
+SNOWGLOBE_FILE=../myapp/snowglobe.yml ./scripts/https-up.sh   # another globe than the default
+docker compose -p "$DEVNET_PROJECT" --project-directory . -f data/globe/compose.yml ps
 ```
 
 `https-up.sh` is safe to rerun; a rerun leaves the running services as they are, and only the
-one-shot `init` and `relay-init` run again. It makes the leaf certificate if there is
-none, brings the stack up, makes the lexicon authority (`lex-authority.devnet.test` on the alpha),
+one-shot `init` and `relay-init` run again. A rerun on a changed file stops what the file no longer
+runs, and when it adds a PDS beside a running relay it restarts the relay, which otherwise can wait
+a long time before it redials a PDS that went away and came back. It refuses a PDS named for a handle ending an app
+claimed with `https-app.sh`, before it writes anything. It makes the leaf certificate if there is
+none, brings the stack up, makes the lexicon authority (`lex-authority.devnet.test` on the file's
+`lexicons.authority` PDS, the alpha by default),
 brings the stack up again with `DEVNET_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
 `data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `DEVNET_INVITE_CODE`
-into `data/accounts.env`, as it does for the http stacks. Nothing else is seeded.
+into `data/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
+stacks. Nothing else is seeded.
 
 Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`DEVNET_PLC_PORT`), Jetstream
 (`DEVNET_JETSTREAM_PORT`, `DEVNET_JETSTREAM_METRICS_PORT`) and maildev (`DEVNET_MAILDEV_WEB_PORT`,
@@ -776,14 +795,18 @@ a new DID.
 
 `data/` is git-ignored:
 
-- `data/devnet.env`: the devnet's own facts, nothing secret. `ALPHA_PDS_URL`, `REGULAR_PDS_URL`,
-  `PROD_PDS_URL`, `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
+- `data/devnet.env`: the devnet's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
+  (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
+  leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
   `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN`,
   `PAGE_URL` (`https://devnet.test/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
   `DEVNET_CA_FILE`.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
 - `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the tools below add.
+- `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's server
+  and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
+  `https-up.sh` writes it again on every run; `scripts/snowglobe render` writes it alone.
 - `data/https/`: `ca.crt` and `ca.key` (the CA), `leaf.crt` and `leaf.key` (what nginx serves),
   `names` (the handles `https-run` maps), `apps` and `nginx/` (the app routes and the page's
   `globe.json`), and `hosts` (the
@@ -931,11 +954,13 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
 ### The CA
 
 `scripts/https-ca.sh` makes the CA once. `https-up.sh` runs it when there is no leaf, or when the
-leaf does not name `*.devnet.internal`. Rerunning it keeps the CA and only reissues the leaf, so a
-browser or OS that trusts `ca.crt` keeps trusting the devnet. The leaf names `devnet.test` itself, the three PDSes,
-`slingshot.devnet.test` (and, through `*.devnet.test`, `plc.`, `relay.` and `jetstream.devnet.test`), `*.devnet.test`, `*.regular.devnet.test`, `*.prod.devnet.test`, `plc.directory`,
-`*.devnet.internal`, and `*.<ending>.devnet.test` for each handle ending an app claimed; a TLS
-wildcard covers one label, so each handle domain needs its own. `https-app.sh` reissues the leaf
+leaf lacks a name. Rerunning it keeps the CA and only reissues the leaf, so a browser or OS that
+trusts `ca.crt` keeps trusting the devnet. The leaf names what the render lists in
+`data/globe/leaf-names`: `devnet.test` itself, each PDS and its handles (`*.devnet.test` for the one
+with bare handles, `*.<name>.devnet.test` for each other), `plc.`, `relay.`, `jetstream.`,
+`slingshot.` and `pdsls.devnet.test`, `plc.directory` and `*.devnet.internal`; and
+`*.<ending>.devnet.test` for each handle ending an app claimed. A TLS wildcard covers one label, so
+each handle domain needs its own. `https-app.sh` reissues the leaf
 when it claims an ending, and `https-up.sh` when the leaf lacks any of these names. Add deeper names
 with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"` on every run, then restart nginx. A name one label
 under `devnet.test` is already covered. To start over, delete `data/https/ca.*` and trust the new

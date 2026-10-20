@@ -13,7 +13,7 @@ if [ "${DEVNET_PROJECT}" = devnet-spaces ] && [ "${DEVNET_RESET_OK:-}" != 1 ]; t
 fi
 
 # Stop the https devnet's project DEVNET_PROJECT. Every argument goes to
-# `docker compose down`, with the same six files https-up.sh uses.
+# `docker compose down`, on the globe https-up.sh last rendered (data/globe/compose.yml).
 #
 # Usage: DEVNET_PROJECT=<project> ./scripts/https-down.sh [-v]
 #   -v  also drop the project's volumes: every account, DID and record is gone. The PLC's
@@ -27,4 +27,5 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/https-lib.sh"
 
-dc down "$@"
+# --remove-orphans: a service an earlier render ran and this one does not is stopped too.
+dc down --remove-orphans "$@"

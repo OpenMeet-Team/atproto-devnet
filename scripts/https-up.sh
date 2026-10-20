@@ -12,20 +12,24 @@ if [ "${DEVNET_PROJECT}" = devnet-spaces ] && [ "${DEVNET_RESET_OK:-}" != 1 ]; t
   exit 3
 fi
 
-# Bring up the https devnet: the five spaces compose files plus docker-compose.https.yml,
-# as compose project DEVNET_PROJECT. Safe to rerun: each step keeps what an earlier run
-# made, and a rerun is one `up`.
+# Bring up the https devnet: the globe a snowglobe.yml describes, as compose project
+# DEVNET_PROJECT. Safe to rerun: each step keeps what an earlier run made, and a rerun is
+# one `up`.
 #
-# Usage: DEVNET_PROJECT=<project> ./scripts/https-up.sh
+# Usage: DEVNET_PROJECT=<project> [SNOWGLOBE_FILE=<snowglobe.yml>] ./scripts/https-up.sh
 #
-#   1. scripts/https-ca.sh, if data/https has no leaf yet (the CA is kept)
-#   2. nginx's app routes, from data/https/apps (scripts/https-app.sh)
-#   3. pass 1: up. The base init seeds alice, bob and DEVNET_INVITE_CODE into
-#      data/accounts.env, as it does for the http stacks.
-#   4. the lexicon authority, lex-authority.devnet.test on the alpha (LEX_AUTHORITY_* in
-#      data/accounts.env), then pass 2: up with DEVNET_LEXICON_AUTHORITY_DID, which
-#      recreates the PDSes (and what shares their network) with it
-#   5. data/devnet.env: the devnet's URLs and the authority's DID and handle, nothing
+#   1. scripts/snowglobe render: data/globe/ from SNOWGLOBE_FILE, or the default globe
+#      (snowglobe.default.yml: alpha, regular and prod). DEVNET_DOMAIN, from the
+#      environment or .env, replaces the file's domain.
+#   2. scripts/https-ca.sh, if data/https has no leaf yet, or it lacks a name (the CA is kept)
+#   3. nginx's app routes, from data/https/apps (scripts/https-app.sh)
+#   4. pass 1: up. The base init seeds alice, bob and DEVNET_INVITE_CODE into
+#      data/accounts.env on the PDS with bare handles (else the first), as it does for the
+#      http stacks.
+#   5. the lexicon authority, lex-authority on the file's lexicons.authority PDS
+#      (LEX_AUTHORITY_* in data/accounts.env), then pass 2: up with
+#      DEVNET_LEXICON_AUTHORITY_DID, which recreates the PDSes with it
+#   6. data/devnet.env: the devnet's URLs and the authority's DID and handle, nothing
 #      secret, for an app to source
 #
 # It seeds no app's data: an app makes its own accounts, invite codes and lexicons with
@@ -35,8 +39,25 @@ fi
 # DEVNET_MAILDEV_SMTP_PORT, DEVNET_PROXY_PORT); pass the same ones on every run.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# A render from an earlier run may be for another domain; this one replaces it.
+SNOWGLOBE_RENDER=1
 . "${SCRIPT_DIR}/https-lib.sh"
 
+# A PDS by the name of an app's handle ending would take that app's handles: nginx keeps the
+# first of two servers with one name, and the globe's come before the apps'. Checked on a render
+# aside, so a refused file leaves data/globe/ as the running globe has it.
+_ahead="$(mktemp -d)"
+render_globe "${_ahead}/globe"
+for _p in $(env_get SNOWGLOBE_PDS "${_ahead}/globe/globe.env"); do
+  _app="$(awk -v e="${_p}" '$3 == e { print $1; exit }' "${HTTPS_DIR}/apps" 2>/dev/null || true)"
+  if [ -n "${_app}" ]; then
+    rm -rf "${_ahead}"
+    echo "https-up: the PDS ${_p} would take the handles under ${_p}.<domain>, the ending app ${_app} claimed; rename the PDS, or scripts/https-app.sh --remove ${_app}" >&2
+    exit 1
+  fi
+done
+rm -rf "${_ahead}"
+render_globe
 mkdir -p "${HTTPS_DIR}/nginx"
 
 # The leaf must carry every name leaf_names lists: a leaf from before the app routes lacks
@@ -50,8 +71,8 @@ fi
 render_apps
 
 # `up --wait` alone fails as soon as a one-shot service exits, even with 0. So: up, then
-# wait for the one-shots (init seeds data/accounts.env; relay-init registers the three
-# PDSes with the relay), then for every long-running service to be healthy.
+# wait for the one-shots (init seeds data/accounts.env; relay-init registers every PDS with
+# the relay), then for every long-running service to be healthy.
 wait_done() {
   _n=0
   while :; do
@@ -72,11 +93,18 @@ wait_done() {
   done
 }
 up_stack() {
-  dc up -d
-  wait_done init
-  wait_done relay-init
-  dc up -d --wait postgres plc maildev pds pds-regular pds-prod nginx relay jetstream tap slingshot-dns slingshot proxy pdsls
+  # A service the file no longer runs (a PDS taken out, a service turned off) is stopped.
+  dc up -d --remove-orphans
+  for _s in $(env_get SNOWGLOBE_ONESHOTS "${GLOBE_ENV}"); do
+    wait_done "${_s}"
+  done
+  # shellcheck disable=SC2046 # service names, one word each
+  dc up -d --wait $(env_get SNOWGLOBE_SERVICES "${GLOBE_ENV}")
 }
+
+# What runs before this run: the relay, and every container, to notice a PDS this run makes.
+_relay_before="$(dc ps -q relay 2>/dev/null || true)"
+_before="$(dc ps -aq 2>/dev/null || true)"
 
 # A rerun starts the PDSes with the authority they already have, so pass 1 changes nothing.
 DEVNET_LEXICON_AUTHORITY_DID="$(env_get LEX_AUTHORITY_DID "${DEVNET_ACCOUNTS}")"
@@ -84,20 +112,38 @@ export DEVNET_LEXICON_AUTHORITY_DID
 
 echo "Pass 1: up (project ${DEVNET_PROJECT})" >&2
 up_stack
-# A running nginx keeps the certificate files it started with; new ones need a restart.
+# A running nginx keeps the certificate files it started with; new ones need a restart. The
+# globe's servers may have changed with the render, so a running nginx reloads them.
 if [ -n "${NEW_CERTS}" ]; then
   dc restart nginx >/dev/null
+else
+  dc exec -T nginx nginx -s reload >/dev/null
 fi
 
-AUTH_DID=$("${SCRIPT_DIR}/https-account.sh" lex-authority LEX_AUTHORITY alpha)
+AUTH_DID=$("${SCRIPT_DIR}/https-account.sh" lex-authority LEX_AUTHORITY "$(env_get SNOWGLOBE_AUTHORITY_PDS "${GLOBE_ENV}")")
 if [ "${AUTH_DID}" != "${DEVNET_LEXICON_AUTHORITY_DID}" ]; then
   DEVNET_LEXICON_AUTHORITY_DID="${AUTH_DID}"
   echo "Pass 2: up with the lexicon authority ${AUTH_DID}" >&2
-  # The whole stack: recreating pds alone strands the services in its network namespace.
   up_stack
 fi
 
-# init's accounts are on the alpha too; https-run maps their handles.
+# A relay that was running when a PDS went away redials it with a growing backoff; a PDS added
+# back under that name was not crawled again until the relay restarted (2026-10-20: no dial in
+# the nine minutes after it came back). So when this run made a PDS container beside a
+# relay that was already running, the relay restarts, and the services wait for it again.
+if [ -n "${_relay_before}" ]; then
+  for _p in $(globe_pds); do
+    if ! printf '%s\n' "${_before}" | grep -qxF "$(dc ps -q "pds-${_p}")"; then
+      echo "Restarting the relay: pds-${_p} is new beside it" >&2
+      dc restart relay >/dev/null
+      # shellcheck disable=SC2046 # service names, one word each
+      dc up -d --wait $(env_get SNOWGLOBE_SERVICES "${GLOBE_ENV}")
+      break
+    fi
+  done
+fi
+
+# init's accounts are on the seed PDS; https-run maps their handles.
 for prefix in ALICE BOB; do
   handle="$(env_get "${prefix}_HANDLE" "${DEVNET_ACCOUNTS}")"
   [ -z "${handle}" ] || add_name "${handle}"
@@ -110,9 +156,13 @@ DENV="${DATA_DIR}/devnet.env"
   echo "DEVNET_PROJECT=${DEVNET_PROJECT}"
   echo "DEVNET_DOMAIN=${DEVNET_DOMAIN}"
   echo "PAGE_URL=https://${DEVNET_DOMAIN}/"
-  echo "ALPHA_PDS_URL=https://$(pds_name alpha)"
-  echo "REGULAR_PDS_URL=https://$(pds_name regular)"
-  echo "PROD_PDS_URL=https://$(pds_name prod)"
+  # <NAME>_PDS_URL for each PDS: ALPHA_PDS_URL for alpha. A shell name cannot start with a
+  # digit, so a PDS named 1st is _1ST_PDS_URL.
+  for _p in $(globe_pds); do
+    _v="$(printf '%s' "${_p}" | tr 'a-z-' 'A-Z_')"
+    case "${_v}" in [0-9]*) _v="_${_v}" ;; esac
+    echo "${_v}_PDS_URL=https://${_p}.${DEVNET_DOMAIN}"
+  done
   echo "PLC_URL=https://plc.directory"
   echo "JETSTREAM_URL=ws://127.0.0.1:${DEVNET_JETSTREAM_PORT:-6008}"
   echo "MAILDEV_URL=http://127.0.0.1:${DEVNET_MAILDEV_WEB_PORT:-1081}"

@@ -2,10 +2,11 @@
 set -eu
 
 # The https devnet's certificates: one local CA, made once, and one leaf that nginx
-# serves for every devnet name: the three PDSes and their handles, plc.directory, every
-# app at <name>.devnet.internal, and the handles under each ending an app claimed with
-# scripts/https-app.sh. The PDS names sit under DEVNET_DOMAIN (devnet.test by default;
-# scripts/https-lib.sh, whose leaf_names lists them), and the names below use the default.
+# serves for every devnet name: each PDS and its handles, the globe's services,
+# plc.directory, every app at <name>.devnet.internal, and the handles under each ending an
+# app claimed with scripts/https-app.sh. The names sit under DEVNET_DOMAIN (devnet.test by
+# default; scripts/https-lib.sh's leaf_names lists them, from the rendered globe), and the
+# names below use the default.
 #
 # Usage: ./scripts/https-ca.sh
 #
@@ -21,7 +22,7 @@ set -eu
 # a new DEVNET_DOMAIN, means a new CA, trusted again.
 #
 # A TLS wildcard covers one label, so *.devnet.test does not cover a handle on the
-# regular PDS (<name>.regular.devnet.test); each handle domain has its own.
+# PDS named regular (<name>.regular.devnet.test); each handle domain has its own.
 #
 # Nothing here prints a key. Pass extra leaf names with HTTPS_EXTRA_NAMES
 # (space-separated), for instance when a PDS is added, on every run.
@@ -29,6 +30,8 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/https-lib.sh"
 D="${DEVNET_DOMAIN}"
+# Checked apart from the pipe below, whose status would be tr's.
+leaf_names > /dev/null
 NAMES="$(leaf_names | tr '\n' ' ')"
 OUT="${SCRIPT_DIR}/../data/https"
 mkdir -p "${OUT}"
@@ -80,7 +83,7 @@ EOF
 openssl req -new -nodes -sha256 \
   -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
   -keyout leaf.key.new -out leaf.csr \
-  -subj "/O=atproto-devnet/CN=alpha.${D}"
+  -subj "/O=atproto-devnet/CN=${D}"
 # 397 days: under the 398-day ceiling browsers apply to server certificates.
 openssl x509 -req -sha256 -days 397 \
   -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial \

@@ -1,0 +1,508 @@
+# Written by scripts/snowglobe render from snowglobe.default.yml; render again instead of editing.
+# The https globe "devnet" at devnet.test: alpha, regular, prod.
+# Run it with scripts/https-up.sh, which renders this file first.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DEVNET_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DEVNET_DB_NAME:-plc}
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${DEVNET_DB_USER:-postgres}
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - plc-db:/var/lib/postgresql/data
+  maildev:
+    image: maildev/maildev:latest
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:${DEVNET_MAILDEV_WEB_PORT:-1081}:1080
+      - 127.0.0.1:${DEVNET_MAILDEV_SMTP_PORT:-1026}:1025
+    networks:
+      - atproto-devnet
+  plc:
+    image: itaru2622/bluesky-did-method-plc:latest
+    restart: unless-stopped
+    entrypoint: |
+      sh -c "
+        export DB_CREDS_JSON=$$(printf '{\"username\":\"%s\",\"password\":\"%s\",\"host\":\"%s\",\"port\":\"%s\",\"database\":\"%s\"}' \"$$DEVNET_DB_USER\" \"$$DEVNET_DB_PASSWORD\" \"$$DEVNET_DB_HOST\" \"$$DEVNET_DB_PORT\" \"$$DEVNET_DB_NAME\")
+        export DB_MIGRATE_CREDS_JSON=$$DB_CREDS_JSON
+        exec node /app/packages/server/service/index.js
+      "
+    environment:
+      PORT: 2582
+      DEVNET_DB_USER: ${DEVNET_DB_USER:-postgres}
+      DEVNET_DB_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
+      DEVNET_DB_HOST: ${DEVNET_DB_HOST:-postgres}
+      DEVNET_DB_PORT: ${DEVNET_DB_PORT:-5432}
+      DEVNET_DB_NAME: ${DEVNET_DB_NAME:-plc}
+      DATABASE_URL: postgres://${DEVNET_DB_USER:-postgres}:${DEVNET_DB_PASSWORD:-postgres}@${DEVNET_DB_HOST:-postgres}:${DEVNET_DB_PORT:-5432}/${DEVNET_DB_NAME:-plc}
+      ENABLE_MIGRATIONS: "true"
+      LOG_ENABLED: "true"
+      LOG_LEVEL: info
+      NODE_ENV: development
+    ports:
+      - 127.0.0.1:${DEVNET_PLC_PORT:-2582}:2582
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1:2582/_health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+  pds-alpha:
+    image: ghcr.io/bluesky-social/atproto@sha256:1cf9349e9f0e89789784569fed376cd647742ea7c368948625f44779ba03f150
+    user: root
+    restart: unless-stopped
+    depends_on:
+      plc:
+        condition: service_healthy
+    environment:
+      PDS_PORT: "3000"
+      PDS_HOSTNAME: alpha.devnet.test
+      PDS_DATA_DIRECTORY: /pds/data
+      PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
+      PDS_DID_PLC_URL: http://plc:2582
+      PDS_BSKY_APP_VIEW_URL: ${DEVNET_APPVIEW_URL:-https://appview.invalid}
+      PDS_BSKY_APP_VIEW_DID: ${DEVNET_APPVIEW_DID:-did:example:invalid}
+      PDS_REPORT_SERVICE_URL: ${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}
+      PDS_REPORT_SERVICE_DID: ${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}
+      PDS_CRAWLERS: ""
+      PDS_DISABLE_SSRF_PROTECTION: "true"
+      PDS_INVITE_REQUIRED: "true"
+      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+      PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
+      PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      PDS_EMAIL_SMTP_URL: smtp://maildev:1025
+      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
+      PDS_HANDLE_DOMAINS: .devnet.test
+      PDS_SERVICE_HANDLE_DOMAINS: .devnet.test
+      LOG_ENABLED: "true"
+      NODE_ENV: development
+      PDS_SERVICE_DID: did:web:alpha.devnet.test
+      PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+      PDS_DEV_MODE: "false"
+      NODE_EXTRA_CA_CERTS: /https/ca.crt
+      NODE_OPTIONS: --require /https/app-names.cjs
+    volumes:
+      - pds-alpha-data:/pds/data
+      - ./data/https/ca.crt:/https/ca.crt:ro
+      - ./https/app-names.cjs:/https/app-names.cjs:ro
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1:3000/xrpc/_health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  pds-regular:
+    image: ghcr.io/bluesky-social/pds:0.4.5037
+    user: root
+    restart: unless-stopped
+    depends_on:
+      plc:
+        condition: service_healthy
+    environment:
+      PDS_PORT: "3000"
+      PDS_HOSTNAME: regular.devnet.test
+      PDS_DATA_DIRECTORY: /pds/data
+      PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
+      PDS_DID_PLC_URL: http://plc:2582
+      PDS_BSKY_APP_VIEW_URL: ${DEVNET_APPVIEW_URL:-https://appview.invalid}
+      PDS_BSKY_APP_VIEW_DID: ${DEVNET_APPVIEW_DID:-did:example:invalid}
+      PDS_REPORT_SERVICE_URL: ${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}
+      PDS_REPORT_SERVICE_DID: ${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}
+      PDS_CRAWLERS: ""
+      PDS_DISABLE_SSRF_PROTECTION: "true"
+      PDS_INVITE_REQUIRED: "false"
+      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+      PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
+      PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      PDS_EMAIL_SMTP_URL: smtp://maildev:1025
+      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
+      PDS_HANDLE_DOMAINS: .regular.devnet.test
+      PDS_SERVICE_HANDLE_DOMAINS: .regular.devnet.test
+      LOG_ENABLED: "true"
+      NODE_ENV: development
+      PDS_SERVICE_DID: did:web:regular.devnet.test
+      PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+      PDS_DEV_MODE: "false"
+      NODE_EXTRA_CA_CERTS: /https/ca.crt
+      NODE_OPTIONS: --require /https/app-names.cjs
+    volumes:
+      - pds-regular-data:/pds/data
+      - ./data/https/ca.crt:/https/ca.crt:ro
+      - ./https/app-names.cjs:/https/app-names.cjs:ro
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1:3000/xrpc/_health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  pds-prod:
+    image: ghcr.io/bluesky-social/pds@sha256:1fa8bbceabb65d8e1710749b1ea92c1c20a7489ca38da4a0a5f64c0c10a70c29
+    user: root
+    restart: unless-stopped
+    depends_on:
+      plc:
+        condition: service_healthy
+    environment:
+      PDS_PORT: "3000"
+      PDS_HOSTNAME: prod.devnet.test
+      PDS_DATA_DIRECTORY: /pds/data
+      PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
+      PDS_DID_PLC_URL: http://plc:2582
+      PDS_BSKY_APP_VIEW_URL: ${DEVNET_APPVIEW_URL:-https://appview.invalid}
+      PDS_BSKY_APP_VIEW_DID: ${DEVNET_APPVIEW_DID:-did:example:invalid}
+      PDS_REPORT_SERVICE_URL: ${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}
+      PDS_REPORT_SERVICE_DID: ${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}
+      PDS_CRAWLERS: ""
+      PDS_DISABLE_SSRF_PROTECTION: "true"
+      PDS_INVITE_REQUIRED: "false"
+      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+      PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
+      PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      PDS_EMAIL_SMTP_URL: smtp://maildev:1025
+      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
+      PDS_HANDLE_DOMAINS: .prod.devnet.test
+      PDS_SERVICE_HANDLE_DOMAINS: .prod.devnet.test
+      LOG_ENABLED: "true"
+      NODE_ENV: development
+      PDS_SERVICE_DID: did:web:prod.devnet.test
+      PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+      PDS_DEV_MODE: "false"
+      NODE_EXTRA_CA_CERTS: /https/ca.crt
+      NODE_OPTIONS: --require /https/app-names.cjs
+    volumes:
+      - pds-prod-data:/pds/data
+      - ./data/https/ca.crt:/https/ca.crt:ro
+      - ./https/app-names.cjs:/https/app-names.cjs:ro
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1:3000/xrpc/_health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  relay:
+    build:
+      context: ./relay
+      args:
+        INDIGO_COMMIT: ${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
+    image: atproto-devnet-relay:https-${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      RELAY_ADMIN_PASSWORD: ${DEVNET_RELAY_ADMIN_PASSWORD:-devnet-relay-admin}
+      RELAY_PLC_HOST: http://plc:2582
+      RELAY_ALLOW_PRIVATE_HOSTS: "true"
+      RELAY_LENIENT_SYNC_VALIDATION: "true"
+      ENVIRONMENT: dev
+    volumes:
+      - relay-data:/data/relay
+      - ./data/https/ca.crt:/etc/ssl/certs/atproto-devnet-ca.pem:ro
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1:2470/xrpc/_health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - atproto-devnet
+  relay-init:
+    image: alpine:3.20
+    depends_on:
+      relay:
+        condition: service_healthy
+      nginx:
+        condition: service_healthy
+      pds-alpha:
+        condition: service_healthy
+      pds-regular:
+        condition: service_healthy
+      pds-prod:
+        condition: service_healthy
+    environment:
+      RELAY_ADMIN_PASSWORD: ${DEVNET_RELAY_ADMIN_PASSWORD:-devnet-relay-admin}
+      RELAY_HOSTS: alpha.devnet.test regular.devnet.test prod.devnet.test
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -eu
+        apk add --no-cache curl >/dev/null 2>&1
+        for host in $$RELAY_HOSTS; do
+          echo "[relay-init] crawl $$host"
+          curl -sf -u "admin:$$RELAY_ADMIN_PASSWORD" -H "Content-Type: application/json" \
+            -d "{\"hostname\": \"$$host\"}" http://relay:2470/admin/pds/requestCrawl
+          echo
+        done
+    networks:
+      - atproto-devnet
+    restart: "no"
+  jetstream:
+    image: ghcr.io/bluesky-social/jetstream:sha-05c89f0
+    restart: unless-stopped
+    depends_on:
+      relay:
+        condition: service_healthy
+    environment:
+      JETSTREAM_WS_URL: ws://relay:2470/xrpc/com.atproto.sync.subscribeRepos
+      JETSTREAM_DATA_DIR: /data
+      JETSTREAM_LIVENESS_TTL: 86400s
+    volumes:
+      - jetstream-data:/data
+    ports:
+      - 127.0.0.1:${DEVNET_JETSTREAM_PORT:-6008}:6008
+      - 127.0.0.1:${DEVNET_JETSTREAM_METRICS_PORT:-6009}:6009
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'echo > /dev/tcp/127.0.0.1/6008'
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  tap:
+    image: ghcr.io/bluesky-social/indigo/tap:latest
+    restart: unless-stopped
+    depends_on:
+      relay:
+        condition: service_healthy
+    environment:
+      TAP_RELAY_URL: http://relay:2470
+      TAP_PLC_URL: http://plc:2582
+      TAP_DATABASE_URL: sqlite:///data/tap.db
+      TAP_DISABLE_ACKS: "true"
+      TAP_LOG_LEVEL: info
+    volumes:
+      - tap-data:/data
+      - ./data/https/ca.crt:/etc/ssl/certs/atproto-devnet-ca.pem:ro
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1:2480/health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  init:
+    image: alpine:3.20
+    depends_on:
+      pds-alpha:
+        condition: service_healthy
+      plc:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./data:/devnet-data
+    environment:
+      PDS_HOSTNAME: alpha.devnet.test
+      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+      HANDLE_DOMAIN: .devnet.test
+      SEED_ACCOUNTS: ${DEVNET_SEED_ACCOUNTS:-true}
+      DEVNET_DOMAIN: devnet.test
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - sed "s#http://pds:3000#http://pds-alpha:3000#" /scripts/init.sh > /tmp/init.sh && sh /tmp/init.sh
+    networks:
+      - atproto-devnet
+    restart: "no"
+  nginx:
+    image: nginx:1.30-alpine
+    restart: unless-stopped
+    depends_on:
+      plc:
+        condition: service_healthy
+      pds-alpha:
+        condition: service_healthy
+      pds-regular:
+        condition: service_healthy
+      pds-prod:
+        condition: service_healthy
+    ports:
+      - ${DEVNET_BIND:-127.0.0.1}:443:443
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    environment:
+      DEVNET_DOMAIN: devnet.test
+      NGINX_ENVSUBST_FILTER: ^DEVNET_
+    volumes:
+      - ./https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./data/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
+      - ./data/https/leaf.key:/etc/nginx/https/leaf.key:ro
+      - ./data/https/nginx:/etc/nginx/devnet:ro
+      - ./data/globe/nginx:/etc/nginx/globe:ro
+      - ./page/index.html:/srv/page/index.html:ro
+      - ./page/devnet.conf:/etc/nginx/page/devnet.conf:ro
+    networks:
+      atproto-devnet:
+        aliases:
+          - alpha.devnet.test
+          - regular.devnet.test
+          - prod.devnet.test
+    healthcheck:
+      test:
+        - CMD
+        - nginx
+        - -t
+        - -q
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  slingshot-dns:
+    build: ./https/dns
+    image: atproto-devnet-dns:https-1
+    restart: unless-stopped
+    environment:
+      DEVNET_DOMAIN: devnet.test
+    dns:
+      - 127.0.0.1
+    depends_on:
+      nginx:
+        condition: service_healthy
+    networks:
+      - atproto-devnet
+  slingshot:
+    build:
+      context: ./slingshot
+      args:
+        MICROCOSM_COMMIT: ${DEVNET_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
+    image: atproto-devnet-slingshot:${DEVNET_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
+    restart: unless-stopped
+    network_mode: service:slingshot-dns
+    depends_on:
+      slingshot-dns:
+        condition: service_started
+      plc:
+        condition: service_healthy
+      jetstream:
+        condition: service_healthy
+    environment:
+      SLINGSHOT_PLC_DIRECTORY: http://plc:2582
+      SLINGSHOT_JETSTREAM: ws://jetstream:6008/subscribe
+      SLINGSHOT_CACHE_DIR: /data
+      SLINGSHOT_BIND: 0.0.0.0:8080
+      SSL_CERT_FILE: /https/ca.crt
+    volumes:
+      - ./data/https/ca.crt:/https/ca.crt:ro
+      - slingshot-data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - bash -c 'echo > /dev/tcp/127.0.0.1/8080'
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  proxy:
+    build: ./https/proxy
+    image: atproto-devnet-proxy:https-1
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      PROXY_DOMAIN: devnet.test
+      PROXY_UPSTREAM: nginx:443
+    ports:
+      - 127.0.0.1:${DEVNET_PROXY_PORT:-1080}:1080
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:1080/_health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  pdsls:
+    build: ./pdsls
+    image: atproto-devnet-pdsls:https-1
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      PDSLS_PUBLIC_URL: https://pdsls.devnet.test
+      PDSLS_DOMAIN: devnet.test
+      PDSLS_PLC_URL: https://plc.devnet.test
+      PDSLS_JETSTREAM_URL: wss://jetstream.devnet.test/subscribe
+      PDSLS_FIREHOSE_URL: wss://relay.devnet.test
+      PDSLS_LEXICON_AUTHORITY: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+      PDSLS_UPSTREAM: nginx:443
+      NODE_EXTRA_CA_CERTS: /https/ca.crt
+    volumes:
+      - ./data/https/ca.crt:/https/ca.crt:ro
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:8080/_health
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  plc-db:
+  pds-alpha-data:
+  pds-regular-data:
+  pds-prod-data:
+  relay-data:
+  jetstream-data:
+  tap-data:
+  slingshot-data:
+networks:
+  atproto-devnet:

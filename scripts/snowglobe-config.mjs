@@ -21,12 +21,13 @@ export const IMAGE_NAMES = {
 // The image is not settled for a local globe yet (om-r1vrl.31.4), so it is left empty.
 export const GROUPHOST_KINDS = { opensocial: null };
 
-// Names the network already uses: under the domain (plc.<domain>, relay.<domain>, ...), and
-// as compose services the https devnet always runs. A PDS, group host or bare handle by one
-// of these names would take its address or its service.
+// Names the network already uses: under the domain (plc.<domain>, relay.<domain>, ...), as
+// compose services the https devnet always runs, and as the page's own /health/<name> routes
+// (page/devnet.conf, where TAP is sync). A PDS, group host or bare handle by one of these names
+// would take its address, its service or its route.
 const RESERVED = [
   'plc', 'relay', 'jetstream', 'slingshot', 'pdsls', 'tap', 'mail', 'lex-authority',
-  'pds', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns',
+  'pds', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns', 'sync',
 ];
 
 // The lexicon authority's account, made on its PDS before any account in the file.
@@ -62,8 +63,11 @@ const TAG_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
 const DIGEST_HEX = { sha256: 64, sha384: 96, sha512: 128 };
 const IMAGE_NAME_MAX = 255;
 
-/** Read and check a file. Returns { globe, errors }; globe is the filled-in file. */
-export function loadGlobe(file) {
+/**
+ * Read and check a file. Returns { globe, errors }; globe is the filled-in file. A domain
+ * given here replaces the file's, before the checks (a copy of a globe beside another).
+ */
+export function loadGlobe(file, { domain } = {}) {
   let text;
   try {
     text = readFileSync(file, 'utf8');
@@ -76,6 +80,7 @@ export function loadGlobe(file) {
   } catch (e) {
     return { globe: null, errors: [`${file}: not YAML: ${e.message.split('\n')[0]}`] };
   }
+  if (domain !== undefined && isMap(doc)) doc.domain = domain;
   return checkGlobe(doc, { baseDir: dirname(resolve(file)) });
 }
 

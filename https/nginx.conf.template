@@ -1,5 +1,5 @@
-# nginx for the https devnet (docker-compose.https.yml). One leaf certificate names
-# every host below; data/https/ca.crt is the CA that signed it (scripts/https-ca.sh).
+# nginx for the https devnet (the globe's compose.yml, scripts/snowglobe render). One leaf
+# certificate names every host below; data/https/ca.crt is the CA that signed it (scripts/https-ca.sh).
 # A template: at start the image writes it to conf.d/default.conf with the DEVNET_DOMAIN
 # setting filled in, so this is the http block's whole server list. The comments below
 # name its default, devnet.test.
@@ -35,87 +35,22 @@ server {
     ssl_reject_handshake on;
 }
 
-# Each PDS, and every handle under its service domain: a PDS answers
-# /.well-known/atproto-did by Host, so Host is passed through as sent. The two extra
-# PDSes share the alpha's network namespace, so all three are reached as pds:<port>.
-# Of two matching wildcards nginx takes the longer, so *.regular.devnet.test wins over
-# *.devnet.test.
-server {
-    listen 443 ssl;
-    server_name alpha.${DEVNET_DOMAIN} *.${DEVNET_DOMAIN};
-    location / {
-        set $pds http://pds:3010;
-        proxy_pass $pds;
-    }
-}
+# Each PDS and its handles, and the relay, the feed, Slingshot and PDSls, at their names under
+# the domain: rendered from snowglobe.yml by scripts/snowglobe render into the globe's nginx/
+# folder (data/globe/nginx/globe.conf), mounted at /etc/nginx/globe/. Each PDS is its own
+# service, pds-<name>:3000. A PDS answers /.well-known/atproto-did by Host, which the http block
+# passes through as sent. An app's handle ending (below) wins over a PDS's *.<domain> as the
+# longer wildcard.
+include /etc/nginx/globe/*.conf;
 
-server {
-    listen 443 ssl;
-    server_name regular.${DEVNET_DOMAIN} *.regular.${DEVNET_DOMAIN};
-    location / {
-        set $pds http://pds:3020;
-        proxy_pass $pds;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name prod.${DEVNET_DOMAIN} *.prod.${DEVNET_DOMAIN};
-    location / {
-        set $pds http://pds:3030;
-        proxy_pass $pds;
-    }
-}
-
-# Slingshot shares slingshot-dns's network namespace (docker-compose.https.yml). An exact
-# name beats the alpha's *.${DEVNET_DOMAIN} wildcard, so "slingshot" is not a handle.
-server {
-    listen 443 ssl;
-    server_name slingshot.${DEVNET_DOMAIN};
-    location / {
-        set $slingshot http://slingshot-dns:8080;
-        proxy_pass $slingshot;
-    }
-}
-
-# The directory, the relay and the feed at https names under the domain, as a globe has them
-# (plc.<globe>, relay.<globe>, jetstream.<globe>), so an app's browser code, which cannot use
-# plain http or the host's ports, reaches them too. Exact names, so none of the three is a handle.
-# The relay shares the alpha's network namespace, so it is pds:2470.
+# The directory at an https name under the domain, as a hosted globe has it (plc.<globe>), so an
+# app's browser code, which cannot use plain http or the host's ports, reaches it too.
 server {
     listen 443 ssl;
     server_name plc.${DEVNET_DOMAIN};
     location / {
         set $plc http://plc:2582;
         proxy_pass $plc;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name relay.${DEVNET_DOMAIN};
-    location / {
-        set $relay http://pds:2470;
-        proxy_pass $relay;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name jetstream.${DEVNET_DOMAIN};
-    location / {
-        set $jetstream http://jetstream:6008;
-        proxy_pass $jetstream;
-    }
-}
-
-# PDSls, the record browser apps link to (pdsls/), as a globe has it at pdsls.<globe>.
-server {
-    listen 443 ssl;
-    server_name pdsls.${DEVNET_DOMAIN};
-    location / {
-        set $pdsls http://pdsls:8080;
-        proxy_pass $pdsls;
     }
 }
 
@@ -147,7 +82,7 @@ server {
 # once, when nginx loads it, through the container's hosts file (extra_hosts), which
 # Docker's DNS does not serve. Neither file has to exist. An app that claimed a handle
 # ending (scripts/https-app.sh <name> <port> <ending>) also gets a server there for
-# *.<ending>.devnet.test, which wins over the alpha's *.devnet.test as the longer wildcard.
+# *.<ending>.devnet.test, which wins over a PDS's *.devnet.test as the longer wildcard.
 include /etc/nginx/devnet/*.conf;
 
 map $host $devnet_app {
