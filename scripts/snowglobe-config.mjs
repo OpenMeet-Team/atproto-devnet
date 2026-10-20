@@ -21,9 +21,20 @@ export const IMAGE_NAMES = {
 // The image is not settled for a local globe yet (om-r1vrl.31.4), so it is left empty.
 export const GROUPHOST_KINDS = { opensocial: null };
 
-// Names the network already uses under the domain (plc.<domain>, relay.<domain>, ...).
-// A PDS, group host or bare handle by one of these names would take its address.
-const RESERVED = ['plc', 'relay', 'jetstream', 'slingshot', 'pdsls', 'tap', 'mail', 'lex-authority'];
+// Names the network already uses: under the domain (plc.<domain>, relay.<domain>, ...), and
+// as compose services the https devnet always runs. A PDS, group host or bare handle by one
+// of these names would take its address or its service.
+const RESERVED = [
+  'plc', 'relay', 'jetstream', 'slingshot', 'pdsls', 'tap', 'mail', 'lex-authority',
+  'pds', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns',
+];
+
+// The lexicon authority's account, made on its PDS before any account in the file.
+const AUTHORITY_ACCOUNT = 'lex-authority';
+
+// Names nginx answers whatever the domain: apps on this machine (https-app.sh) and the
+// stand-in for the real PLC directory. A domain at, under or above one would share it.
+const FIXED_DOMAINS = ['devnet.internal', 'plc.directory'];
 
 const TOP = ['globe', 'domain', 'pds', 'grouphosts', 'services', 'lexicons', 'accounts', 'apps', 'hosted'];
 const SERVICES = ['relay', 'jetstream', 'tap', 'slingshot', 'pdsls', 'cdn'];
@@ -32,7 +43,17 @@ const SERVICES = ['relay', 'jetstream', 'tap', 'slingshot', 'pdsls', 'cdn'];
 // (snowglobe-<globe>), so it keeps k8s/stamp.sh's rule.
 const GLOBE_RE = /^[a-z][a-z0-9]{0,30}$/;
 const LABEL_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
-const DOMAIN_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]*[a-z0-9]$/;
+const DOMAIN_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$/;
+// The longest a name may be, and so a handle (atproto's handle limit is DNS's).
+const NAME_MAX = 253;
+
+// An image reference, after github.com/distribution/reference: an optional registry, then
+// lowercase path components, an optional tag and an optional digest. As there, a first
+// component is a registry only with a dot, a port or the name localhost.
+const C = '[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?';
+const REG = `(?:(?:localhost|${C}(?:\\.${C})+)(?::[0-9]+)?|${C}:[0-9]+)/`;
+const PATH = '[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*';
+const IMAGE_RE = new RegExp(`^(?:${REG})?${PATH}(?:/${PATH})*(?::([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}))?(@sha256:[a-f0-9]{64})?$`);
 
 /** Read and check a file. Returns { globe, errors }; globe is the filled-in file. */
 export function loadGlobe(file) {
@@ -67,13 +88,24 @@ export function checkGlobe(doc, { baseDir } = {}) {
   else if (typeof doc.globe !== 'string' || !GLOBE_RE.test(doc.globe))
     err('globe', `${show(doc.globe)} must be lowercase letters and digits, starting with a letter, at most 31`);
   const domain = doc.domain ?? 'devnet.test';
-  if (typeof domain !== 'string' || !DOMAIN_RE.test(domain))
+  const domainOk = typeof domain === 'string' && DOMAIN_RE.test(domain) && domain.length <= NAME_MAX;
+  if (!domainOk)
     err('domain', `${show(domain)} must be a domain name, such as devnet.test`);
+  else {
+    const fixed = FIXED_DOMAINS.find((f) => f === domain || f.endsWith(`.${domain}`) || domain.endsWith(`.${f}`));
+    if (fixed) err('domain', `"${domain}" overlaps ${fixed}, which the network serves whatever the domain`);
+  }
+  // A generated name must fit in DNS: <name>.<domain>, and a handle <name>.<pds>.<domain>.
+  // A domain already refused would only repeat its error here.
+  const fits = (name, where) => {
+    if (domainOk && name.length > NAME_MAX) err(where, `${name} is longer than ${NAME_MAX} characters`);
+  };
 
   // Every name that becomes <name>.<domain>, so two of them cannot share one.
   const names = new Map();
   const claim = (name, where) => {
     if (typeof name !== 'string') return;
+    fits(`${name}.${domain}`, where);
     if (RESERVED.includes(name)) err(where, `"${name}" is taken by the network itself (${name}.${domain})`);
     else if (names.has(name)) err(where, `"${name}" is already used by ${names.get(name)}`);
     else names.set(name, where);
@@ -94,13 +126,13 @@ export function checkGlobe(doc, { baseDir } = {}) {
       if (p.bare_handles !== undefined && typeof p.bare_handles !== 'boolean')
         err(`${at}.bare_handles`, 'must be true or false');
       const invites = p.invites ?? 'open';
-      if (!['open', 'required'].includes(invites)) err(`${at}.invites`, `${show(invites)} must be open or required`);
+      if (invites !== 'open' && invites !== 'required') err(`${at}.invites`, `${show(invites)} must be open or required`);
       pds.push({ name: p.name, image, bare_handles: p.bare_handles === true, invites });
     });
   const bare = pds.filter((p) => p.bare_handles);
   if (bare.length > 1)
-    err('pds', `only one PDS can take bare handles (<name>.${domain}); ${bare.map((p) => p.name).join(' and ')} both do`);
-  const pdsNames = pds.map((p) => p.name);
+    err('pds', `only one PDS can take bare handles (<name>.${domain}); ${bare.map((p) => show(p.name)).join(' and ')} all do`);
+  const pdsNames = pds.map((p) => p.name).filter((n) => typeof n === 'string');
 
   // grouphosts
   const grouphosts = [];
@@ -113,9 +145,10 @@ export function checkGlobe(doc, { baseDir } = {}) {
         unknownKeys(g, ['name', 'kind', 'image'], at, err);
         label(g.name, `${at}.name`, err);
         claim(g.name, `${at}.name`);
-        if (!(g.kind in GROUPHOST_KINDS))
+        const known = typeof g.kind === 'string' && Object.hasOwn(GROUPHOST_KINDS, g.kind);
+        if (!known)
           err(`${at}.kind`, `${show(g.kind)} is not a kind of group host; known: ${Object.keys(GROUPHOST_KINDS).join(', ')}`);
-        const image = g.image === undefined ? GROUPHOST_KINDS[g.kind] ?? null : imageRef(g.image, `${at}.image`, err);
+        const image = g.image === undefined ? (known ? GROUPHOST_KINDS[g.kind] : null) : imageRef(g.image, `${at}.image`, err);
         grouphosts.push({ name: g.name, kind: g.kind, image });
       });
   }
@@ -167,32 +200,7 @@ export function checkGlobe(doc, { baseDir } = {}) {
     }
   }
 
-  // accounts: <handle>@<pds>
-  const accounts = [];
-  if (doc.accounts !== undefined) {
-    if (!Array.isArray(doc.accounts)) err('accounts', 'must be a list of <name>@<pds>');
-    else {
-      const seen = new Set();
-      doc.accounts.forEach((a, i) => {
-        const at = `accounts[${i}]`;
-        const m = typeof a === 'string' ? /^([^@]+)@([^@]+)$/.exec(a) : null;
-        if (!m) return err(at, `${show(a)} must be <name>@<pds>, such as alice@alpha`);
-        const [, name, on] = m;
-        label(name, at, err);
-        const host = pds.find((p) => p.name === on);
-        if (!host) return err(at, `"${on}" is not a PDS in this file (${pdsNames.join(', ')})`);
-        // A bare handle is <name>.<domain>, the same space as the network's own names.
-        if (host.bare_handles && (RESERVED.includes(name) || names.has(name)))
-          err(at, `"${name}.${domain}" would be the address of ${names.get(name) ?? 'the network itself'}`);
-        const handle = host.bare_handles ? `${name}.${domain}` : `${name}.${on}.${domain}`;
-        if (seen.has(handle)) err(at, `${handle} is listed twice`);
-        seen.add(handle);
-        accounts.push({ name, pds: on, handle });
-      });
-    }
-  }
-
-  // apps
+  // apps (before accounts, so a bare handle meets the apps' handle endings)
   const apps = [];
   if (doc.apps !== undefined) {
     if (!Array.isArray(doc.apps)) err('apps', 'must be a list');
@@ -203,7 +211,7 @@ export function checkGlobe(doc, { baseDir } = {}) {
         if (!isMap(a)) return err(at, 'must be a map with name');
         unknownKeys(a, ['name', 'local', 'hosted'], at, err);
         label(a.name, `${at}.name`, err);
-        if (appNames.has(a.name)) err(`${at}.name`, `"${a.name}" is listed twice`);
+        if (appNames.has(a.name)) err(`${at}.name`, `${show(a.name)} is listed twice`);
         appNames.add(a.name);
         const app = { name: a.name, local: null, hosted: null };
         if (a.local !== undefined) {
@@ -226,12 +234,39 @@ export function checkGlobe(doc, { baseDir } = {}) {
             unknownKeys(a.hosted, ['service', 'link'], `${at}.hosted`, err);
             if (typeof a.hosted.service !== 'string' || !/^[a-z0-9-]+:\d+$/.test(a.hosted.service))
               err(`${at}.hosted.service`, `${show(a.hosted.service)} must be <namespace>:<port>`);
-            if (a.hosted.link !== undefined && !/^https:\/\/\S+$/.test(String(a.hosted.link)))
+            if (a.hosted.link !== undefined && (typeof a.hosted.link !== 'string' || !/^https:\/\/\S+$/.test(a.hosted.link)))
               err(`${at}.hosted.link`, `${show(a.hosted.link)} must be an https URL`);
             app.hosted = { service: a.hosted.service, link: a.hosted.link ?? null };
           }
         }
         apps.push(app);
+      });
+    }
+  }
+
+  // accounts: <handle>@<pds>
+  const accounts = [];
+  if (doc.accounts !== undefined) {
+    if (!Array.isArray(doc.accounts)) err('accounts', 'must be a list of <name>@<pds>');
+    else {
+      const seen = new Set();
+      doc.accounts.forEach((a, i) => {
+        const at = `accounts[${i}]`;
+        const m = typeof a === 'string' ? /^([^@]+)@([^@]+)$/.exec(a) : null;
+        if (!m) return err(at, `${show(a)} must be <name>@<pds>, such as alice@alpha`);
+        const [, name, on] = m;
+        label(name, at, err);
+        const host = pds.find((p) => p.name === on);
+        if (!host) return err(at, `"${on}" is not a PDS in this file (${pdsNames.join(', ')})`);
+        if (name === AUTHORITY_ACCOUNT) err(at, `"${name}" is the lexicon authority's own account`);
+        // A bare handle is <name>.<domain>, the same space as the network's own names.
+        if (host.bare_handles && (RESERVED.includes(name) || names.has(name)))
+          err(at, `"${name}.${domain}" would be the address of ${names.get(name) ?? 'the network itself'}`);
+        const handle = host.bare_handles ? `${name}.${domain}` : `${name}.${on}.${domain}`;
+        fits(handle, at);
+        if (seen.has(handle)) err(at, `${handle} is listed twice`);
+        seen.add(handle);
+        accounts.push({ name, pds: on, handle });
       });
     }
   }
@@ -267,9 +302,11 @@ function imageRef(v, where, err, { required = false } = {}) {
     return null;
   }
   if (typeof v !== 'string' || v === '') return err(where, 'must be an image name'), null;
-  if (v in IMAGE_NAMES) return IMAGE_NAMES[v];
-  if (v.includes('@sha256:')) return v;
-  const tag = /:([^/:]+)$/.exec(v)?.[1];
+  if (Object.hasOwn(IMAGE_NAMES, v)) return IMAGE_NAMES[v];
+  const m = IMAGE_RE.exec(v);
+  if (!m) return err(where, `${show(v)} is not an image reference (registry/name:tag or name@sha256:<64 hex>)`), null;
+  const [, tag, digest] = m;
+  if (digest) return v;
   if (!tag) return err(where, `${show(v)} has no tag or digest; pin it, or use one of: ${Object.keys(IMAGE_NAMES).join(', ')}`), null;
   if (tag === 'latest') return err(where, `${show(v)} is :latest, which moves; pin a version or a digest`), null;
   return v;
@@ -285,10 +322,21 @@ function unknownKeys(map, allowed, where, err) {
     if (!allowed.includes(k)) err(where ? `${where}.${k}` : k, `unknown setting; known here: ${allowed.join(', ')}`);
 }
 
+// A plain YAML mapping. A !!omap or !!set parses to a Map or Set, whose entries the checks
+// below would not see, so it is refused rather than passed unread.
 function isMap(v) {
-  return v !== null && typeof v === 'object' && !Array.isArray(v);
+  if (v === null || typeof v !== 'object') return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
 }
 
+// A value as the file wrote it, for an error message. Never throws: YAML aliases can make a
+// value that contains itself.
 function show(v) {
-  return v === undefined ? 'nothing' : JSON.stringify(v);
+  if (v === undefined) return 'nothing';
+  try {
+    return JSON.stringify(v) ?? String(v);
+  } catch {
+    return Array.isArray(v) ? 'a list' : typeof v === 'object' ? 'a map' : typeof v;
+  }
 }
