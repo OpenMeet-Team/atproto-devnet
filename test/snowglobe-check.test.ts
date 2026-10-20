@@ -108,8 +108,13 @@ describe('the rules behind the check', () => {
   });
 
   it('keeps the domain clear of the names the network serves whatever the domain', () => {
-    for (const domain of ['devnet.internal', 'x.devnet.internal', 'plc.directory', 'a.plc.directory'])
+    for (const domain of ['devnet.internal', 'x.devnet.internal', 'plc.directory'])
       expect(whereOf(ok({ domain })), domain).toEqual(['domain']);
+    expect(whereOf(ok({ domain: 'team.plc.directory' }))).toEqual([]); // plc.directory is one exact name
+  });
+
+  it('reports a domain that is not a string, without building names on it', () => {
+    expect(whereOf(ok({ domain: { toString: 'typo' }, pds: [{ ...PDS_A, bare_handles: true }], accounts: ['alice@alpha'] }))).toEqual(['domain']);
   });
 
   it('turns the relay on with more than one PDS, and refuses it off', () => {
@@ -154,9 +159,28 @@ describe('the rules behind the check', () => {
     expect(whereOf(ok({ accounts: ['alice', 'alice@nope', 'Al.ice@alpha', 7] }))).toEqual(['accounts[0]', 'accounts[1]', 'accounts[2]', 'accounts[3]']);
   });
 
-  it('refuses a name longer than DNS allows', () => {
-    const long = `${'a'.repeat(63)}.${'b'.repeat(63)}.${'c'.repeat(63)}.${'d'.repeat(57)}`; // 249: the domain fits
-    expect(whereOf({ globe: 'mine', domain: long, pds: [PDS_A] })).toEqual(['pds[0].name']);
+  describe('refuses a name longer than DNS allows (253)', () => {
+    // A domain of n characters, in labels DNS allows.
+    const domainOf = (n: number) => `${'a'.repeat(63)}.${'b'.repeat(63)}.${'c'.repeat(63)}.${'d'.repeat(n - 192)}`;
+
+    it('a server\'s name, and the network\'s own', () => {
+      // 249: alpha.<domain> is 255 and lex-authority.<domain> is 263.
+      expect(whereOf({ globe: 'mine', domain: domainOf(249), pds: [PDS_A] })).toEqual(['domain', 'pds[0].name', 'lexicons.authority']);
+      // 240: alpha.<domain> fits; lex-authority.<domain>, the longest of the network's names, is 254.
+      expect(whereOf({ globe: 'mine', domain: domainOf(240), pds: [PDS_A] })).toEqual(['domain', 'lexicons.authority']);
+    });
+
+    it('the lexicon authority\'s handle', () => {
+      // 236: lex-authority.<domain> is 250, but lex-authority.alpha.<domain> is 256.
+      expect(whereOf({ globe: 'mine', domain: domainOf(236), pds: [PDS_A] })).toEqual(['lexicons.authority']);
+      expect(whereOf({ globe: 'mine', domain: domainOf(236), pds: [BARE_A] })).toEqual([]);
+    });
+
+    it('an account\'s handle', () => {
+      // 196: every server fits; a 63-letter name on alpha is 266.
+      expect(whereOf({ globe: 'mine', domain: domainOf(196), pds: [PDS_A], accounts: [`${'x'.repeat(63)}@alpha`] })).toEqual(['accounts[0]']);
+      expect(whereOf({ globe: 'mine', domain: domainOf(196), pds: [PDS_A], accounts: ['alice@alpha'] })).toEqual([]);
+    });
   });
 
   it('takes open or required invites, and true or false for bare handles', () => {
@@ -170,13 +194,21 @@ describe('the rules behind the check', () => {
     ['pds:v1@sha256:' + 'a'.repeat(64), true],
     ['localhost:5000/pds:1', true],
     ['host:5000/pds:1', true],
+    ['[2001:db8::1]:5000/pds:1', true],
+    ['REGISTRY/pds:1', true], // an uppercase first component is a registry
+    ['pds@sha512:' + 'a'.repeat(128), true],
+    ['pds:' + 't'.repeat(128), true],
     ['ghcr.io/bluesky-social/pds', false], // no tag: it moves
     ['pds:latest', false],
     ['host:5000/pds', false],
     ['pds:v1@sha256:bad', false],
     ['pds@sha256:', false],
     ['PDS:v1', false],
-    ['Org/pds:v1', false],
+    ['ghcr.io/Org/pds:v1', false],
+    ['pds:' + 't'.repeat(129), false],
+    ['pds:.v1', false],
+    ['pds@sha512:' + 'a'.repeat(64), false],
+    ['example.com/' + 'a'.repeat(256) + ':1', false], // a name over 255
     ['pds:bad tag', false],
     ['constructor', false], // not a short name, though every object has one
     ['', false],
@@ -232,5 +264,8 @@ describe('the rules behind the check', () => {
     expect(whereOf(ok({ apps: [app({ port: 1 }), app({ port: 2 })] }))).toEqual(['apps[1].name']);
     expect(whereOf(ok({ apps: [app({ port: 1, handles: 'alpha' })] }))).toEqual(['apps[0].local.handles']);
     expect(whereOf(ok({ apps: [{ name: 'atmo', hosted: { service: 'atmo', link: 'http://x' } }] }))).toEqual(['apps[0].hosted.service', 'apps[0].hosted.link']);
+    for (const service of ['atmo:0', 'atmo:65536', 'atmo:123456'])
+      expect(whereOf(ok({ apps: [{ name: 'atmo', hosted: { service } }] })), service).toEqual(['apps[0].hosted.service']);
+    expect(whereOf(ok({ apps: [{ name: 'atmo', hosted: { service: 'atmo:65535' } }] }))).toEqual([]);
   });
 });

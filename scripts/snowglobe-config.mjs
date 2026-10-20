@@ -32,9 +32,13 @@ const RESERVED = [
 // The lexicon authority's account, made on its PDS before any account in the file.
 const AUTHORITY_ACCOUNT = 'lex-authority';
 
-// Names nginx answers whatever the domain: apps on this machine (https-app.sh) and the
-// stand-in for the real PLC directory. A domain at, under or above one would share it.
-const FIXED_DOMAINS = ['devnet.internal', 'plc.directory'];
+// Names nginx answers whatever the domain: apps on this machine (https-app.sh) at
+// *.devnet.internal, and the stand-in for the real PLC directory at exactly plc.directory.
+// A domain that is one, or above one, would share it; so would one under the apps' wildcard.
+const FIXED_DOMAINS = [
+  { name: 'devnet.internal', wildcard: true },
+  { name: 'plc.directory', wildcard: false },
+];
 
 const TOP = ['globe', 'domain', 'pds', 'grouphosts', 'services', 'lexicons', 'accounts', 'apps', 'hosted'];
 const SERVICES = ['relay', 'jetstream', 'tap', 'slingshot', 'pdsls', 'cdn'];
@@ -47,13 +51,16 @@ const DOMAIN_RE = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}
 // The longest a name may be, and so a handle (atproto's handle limit is DNS's).
 const NAME_MAX = 253;
 
-// An image reference, after github.com/distribution/reference: an optional registry, then
-// lowercase path components, an optional tag and an optional digest. As there, a first
-// component is a registry only with a dot, a port or the name localhost.
-const C = '[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?';
-const REG = `(?:(?:localhost|${C}(?:\\.${C})+)(?::[0-9]+)?|${C}:[0-9]+)/`;
-const PATH = '[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*';
-const IMAGE_RE = new RegExp(`^(?:${REG})?${PATH}(?:/${PATH})*(?::([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}))?(@sha256:[a-f0-9]{64})?$`);
+// An image reference, after github.com/distribution/reference: [registry/]path[:tag][@digest].
+// As there, a first component is a registry when it has a dot, a port or an uppercase letter,
+// is localhost, or is a bracketed IPv6 address; path components are lowercase; the name
+// (registry and path) is at most 255 characters.
+const HOST_C = '[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?';
+const REGISTRY_RE = new RegExp(`^(?:${HOST_C}(?:\\.${HOST_C})*|\\[[0-9a-fA-F:.]+\\])(?::[0-9]+)?$`);
+const PATH_RE = /^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*$/;
+const TAG_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
+const DIGEST_HEX = { sha256: 64, sha384: 96, sha512: 128 };
+const IMAGE_NAME_MAX = 255;
 
 /** Read and check a file. Returns { globe, errors }; globe is the filled-in file. */
 export function loadGlobe(file) {
@@ -92,21 +99,28 @@ export function checkGlobe(doc, { baseDir } = {}) {
   if (!domainOk)
     err('domain', `${show(domain)} must be a domain name, such as devnet.test`);
   else {
-    const fixed = FIXED_DOMAINS.find((f) => f === domain || f.endsWith(`.${domain}`) || domain.endsWith(`.${f}`));
-    if (fixed) err('domain', `"${domain}" overlaps ${fixed}, which the network serves whatever the domain`);
+    const fixed = FIXED_DOMAINS.find(
+      ({ name, wildcard }) => name === domain || name.endsWith(`.${domain}`) || (wildcard && domain.endsWith(`.${name}`)),
+    );
+    if (fixed) err('domain', `"${domain}" overlaps ${fixed.name}, which the network serves whatever the domain`);
   }
+  // The domain as names are built from it. A refused domain may not be a string at all, and
+  // its error is already reported, so the names below are built on a stand-in.
+  const D = domainOk ? domain : '<domain>';
   // A generated name must fit in DNS: <name>.<domain>, and a handle <name>.<pds>.<domain>.
   // A domain already refused would only repeat its error here.
   const fits = (name, where) => {
     if (domainOk && name.length > NAME_MAX) err(where, `${name} is longer than ${NAME_MAX} characters`);
   };
+  // The network's own names under the domain, the longest of them first.
+  fits(`${[...RESERVED].sort((a, b) => b.length - a.length)[0]}.${D}`, 'domain');
 
   // Every name that becomes <name>.<domain>, so two of them cannot share one.
   const names = new Map();
   const claim = (name, where) => {
     if (typeof name !== 'string') return;
-    fits(`${name}.${domain}`, where);
-    if (RESERVED.includes(name)) err(where, `"${name}" is taken by the network itself (${name}.${domain})`);
+    fits(`${name}.${D}`, where);
+    if (RESERVED.includes(name)) err(where, `"${name}" is taken by the network itself (${name}.${D})`);
     else if (names.has(name)) err(where, `"${name}" is already used by ${names.get(name)}`);
     else names.set(name, where);
   };
@@ -131,7 +145,7 @@ export function checkGlobe(doc, { baseDir } = {}) {
     });
   const bare = pds.filter((p) => p.bare_handles);
   if (bare.length > 1)
-    err('pds', `only one PDS can take bare handles (<name>.${domain}); ${bare.map((p) => show(p.name)).join(' and ')} all do`);
+    err('pds', `only one PDS can take bare handles (<name>.${D}); ${bare.map((p) => show(p.name)).join(' and ')} all do`);
   const pdsNames = pds.map((p) => p.name).filter((n) => typeof n === 'string');
 
   // grouphosts
@@ -200,6 +214,11 @@ export function checkGlobe(doc, { baseDir } = {}) {
     }
   }
 
+  // The authority's account is made on its PDS like any other, so its handle must fit too.
+  const authority = pds.find((p) => p.name === lexicons.authority);
+  if (authority)
+    fits(authority.bare_handles ? `${AUTHORITY_ACCOUNT}.${D}` : `${AUTHORITY_ACCOUNT}.${authority.name}.${D}`, 'lexicons.authority');
+
   // apps (before accounts, so a bare handle meets the apps' handle endings)
   const apps = [];
   if (doc.apps !== undefined) {
@@ -232,7 +251,8 @@ export function checkGlobe(doc, { baseDir } = {}) {
           if (!isMap(a.hosted)) err(`${at}.hosted`, 'must be a map with service');
           else {
             unknownKeys(a.hosted, ['service', 'link'], `${at}.hosted`, err);
-            if (typeof a.hosted.service !== 'string' || !/^[a-z0-9-]+:\d+$/.test(a.hosted.service))
+            const port = typeof a.hosted.service === 'string' ? /^[a-z0-9-]+:(\d{1,5})$/.exec(a.hosted.service)?.[1] : null;
+            if (!port || +port < 1 || +port > 65535)
               err(`${at}.hosted.service`, `${show(a.hosted.service)} must be <namespace>:<port>`);
             if (a.hosted.link !== undefined && (typeof a.hosted.link !== 'string' || !/^https:\/\/\S+$/.test(a.hosted.link)))
               err(`${at}.hosted.link`, `${show(a.hosted.link)} must be an https URL`);
@@ -261,8 +281,8 @@ export function checkGlobe(doc, { baseDir } = {}) {
         if (name === AUTHORITY_ACCOUNT) err(at, `"${name}" is the lexicon authority's own account`);
         // A bare handle is <name>.<domain>, the same space as the network's own names.
         if (host.bare_handles && (RESERVED.includes(name) || names.has(name)))
-          err(at, `"${name}.${domain}" would be the address of ${names.get(name) ?? 'the network itself'}`);
-        const handle = host.bare_handles ? `${name}.${domain}` : `${name}.${on}.${domain}`;
+          err(at, `"${name}.${D}" would be the address of ${names.get(name) ?? 'the network itself'}`);
+        const handle = host.bare_handles ? `${name}.${D}` : `${name}.${on}.${D}`;
         fits(handle, at);
         if (seen.has(handle)) err(at, `${handle} is listed twice`);
         seen.add(handle);
@@ -303,13 +323,41 @@ function imageRef(v, where, err, { required = false } = {}) {
   }
   if (typeof v !== 'string' || v === '') return err(where, 'must be an image name'), null;
   if (Object.hasOwn(IMAGE_NAMES, v)) return IMAGE_NAMES[v];
-  const m = IMAGE_RE.exec(v);
-  if (!m) return err(where, `${show(v)} is not an image reference (registry/name:tag or name@sha256:<64 hex>)`), null;
-  const [, tag, digest] = m;
+  const ref = parseImage(v);
+  if (!ref) return err(where, `${show(v)} is not an image reference ([registry/]name[:tag][@sha256:<64 hex>])`), null;
+  const { tag, digest } = ref;
   if (digest) return v;
   if (!tag) return err(where, `${show(v)} has no tag or digest; pin it, or use one of: ${Object.keys(IMAGE_NAMES).join(', ')}`), null;
   if (tag === 'latest') return err(where, `${show(v)} is :latest, which moves; pin a version or a digest`), null;
   return v;
+}
+
+// Split an image reference into its tag and digest, or null when it is not one.
+function parseImage(v) {
+  let rest = v;
+  let digest = null;
+  const at = rest.indexOf('@');
+  if (at !== -1) {
+    const m = /^([a-z0-9]+):([a-f0-9]+)$/.exec(rest.slice(at + 1));
+    if (!m || !Object.hasOwn(DIGEST_HEX, m[1]) || m[2].length !== DIGEST_HEX[m[1]]) return null;
+    digest = rest.slice(at + 1);
+    rest = rest.slice(0, at);
+  }
+  let tag = null;
+  const colon = rest.lastIndexOf(':');
+  if (colon > rest.lastIndexOf('/') && !rest.slice(colon).includes(']')) {
+    tag = rest.slice(colon + 1);
+    if (!TAG_RE.test(tag)) return null;
+    rest = rest.slice(0, colon);
+  }
+  if (rest.length > IMAGE_NAME_MAX) return null;
+  let parts = rest.split('/');
+  const first = parts[0];
+  if (parts.length > 1 && (/[.:[A-Z]/.test(first) || first === 'localhost')) {
+    if (!REGISTRY_RE.test(first)) return null;
+    parts = parts.slice(1);
+  }
+  return parts.every((p) => PATH_RE.test(p)) ? { tag, digest } : null;
 }
 
 function label(v, where, err) {
