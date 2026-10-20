@@ -72,7 +72,7 @@ describe('the app renderers', () => {
   });
 });
 
-// A root with bin/ and lib/, a rendered four-PDS globe and its certificates, as https-up.sh leaves it.
+// A root with bin/ and lib/, a rendered four-PDS globe and its certificates, as snowglobe up leaves it.
 function globeRoot() {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-apps-'));
   for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
@@ -100,7 +100,7 @@ describe('snowglobe app', () => {
     const r = globeRoot();
     const res = app(r, 'probe', '5480');
     expect(res.status, res.stderr).toBe(0);
-    expect(res.stderr).toContain('loads the route when https-up.sh starts');
+    expect(res.stderr).toContain('loads the route when snowglobe up starts');
     expect(appsFile(r)).toBe('probe 5480\n');
     expect(readFileSync(join(r, 'data/https/nginx/apps.map'), 'utf8')).toContain('probe.devnet.internal devnet_app_probe;');
     expect(page(r).apps.map((a: { name: string }) => a.name)).toEqual(['pdsls', 'probe']);

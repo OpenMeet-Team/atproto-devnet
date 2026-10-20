@@ -204,7 +204,7 @@ describe.skipIf(!canBind443)('snowglobe account', () => {
     expect((await sg(['account', 'plc', 'APP_PLC', 'regular'])).status).toBe(0);
   });
 
-  it('lets https-up.sh make the lexicon authority under its own prefix', async () => {
+  it('lets snowglobe up make the lexicon authority under its own prefix', async () => {
     const r = await sg(['account', 'lex-authority', 'LEX_AUTHORITY']);
     expect(r.status, r.stderr).toBe(0);
     expect(envOf(accountsFile()).LEX_AUTHORITY_HANDLE).toBe(`lex-authority.${D}`);

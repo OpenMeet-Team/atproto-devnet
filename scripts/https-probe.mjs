@@ -1,10 +1,10 @@
 // Probe the https devnet the way an app built for the real network meets it: stock
 // atcute, its default PLC directory, and no plain-http escape hatch anywhere. Run it
-// under scripts/https-run, which maps the names and trusts the devnet CA, after
+// under bin/snowglobe.mjs run, which maps the names and trusts the devnet CA, after
 // routing the probe's app name to its port:
 //
 //   bin/snowglobe.mjs app probe 5480
-//   ATCUTE_DIR=<dir> PROBE_DID=<did> scripts/https-run node scripts/https-probe.mjs
+//   ATCUTE_DIR=<dir> PROBE_DID=<did> bin/snowglobe.mjs run node scripts/https-probe.mjs
 //
 // (a) Resolves PROBE_DID through https://plc.directory (atcute's default
 //     PlcDidDocumentResolver), then the PDS's protected-resource and authorization
@@ -68,7 +68,7 @@ const did = (
 	''
 ).trim();
 if (!did) {
-	console.log('FAIL setup: set PROBE_DID (or run scripts/https-up.sh, which writes data/devnet.env)');
+	console.log('FAIL setup: set PROBE_DID (or run bin/snowglobe.mjs up, which writes data/devnet.env)');
 	process.exit(2);
 }
 

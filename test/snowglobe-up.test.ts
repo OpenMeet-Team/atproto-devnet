@@ -1,0 +1,176 @@
+// snowglobe up, down and run, without a globe: what up writes and checks before Docker, the guard
+// on the project, and the names run maps. Run them alone with `npx vitest run snowglobe-up`. The
+// CLI runs on a copy of bin/ and lib/ in a temporary root, with a docker on PATH that only records
+// what it was asked; bringing a globe up for real is checked by hand on an isolated copy.
+import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+// @ts-expect-error: a plain .mjs module, without types
+import { devnetEnv, endingClash, pdsVar } from '../lib/up.mjs';
+// @ts-expect-error: a plain .mjs module, without types
+import { hostsFile, runNames } from '../lib/hosts.mjs';
+
+const ROOT = join(__dirname, '..');
+const FOUR = join(ROOT, 'test/snowglobe/four.yml');
+const bwrapWorks = spawnSync('bwrap', ['--dev-bind', '/', '/', '--', 'true']).status === 0;
+
+describe('what up writes', () => {
+  it('names each PDS URL as a shell can source it', () => {
+    expect(['alpha', 'my-pds', '1st'].map(pdsVar)).toEqual(['ALPHA_PDS_URL', 'MY_PDS_PDS_URL', '_1ST_PDS_URL']);
+  });
+
+  it('finds a PDS named for an app\'s handle ending', () => {
+    const apps = [{ name: 'atmo', port: 5173, ending: 'ev' }, { name: 'probe', port: 5480, ending: null }];
+    expect(endingClash(['alpha', 'ev'], apps)).toEqual({ pds: 'ev', app: 'atmo' });
+    expect(endingClash(['alpha', 'beta'], apps)).toBeNull();
+  });
+
+  it('writes data/devnet.env with a URL per PDS and nothing secret', () => {
+    const text = devnetEnv({
+      project: 'p',
+      domain: 'four.test',
+      pds: ['alpha', 'beta', '1st'],
+      ports: { jetstream: '6018', maildev: '1091', proxy: '1090' },
+      authority: { did: 'did:plc:abc', handle: 'lex-authority.four.test' },
+      ca: '/x/ca.crt',
+      bind: '127.0.0.2',
+    });
+    const vars = Object.fromEntries(text.split('\n').filter((l: string) => l && !l.startsWith('#')).map((l: string) => l.split(/=(.*)/s).slice(0, 2)));
+    expect(vars).toEqual({
+      DEVNET_PROJECT: 'p',
+      DEVNET_DOMAIN: 'four.test',
+      PAGE_URL: 'https://four.test/',
+      ALPHA_PDS_URL: 'https://alpha.four.test',
+      BETA_PDS_URL: 'https://beta.four.test',
+      _1ST_PDS_URL: 'https://1st.four.test',
+      PLC_URL: 'https://plc.directory',
+      JETSTREAM_URL: 'ws://127.0.0.1:6018',
+      MAILDEV_URL: 'http://127.0.0.1:1091',
+      PROXY_PAC_URL: 'http://127.0.0.1:1090/proxy.pac',
+      LEX_AUTHORITY_DID: 'did:plc:abc',
+      LEX_AUTHORITY_HANDLE: 'lex-authority.four.test',
+      DEVNET_CA_FILE: '/x/ca.crt',
+      DEVNET_BIND: '127.0.0.2',
+    });
+  });
+});
+
+describe('what run maps', () => {
+  it('maps the leaf\'s names but its wildcards, handles, apps and extras, each once', () => {
+    const names = runNames({
+      leafNames: 'four.test\nalpha.four.test\n*.four.test\nplc.directory\n*.devnet.internal\n',
+      handles: 'carol.four.test\nnot a name\nalpha.four.test\n',
+      apps: [{ name: 'probe', port: 5480, ending: null }],
+      extra: ' x.example  y.example ',
+    });
+    expect(names).toEqual(['four.test', 'alpha.four.test', 'plc.directory', 'carol.four.test', 'probe.devnet.internal', 'x.example', 'y.example']);
+  });
+
+  it('keeps the machine\'s hosts file but the lines naming one of ours', () => {
+    const etc = '127.0.0.1 localhost\n10.0.0.5 plc.directory other\n# a comment\n';
+    expect(hostsFile(etc, ['plc.directory', 'four.test'], '127.0.0.2')).toBe(
+      '127.0.0.1 localhost\n# a comment\n# https devnet (bin/snowglobe.mjs run)\n127.0.0.2 plc.directory\n127.0.0.2 four.test\n',
+    );
+  });
+});
+
+// A root with bin/ and lib/, the four-PDS globe rendered and its certificates, and a docker on
+// PATH that writes what it was asked to docker.log and fails, unless SHIM_EXIT says otherwise: a
+// guard that let up through then ends the run at once instead of waiting on a globe.
+function globeRoot() {
+  const r = mkdtempSync(join(tmpdir(), 'snowglobe-up-'));
+  for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
+  symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
+  writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
+  for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml']) cpSync(join(ROOT, f), join(r, f));
+  const shim = join(r, 'shim');
+  mkdirSync(shim);
+  symlinkSync(process.execPath, join(shim, 'node'));
+  writeFileSync(join(shim, 'docker'), `#!/bin/sh\necho "$*" >> ${join(r, 'docker.log')}\nexit "\${SHIM_EXIT:-1}"\n`, { mode: 0o755 });
+  for (const args of [['render', FOUR], ['certs']]) expect(sg(r, args).status).toBe(0);
+  return r;
+}
+// An address no globe is on, so nothing here can reach one.
+function sg(r: string, args: string[], env: Record<string, string> = {}, path = `${join(r, 'shim')}:${process.env.PATH}`) {
+  const base = { PATH: path, HOME: r, DEVNET_BIND: '127.77.0.9' };
+  return spawnSync(join(r, 'shim/node'), [join(r, 'bin/snowglobe.mjs'), ...args], { cwd: r, env: { ...base, ...env }, encoding: 'utf8', timeout: 60000 });
+}
+const dockerLog = (r: string) => (existsSync(join(r, 'docker.log')) ? readFileSync(join(r, 'docker.log'), 'utf8') : '');
+
+describe('snowglobe up and down', () => {
+  it('need DEVNET_PROJECT, and refuse the shared devnet before any docker command', () => {
+    const r = globeRoot();
+    for (const cmd of [['up'], ['down', '-v']]) {
+      expect(sg(r, cmd).status, cmd[0]).toBe(2);
+      const shared = sg(r, cmd, { DEVNET_PROJECT: 'devnet-spaces' });
+      expect(shared.status, cmd[0]).toBe(3);
+      expect(shared.stderr).toContain('devnet-spaces');
+    }
+    expect(dockerLog(r)).toBe('');
+  });
+
+  it('down stops the project on the rendered globe, with its volumes on -v', () => {
+    const r = globeRoot();
+    expect(sg(r, ['down', '-v'], { DEVNET_PROJECT: 'mine', SHIM_EXIT: '0' }).status).toBe(0);
+    expect(sg(r, ['down'], { DEVNET_PROJECT: 'devnet-spaces', DEVNET_RESET_OK: '1', SHIM_EXIT: '0' }).status).toBe(0);
+    expect(dockerLog(r)).toBe(
+      `compose -p mine --project-directory ${r} -f ${join(r, 'data/globe/compose.yml')} down --remove-orphans -v\n` +
+        `compose -p devnet-spaces --project-directory ${r} -f ${join(r, 'data/globe/compose.yml')} down --remove-orphans\n`,
+    );
+    expect(sg(r, ['down', '--force'], { DEVNET_PROJECT: 'mine' }).status).toBe(2);
+  });
+
+  it('up refuses a PDS named for an app\'s ending, and leaves the render as it was', () => {
+    const r = globeRoot();
+    writeFileSync(join(r, 'data/https/apps'), 'atmo 5173 beta\n');
+    const before = readFileSync(join(r, 'data/globe/globe.env'), 'utf8');
+    const res = sg(r, ['up', FOUR], { DEVNET_PROJECT: 'mine' });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain('atmo');
+    expect(readFileSync(join(r, 'data/globe/globe.env'), 'utf8')).toBe(before);
+    expect(dockerLog(r)).toBe('');
+  });
+
+  it('up refuses a DEVNET_BIND that is not loopback before any docker command', () => {
+    const r = globeRoot();
+    expect(sg(r, ['up', FOUR], { DEVNET_PROJECT: 'mine', DEVNET_BIND: '0.0.0.0' }).status).toBe(1);
+    expect(dockerLog(r)).toBe('');
+  });
+});
+
+describe('snowglobe run', () => {
+  it.skipIf(!bwrapWorks)('maps every PDS, handle and app name to DEVNET_BIND, for the command alone', () => {
+    const r = globeRoot();
+    writeFileSync(join(r, 'data/https/apps'), 'probe 5480\n');
+    writeFileSync(join(r, 'data/https/names'), 'carol.beta.four.test\n');
+    const names = ['four.test', 'alpha.four.test', 'beta.four.test', 'regular.four.test', 'prod.four.test', 'plc.directory', 'carol.beta.four.test', 'probe.devnet.internal', 'x.example'];
+    const res = sg(r, ['run', '--', 'getent', 'hosts', ...names], { DEVNET_BIND: '127.0.0.9', HTTPS_RUN_EXTRA_NAMES: 'x.example' });
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.stdout.trim().split('\n').map((l) => l.split(/\s+/))).toEqual(names.map((n) => ['127.0.0.9', n]));
+    // Outside run, none of the globe's own names resolves.
+    expect(spawnSync('getent', ['hosts', 'beta.four.test']).status).not.toBe(0);
+  });
+
+  it.skipIf(!bwrapWorks)('trusts the globe\'s CA in Node, and exits with the command\'s code', () => {
+    const r = globeRoot();
+    const ca = sg(r, ['run', 'node', '-e', 'console.log(process.env.NODE_EXTRA_CA_CERTS)']);
+    expect(ca.stdout.trim()).toBe(join(r, 'data/https/ca.crt'));
+    expect(sg(r, ['run', 'sh', '-c', 'exit 7']).status).toBe(7);
+  });
+
+  it('says plainly that it needs bubblewrap when there is none', () => {
+    const r = globeRoot();
+    const res = sg(r, ['run', 'true'], {}, join(r, 'shim'));
+    expect(res.status).toBe(1);
+    expect(res.stderr.trim().split('\n')).toHaveLength(1);
+    expect(res.stderr).toContain('bubblewrap');
+  });
+
+  it('takes no empty command', () => {
+    const r = globeRoot();
+    expect(sg(r, ['run']).status).toBe(2);
+    expect(sg(r, ['run', '--']).status).toBe(2);
+  });
+});
