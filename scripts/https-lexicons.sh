@@ -13,6 +13,10 @@ set -eu
 # is LEX_AUTHORITY_* from data/accounts.env (ACCOUNTS_FILE overrides), which
 # scripts/https-up.sh writes. An app can instead publish with its own tool, signed in
 # with the same login: it is an ordinary putRecord.
+#
+# For a globe on the cluster, set DEVNET_PUBLIC=1 (its names are public, with a real
+# certificate) and ACCOUNTS_FILE to a private file holding LEX_AUTHORITY_DID,
+# LEX_AUTHORITY_PDS and LEX_AUTHORITY_PASSWORD from the globe's operator logins.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/https-lib.sh"

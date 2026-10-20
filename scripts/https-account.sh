@@ -43,8 +43,8 @@ PDS="https://${PDS_NAME}"
 HANDLE="${NAME}${DOMAIN}"
 # On the alpha, these handles would be another PDS's name.
 case "${WHERE}:${NAME}" in
-  alpha:alpha | alpha:regular | alpha:prod)
-    echo "https-account: ${HANDLE} is a PDS's name; pick another <name>" >&2
+  alpha:alpha | alpha:regular | alpha:prod | alpha:slingshot | alpha:plc | alpha:relay | alpha:jetstream | alpha:pdsls)
+    echo "https-account: ${HANDLE} is a service's name; pick another <name>" >&2
     exit 2
     ;;
 esac

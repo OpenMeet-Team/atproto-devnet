@@ -3,11 +3,11 @@ set -eu
 
 # Run a command as if the https devnet were the real network, for that command's
 # process tree only:
-#   - the three PDS names (alpha.devnet.test, regular.devnet.test, prod.devnet.test,
-#     under DEVNET_DOMAIN if it is set; scripts/https-lib.sh),
+#   - the network's page (devnet.test) and the three PDS names (alpha.devnet.test,
+#     regular.devnet.test, prod.devnet.test, all under DEVNET_DOMAIN if it is set; scripts/https-lib.sh),
 #     plc.directory, every handle in data/https/names (scripts/https-account.sh and
 #     https-up.sh add them) and every app in data/https/apps, as <name>.devnet.internal
-#     (scripts/https-app.sh), resolve to 127.0.0.1, where nginx answers on 443;
+#     (scripts/https-app.sh), resolve to 127.0.0.1 (DEVNET_BIND), where nginx answers on 443;
 #   - Node trusts the devnet CA (NODE_EXTRA_CA_CERTS=data/https/ca.crt), on top of
 #     its own roots. Miniflare's source passes the same file on to workerd.
 #
@@ -40,8 +40,10 @@ fi
 
 # In a subshell: https-lib.sh sets ROOT_DIR, DATA_DIR and the like, and where the caller
 # exported one of those, the command would see ours instead.
-NAMES="$(. "${SCRIPT_DIR}/https-lib.sh" && echo "$(pds_name alpha) $(pds_name regular) $(pds_name prod)")"
+NAMES="$(. "${SCRIPT_DIR}/https-lib.sh" && d="${DEVNET_DOMAIN}" && echo "${d} $(pds_name alpha) $(pds_name regular) $(pds_name prod) slingshot.${d} plc.${d} relay.${d} jetstream.${d} pdsls.${d}")"
 NAMES="${NAMES} plc.directory"
+# Where nginx is published (DEVNET_BIND, from the environment or .env as compose reads it).
+BIND="$(. "${SCRIPT_DIR}/https-lib.sh" && echo "${DEVNET_BIND}")"
 if [ -f "${DATA}/names" ]; then
   NAMES="${NAMES} $(grep -E '^[A-Za-z0-9.-]+$' "${DATA}/names" | tr '\n' ' ')"
 fi
@@ -50,7 +52,7 @@ if [ -f "${DATA}/apps" ]; then
 fi
 NAMES="${NAMES} ${HTTPS_RUN_EXTRA_NAMES:-}"
 
-# The real hosts file, minus any line naming one of ours, plus ours on 127.0.0.1.
+# The real hosts file, minus any line naming one of ours, plus ours on ${BIND}.
 # Written aside and renamed, so a run already holding the old file is undisturbed.
 HOSTS="${DATA}/hosts"
 TMP="$(mktemp "${DATA}/hosts.XXXXXX")"
@@ -61,7 +63,7 @@ TMP="$(mktemp "${DATA}/hosts.XXXXXX")"
   ' /etc/hosts
   echo "# https devnet (scripts/https-run)"
   set -f
-  printf '%s\n' ${NAMES} | awk 'NF && !seen[$0]++ { print "127.0.0.1 " $0 }'
+  printf '%s\n' ${NAMES} | awk -v bind="${BIND}" 'NF && !seen[$0]++ { print bind " " $0 }'
   set +f
 } > "${TMP}"
 chmod 644 "${TMP}"

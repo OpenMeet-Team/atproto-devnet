@@ -17,6 +17,11 @@
 #   regular.devnet.test  *.regular.devnet.test   pds-regular  a current release
 #   prod.devnet.test     *.prod.devnet.test      pds-prod     the build you run in prod
 #   plc.directory                                plc          this stack's PLC
+#   slingshot.devnet.test                        slingshot    handle and DID lookups (resolveMiniDoc)
+#   plc.devnet.test                              plc          the same PLC, by a name under the domain
+#   relay.devnet.test, jetstream.devnet.test     relay, jetstream, for an app's browser code
+#   pdsls.devnet.test                            pdsls        the record browser apps link to
+#   devnet.test                                  nginx        the network's page (page/), as a globe has
 #   <name>.devnet.internal                       an app on this machine, at the port
 #                                                scripts/https-app.sh recorded for <name>
 #
@@ -28,9 +33,10 @@
 # scripts/https-run, so every other program still reaches the real plc.directory.
 #
 # Published ports, all on 127.0.0.1: 443 (nginx), the PLC (DEVNET_PLC_PORT), Jetstream
-# (DEVNET_JETSTREAM_PORT, DEVNET_JETSTREAM_METRICS_PORT) and maildev
-# (DEVNET_MAILDEV_WEB_PORT, DEVNET_MAILDEV_SMTP_PORT). The PDS, relay, TAP and Postgres
-# ports are not published: reach a PDS by its https name.
+# (DEVNET_JETSTREAM_PORT, DEVNET_JETSTREAM_METRICS_PORT), maildev
+# (DEVNET_MAILDEV_WEB_PORT, DEVNET_MAILDEV_SMTP_PORT) and the browser proxy
+# (DEVNET_PROXY_PORT). The PDS, relay, TAP and Postgres ports are not published: reach a
+# PDS by its https name.
 
 x-devnet-ca: &devnet-ca ./data/https/ca.crt:/https/ca.crt:ro
 x-app-names: &app-names ./https/app-names.cjs:/https/app-names.cjs:ro
@@ -119,6 +125,113 @@ services:
     volumes:
       - *go-ca
 
+  # Slingshot (microcosm-rs) answers com.bad-example.identity.resolveMiniDoc, a handle's
+  # DID and PDS, from this stack's PLC and this stack's Jetstream. The public one cannot
+  # see a devnet account. It reaches the handles' names over TLS, which needs two things
+  # the other services do not: the CA as its only root, and a DNS that answers any name
+  # under the domain. slingshot-dns holds the network namespace Slingshot runs in, the
+  # way the extra PDSes share the alpha's, so nginx reaches Slingshot as slingshot-dns:8080.
+  slingshot-dns:
+    build: ./https/dns
+    image: atproto-devnet-dns:https-1
+    restart: unless-stopped
+    environment:
+      DEVNET_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
+    dns:
+      - 127.0.0.1
+    depends_on:
+      nginx:
+        condition: service_healthy
+    networks:
+      - atproto-devnet
+
+  slingshot:
+    # DEVNET_SLINGSHOT_COMMIT is a full microcosm-rs commit: it picks what is built and
+    # names the image, so the tag is always the source.
+    build:
+      context: ./slingshot
+      args:
+        MICROCOSM_COMMIT: ${DEVNET_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
+    image: atproto-devnet-slingshot:${DEVNET_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
+    restart: unless-stopped
+    network_mode: service:slingshot-dns
+    depends_on:
+      slingshot-dns:
+        condition: service_started
+      plc:
+        condition: service_healthy
+      jetstream:
+        condition: service_healthy
+    environment:
+      SLINGSHOT_PLC_DIRECTORY: http://plc:2582
+      SLINGSHOT_JETSTREAM: ws://jetstream:6008/subscribe
+      SLINGSHOT_CACHE_DIR: /data
+      SLINGSHOT_BIND: 0.0.0.0:8080
+      # The devnet's CA is the only root; the names it reaches are all the devnet's.
+      SSL_CERT_FILE: /https/ca.crt
+    volumes:
+      - *devnet-ca
+      - slingshot-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # A browser on another computer reaches the devnet through this, with no launch flags and no
+  # hosts file: point the browser at http://127.0.0.1:<DEVNET_PROXY_PORT>/proxy.pac and the devnet's
+  # names go to this proxy (HTTP CONNECT, or SOCKS5), which sends each one to nginx and refuses
+  # everything else (https/proxy/server.mjs). Forward the port to the browser's machine; the CA is
+  # still trusted there as before.
+  proxy:
+    build: ./https/proxy
+    image: atproto-devnet-proxy:https-1
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      PROXY_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
+      PROXY_UPSTREAM: nginx:443
+    ports:
+      - "127.0.0.1:${DEVNET_PROXY_PORT:-1080}:1080"
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:1080/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # PDSls, the record browser apps link to, at pdsls.<domain>: built from a pinned commit with
+  # pdsls/network.patch and given this network's addresses by pdsls/server.mjs, which also answers its
+  # handle and did:web lookups through nginx, for names under the domain only.
+  pdsls:
+    build: ./pdsls
+    image: atproto-devnet-pdsls:https-1
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_healthy
+    environment:
+      PDSLS_PUBLIC_URL: https://pdsls.${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_DOMAIN: ${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_PLC_URL: https://plc.${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_JETSTREAM_URL: wss://jetstream.${DEVNET_DOMAIN:-devnet.test}/subscribe
+      PDSLS_FIREHOSE_URL: wss://relay.${DEVNET_DOMAIN:-devnet.test}
+      PDSLS_LEXICON_AUTHORITY: ${DEVNET_LEXICON_AUTHORITY_DID:-}
+      PDSLS_UPSTREAM: nginx:443
+      NODE_EXTRA_CA_CERTS: /https/ca.crt
+    volumes:
+      - *devnet-ca
+    networks:
+      - atproto-devnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   postgres:
     # The PLC's database, named, so a `down` without -v keeps every DID.
     volumes:
@@ -148,7 +261,7 @@ services:
       plc:
         condition: service_healthy
     ports:
-      - "127.0.0.1:443:443"
+      - "${DEVNET_BIND:-127.0.0.1}:443:443"
     extra_hosts:
       # This machine, where an app registered with scripts/https-app.sh listens.
       - host.docker.internal:host-gateway
@@ -161,8 +274,12 @@ services:
       - ./https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./data/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
       - ./data/https/leaf.key:/etc/nginx/https/leaf.key:ro
-      # The app routes scripts/https-app.sh writes (a directory, so a rewrite shows up).
+      # The app routes and the page's globe.json, which scripts/https-app.sh writes (a
+      # directory, so a rewrite shows up).
       - ./data/https/nginx:/etc/nginx/devnet:ro
+      # The network's page, the one a globe serves, and this stack's relays for it.
+      - ./page/index.html:/srv/page/index.html:ro
+      - ./page/devnet.conf:/etc/nginx/page/devnet.conf:ro
     networks:
       atproto-devnet:
         aliases:
@@ -177,3 +294,4 @@ services:
 
 volumes:
   plc-db:
+  slingshot-data:
