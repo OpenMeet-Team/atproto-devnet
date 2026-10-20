@@ -49,12 +49,13 @@ globe_pds() {
   env_get SNOWGLOBE_PDS "${GLOBE_ENV}"
 }
 
-# render_globe: write data/globe/ from SNOWGLOBE_FILE, or the default globe, with the domain
-# from the environment or .env when one is set there. DEVNET_DOMAIN is then the globe's.
+# render_globe [<dir>]: write the globe from SNOWGLOBE_FILE, or the default globe, with the
+# domain from the environment or .env when one is set there, into data/globe/; DEVNET_DOMAIN is
+# then the globe's. With <dir>, into that folder instead, to look at before data/globe/ changes.
 render_globe() {
   node "${ROOT_DIR}/scripts/snowglobe" render "${SNOWGLOBE_FILE:-${ROOT_DIR}/snowglobe.default.yml}" \
-    --out "${GLOBE_DIR}" ${DEVNET_DOMAIN_SET:+--domain "${DEVNET_DOMAIN_SET}"} >&2
-  DEVNET_DOMAIN="$(env_get DEVNET_DOMAIN "${GLOBE_ENV}")"
+    --out "${1:-${GLOBE_DIR}}" ${DEVNET_DOMAIN_SET:+--domain "${DEVNET_DOMAIN_SET}"} >&2
+  [ -n "${1:-}" ] || DEVNET_DOMAIN="$(env_get DEVNET_DOMAIN "${GLOBE_ENV}")"
 }
 
 # curl <https URL on a devnet name> [curl args...]: the name goes to nginx on

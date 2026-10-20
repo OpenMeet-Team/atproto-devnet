@@ -115,6 +115,14 @@ describe('snowglobe render', () => {
     }
   });
 
+  it('refuses a PDS named for one of the page\'s own health routes, which nginx would see twice', () => {
+    const fixed = [...readFileSync(join(ROOT, 'page/devnet.conf'), 'utf8').matchAll(/location = \/health\/([a-z0-9-]+) /g)].map((m) => m[1]);
+    expect(fixed.length).toBeGreaterThan(0);
+    for (const name of [...fixed, 'pds']) {
+      expect(checkGlobe({ ...THREE, pds: [PDS(name)] }).errors.map((e: string) => e.split(': ')[0]), name).toContain('pds[0].name');
+    }
+  });
+
   it('seeds init on the PDS with bare handles, else the first', () => {
     const bare = render({ ...THREE, pds: [PDS('regular'), PDS('alpha', { bare_handles: true })] });
     expect(bare.compose.services.init.depends_on).toHaveProperty('pds-alpha');

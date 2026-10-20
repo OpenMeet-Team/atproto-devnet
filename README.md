@@ -763,7 +763,10 @@ docker compose -p "$DEVNET_PROJECT" --project-directory . -f data/globe/compose.
 ```
 
 `https-up.sh` is safe to rerun; a rerun leaves the running services as they are, and only the
-one-shot `init` and `relay-init` run again. It makes the leaf certificate if there is
+one-shot `init` and `relay-init` run again. A rerun on a changed file stops what the file no longer
+runs, and when it adds a PDS beside a running relay it restarts the relay, which otherwise can wait
+a long time before it redials a PDS that went away and came back. It refuses a PDS named for a handle ending an app
+claimed with `https-app.sh`, before it writes anything. It makes the leaf certificate if there is
 none, brings the stack up, makes the lexicon authority (`lex-authority.devnet.test` on the file's
 `lexicons.authority` PDS, the alpha by default),
 brings the stack up again with `DEVNET_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
@@ -793,7 +796,8 @@ a new DID.
 `data/` is git-ignored:
 
 - `data/devnet.env`: the devnet's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
-  (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
+  (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
+  leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
   `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN`,
   `PAGE_URL` (`https://devnet.test/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
   `DEVNET_CA_FILE`.

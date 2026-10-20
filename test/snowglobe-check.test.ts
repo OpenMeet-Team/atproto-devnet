@@ -132,7 +132,7 @@ describe('the rules behind the check', () => {
   });
 
   it('keeps the network\'s own names and services for the network', () => {
-    for (const name of ['relay', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns', 'pds']) {
+    for (const name of ['relay', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns', 'pds', 'sync']) {
       expect(whereOf(ok({ pds: [{ ...PDS_A, name }] })), name).toEqual(['pds[0].name']);
       expect(whereOf(ok({ grouphosts: [{ name, kind: 'opensocial' }] })), name).toEqual(['grouphosts[0].name']);
     }

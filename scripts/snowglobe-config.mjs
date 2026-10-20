@@ -21,12 +21,13 @@ export const IMAGE_NAMES = {
 // The image is not settled for a local globe yet (om-r1vrl.31.4), so it is left empty.
 export const GROUPHOST_KINDS = { opensocial: null };
 
-// Names the network already uses: under the domain (plc.<domain>, relay.<domain>, ...), and
-// as compose services the https devnet always runs. A PDS, group host or bare handle by one
-// of these names would take its address or its service.
+// Names the network already uses: under the domain (plc.<domain>, relay.<domain>, ...), as
+// compose services the https devnet always runs, and as the page's own /health/<name> routes
+// (page/devnet.conf, where TAP is sync). A PDS, group host or bare handle by one of these names
+// would take its address, its service or its route.
 const RESERVED = [
   'plc', 'relay', 'jetstream', 'slingshot', 'pdsls', 'tap', 'mail', 'lex-authority',
-  'pds', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns',
+  'pds', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns', 'sync',
 ];
 
 // The lexicon authority's account, made on its PDS before any account in the file.

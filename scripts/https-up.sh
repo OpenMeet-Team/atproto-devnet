@@ -43,6 +43,20 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SNOWGLOBE_RENDER=1
 . "${SCRIPT_DIR}/https-lib.sh"
 
+# A PDS by the name of an app's handle ending would take that app's handles: nginx keeps the
+# first of two servers with one name, and the globe's come before the apps'. Checked on a render
+# aside, so a refused file leaves data/globe/ as the running globe has it.
+_ahead="$(mktemp -d)"
+render_globe "${_ahead}/globe"
+for _p in $(env_get SNOWGLOBE_PDS "${_ahead}/globe/globe.env"); do
+  _app="$(awk -v e="${_p}" '$3 == e { print $1; exit }' "${HTTPS_DIR}/apps" 2>/dev/null || true)"
+  if [ -n "${_app}" ]; then
+    rm -rf "${_ahead}"
+    echo "https-up: the PDS ${_p} would take the handles under ${_p}.<domain>, the ending app ${_app} claimed; rename the PDS, or scripts/https-app.sh --remove ${_app}" >&2
+    exit 1
+  fi
+done
+rm -rf "${_ahead}"
 render_globe
 mkdir -p "${HTTPS_DIR}/nginx"
 
@@ -79,13 +93,18 @@ wait_done() {
   done
 }
 up_stack() {
-  dc up -d
+  # A service the file no longer runs (a PDS taken out, a service turned off) is stopped.
+  dc up -d --remove-orphans
   for _s in $(env_get SNOWGLOBE_ONESHOTS "${GLOBE_ENV}"); do
     wait_done "${_s}"
   done
   # shellcheck disable=SC2046 # service names, one word each
   dc up -d --wait $(env_get SNOWGLOBE_SERVICES "${GLOBE_ENV}")
 }
+
+# What runs before this run: the relay, and every container, to notice a PDS this run makes.
+_relay_before="$(dc ps -q relay 2>/dev/null || true)"
+_before="$(dc ps -aq 2>/dev/null || true)"
 
 # A rerun starts the PDSes with the authority they already have, so pass 1 changes nothing.
 DEVNET_LEXICON_AUTHORITY_DID="$(env_get LEX_AUTHORITY_DID "${DEVNET_ACCOUNTS}")"
@@ -108,6 +127,22 @@ if [ "${AUTH_DID}" != "${DEVNET_LEXICON_AUTHORITY_DID}" ]; then
   up_stack
 fi
 
+# A relay that was running when a PDS went away redials it with a growing backoff; a PDS added
+# back under that name was not crawled again until the relay restarted (2026-10-20: no dial in
+# the nine minutes after it came back). So when this run made a PDS container beside a
+# relay that was already running, the relay restarts, and the services wait for it again.
+if [ -n "${_relay_before}" ]; then
+  for _p in $(globe_pds); do
+    if ! printf '%s\n' "${_before}" | grep -qxF "$(dc ps -q "pds-${_p}")"; then
+      echo "Restarting the relay: pds-${_p} is new beside it" >&2
+      dc restart relay >/dev/null
+      # shellcheck disable=SC2046 # service names, one word each
+      dc up -d --wait $(env_get SNOWGLOBE_SERVICES "${GLOBE_ENV}")
+      break
+    fi
+  done
+fi
+
 # init's accounts are on the seed PDS; https-run maps their handles.
 for prefix in ALICE BOB; do
   handle="$(env_get "${prefix}_HANDLE" "${DEVNET_ACCOUNTS}")"
@@ -121,9 +156,12 @@ DENV="${DATA_DIR}/devnet.env"
   echo "DEVNET_PROJECT=${DEVNET_PROJECT}"
   echo "DEVNET_DOMAIN=${DEVNET_DOMAIN}"
   echo "PAGE_URL=https://${DEVNET_DOMAIN}/"
-  # <NAME>_PDS_URL for each PDS: ALPHA_PDS_URL for alpha.
+  # <NAME>_PDS_URL for each PDS: ALPHA_PDS_URL for alpha. A shell name cannot start with a
+  # digit, so a PDS named 1st is _1ST_PDS_URL.
   for _p in $(globe_pds); do
-    echo "$(printf '%s' "${_p}" | tr 'a-z-' 'A-Z_')_PDS_URL=https://${_p}.${DEVNET_DOMAIN}"
+    _v="$(printf '%s' "${_p}" | tr 'a-z-' 'A-Z_')"
+    case "${_v}" in [0-9]*) _v="_${_v}" ;; esac
+    echo "${_v}_PDS_URL=https://${_p}.${DEVNET_DOMAIN}"
   done
   echo "PLC_URL=https://plc.directory"
   echo "JETSTREAM_URL=ws://127.0.0.1:${DEVNET_JETSTREAM_PORT:-6008}"

@@ -27,4 +27,5 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/https-lib.sh"
 
-dc down "$@"
+# --remove-orphans: a service an earlier render ran and this one does not is stopped too.
+dc down --remove-orphans "$@"
