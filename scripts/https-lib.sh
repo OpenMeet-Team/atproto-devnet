@@ -3,7 +3,7 @@
 # secret.
 #
 # The devnet is the globe a snowglobe.yml describes, rendered into data/globe/ by
-# scripts/snowglobe render (render_globe, which https-up.sh runs): its compose file, nginx's
+# bin/snowglobe.mjs render (render_globe, which https-up.sh runs): its compose file, nginx's
 # servers, the leaf's names and globe.env, the facts read here.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,7 +11,7 @@ DATA_DIR="${ROOT_DIR}/data"
 HTTPS_DIR="${DATA_DIR}/https"
 CA="${HTTPS_DIR}/ca.crt"
 # The devnet's own logins (the base init's alice, bob and invite code, the lexicon
-# authority, and accounts made by https-account.sh).
+# authority, and accounts made by bin/snowglobe.mjs account).
 DEVNET_ACCOUNTS="${DATA_DIR}/accounts.env"
 # The rendered globe. Nothing in it is secret.
 GLOBE_DIR="${DATA_DIR}/globe"
@@ -53,7 +53,7 @@ globe_pds() {
 # domain from the environment or .env when one is set there, into data/globe/; DEVNET_DOMAIN is
 # then the globe's. With <dir>, into that folder instead, to look at before data/globe/ changes.
 render_globe() {
-  node "${ROOT_DIR}/scripts/snowglobe" render "${SNOWGLOBE_FILE:-${ROOT_DIR}/snowglobe.default.yml}" \
+  node "${ROOT_DIR}/bin/snowglobe.mjs" render "${SNOWGLOBE_FILE:-${ROOT_DIR}/snowglobe.default.yml}" \
     --out "${1:-${GLOBE_DIR}}" ${DEVNET_DOMAIN_SET:+--domain "${DEVNET_DOMAIN_SET}"} >&2
   [ -n "${1:-}" ] || DEVNET_DOMAIN="$(env_get DEVNET_DOMAIN "${GLOBE_ENV}")"
 }
@@ -159,104 +159,8 @@ add_name() {
   grep -qxF "$1" "${HTTPS_DIR}/names" || echo "$1" >> "${HTTPS_DIR}/names"
 }
 
-# app_handles: the handle endings apps claimed with scripts/https-app.sh, one per line.
-app_handles() {
-  [ -f "${HTTPS_DIR}/apps" ] || return 0
-  awk 'NF >= 3 { print $3 }' "${HTTPS_DIR}/apps"
-}
-
-# leaf_names: every name the leaf carries, one or more per line: the rendered globe's (its
-# page, each PDS and its handles, its services, plc.directory and *.devnet.internal), and
-# *.<ending>.<domain> for each ending an app claimed. A TLS wildcard covers one label, so each
-# handle domain has its own. HTTPS_EXTRA_NAMES adds names (space-separated).
-leaf_names() {
-  if [ ! -f "${GLOBE_DIR}/leaf-names" ]; then
-    echo "No ${GLOBE_DIR}/leaf-names: run scripts/https-up.sh, which renders it" >&2
-    return 1
-  fi
-  cat "${GLOBE_DIR}/leaf-names"
-  app_handles | sed "s/.*/*.&.${DEVNET_DOMAIN}/"
-  echo "${HTTPS_EXTRA_NAMES:-}"
-}
-
-# leaf_lacks: true when there is no leaf, or it lacks a name leaf_names lists.
+# leaf_lacks: true when there is no leaf, or it lacks one of the rendered globe's names, an app's
+# ending or HTTPS_EXTRA_NAMES (bin/snowglobe.mjs certs --check).
 leaf_lacks() {
-  [ -f "${HTTPS_DIR}/leaf.crt" ] && [ -f "${HTTPS_DIR}/leaf.key" ] || return 0
-  _san="$(openssl x509 -in "${HTTPS_DIR}/leaf.crt" -noout -ext subjectAltName 2>/dev/null | tr -d ' ' | tr ',' '\n')"
-  set -f # a wildcard name is a name, not a glob
-  for _n in $(leaf_names); do
-    if ! printf '%s\n' "${_san}" | grep -qxF "DNS:${_n}"; then
-      set +f
-      return 0
-    fi
-  done
-  set +f
-  return 1
-}
-
-# render_apps: nginx's app routes, from data/https/apps (lines of "<name> <port>
-# [<ending>]"), into data/https/nginx/: one upstream per app at host.docker.internal:<port>
-# and, for an app that claimed a handle ending, a server for *.<ending>.<domain> (apps.conf),
-# and one map line per name (apps.map). See https/nginx.conf.template. Also the network
-# page's globe.json, which links each app (render_page).
-render_apps() {
-  mkdir -p "${HTTPS_DIR}/nginx"
-  _apps="${HTTPS_DIR}/apps"
-  _out="${HTTPS_DIR}/nginx"
-  {
-    echo "# Written by scripts/https-app.sh from data/https/apps; rerun it instead of editing."
-    if [ -f "${_apps}" ]; then
-      awk 'NF >= 2 { u = $1; gsub("-", "_", u); printf "upstream devnet_app_%s { server host.docker.internal:%s; }\n", u, $2 }' "${_apps}"
-      # Host is passed through (the http block sets it), so the app answers
-      # /.well-known/atproto-did for each handle. nginx takes the longer of two matching
-      # wildcards, so these win over the alpha's *.<domain>.
-      awk -v d="${DEVNET_DOMAIN}" 'NF >= 3 { u = $1; gsub("-", "_", u); printf "\n# Handles under %s.%s go to %s.\nserver {\n    listen 443 ssl;\n    server_name *.%s.%s;\n    location / {\n        proxy_pass http://devnet_app_%s;\n    }\n}\n", $3, d, $1, $3, d, u }' "${_apps}"
-    fi
-  } > "${_out}/apps.conf.tmp"
-  {
-    echo "# Written by scripts/https-app.sh from data/https/apps; rerun it instead of editing."
-    if [ -f "${_apps}" ]; then
-      awk 'NF >= 2 { u = $1; gsub("-", "_", u); printf "%s.devnet.internal devnet_app_%s;\n", $1, u }' "${_apps}"
-    fi
-  } > "${_out}/apps.map.tmp"
-  mv "${_out}/apps.conf.tmp" "${_out}/apps.conf"
-  mv "${_out}/apps.map.tmp" "${_out}/apps.map"
-  render_page
-}
-
-# render_page: data/https/nginx/globe.json, what page/index.html shows at https://<domain>/.
-# It names the devnet's own services, their health relays in page/devnet.conf, and the apps
-# https-app.sh routed.
-# App names are DNS labels, so they need no JSON escaping.
-render_page() {
-  _apps="${HTTPS_DIR}/apps"
-  # The devnet's own pdsls comes first, then each routed app.
-  _json="{\"name\": \"pdsls\", \"url\": \"https://pdsls.${DEVNET_DOMAIN}\"}"
-  if [ -f "${_apps}" ]; then
-    _json="${_json}$(awk 'NF >= 2 { printf ", {\"name\": \"%s\", \"url\": \"https://%s.devnet.internal\"}", $1, $1 }' "${_apps}")"
-  fi
-  cat > "${HTTPS_DIR}/nginx/globe.json.tmp" <<JSON
-{
-  "globe": "Local devnet",
-  "domain": "${DEVNET_DOMAIN}",
-  "apps": [${_json}],
-  "about": "An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under scripts/https-run reach it at the real network's names.",
-  "accountsNote": "Every account on the network, on each of its three account servers.",
-  "feed": "/subscribe",
-  "services": [
-    ["Account server", "alpha", "pds", "The spaces alpha: people's accounts and their records"],
-    ["Account server", "regular", "regular", "A current release, which serves no spaces"],
-    ["Account server", "prod", "prod", "The build run in production"],
-    ["Directory", "plc", "plc", "Maps each DID to its keys and account server; also plc.directory under https-run"],
-    ["Relay", "relay", "relay", "Collects every account server's changes into one stream"],
-    ["Feed", "jetstream", "jetstream", "The relay's stream as JSON, for apps (and this page)"],
-    ["Handle lookup", "slingshot", "slingshot", "Resolves handles and records from this network only"],
-    ["Sync", "", "sync", "TAP: backfills and syncs repos"],
-    ["Mail", "", "mail", "Catches every message the account servers send"],
-    ["Record browser", "pdsls", "pdsls", "PDSls, for this network's repos and records"]
-  ],
-  "accounts": [["/people", "person, alpha"], ["/people/regular", "person, regular"], ["/people/prod", "person, prod"]]
-}
-JSON
-  mv "${HTTPS_DIR}/nginx/globe.json.tmp" "${HTTPS_DIR}/nginx/globe.json"
+  ! node "${ROOT_DIR}/bin/snowglobe.mjs" certs --check
 }

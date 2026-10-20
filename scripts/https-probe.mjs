@@ -3,7 +3,7 @@
 // under scripts/https-run, which maps the names and trusts the devnet CA, after
 // routing the probe's app name to its port:
 //
-//   scripts/https-app.sh probe 5480
+//   bin/snowglobe.mjs app probe 5480
 //   ATCUTE_DIR=<dir> PROBE_DID=<did> scripts/https-run node scripts/https-probe.mjs
 //
 // (a) Resolves PROBE_DID through https://plc.directory (atcute's default

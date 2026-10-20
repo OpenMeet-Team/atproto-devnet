@@ -1,4 +1,4 @@
-# Written by scripts/snowglobe render from snowglobe.default.yml; render again instead of editing.
+# Written by bin/snowglobe.mjs render from snowglobe.default.yml; render again instead of editing.
 # The https globe "devnet" at devnet.test: alpha, regular, prod.
 # Run it with scripts/https-up.sh, which renders this file first.
 

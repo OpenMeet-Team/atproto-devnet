@@ -1,5 +1,5 @@
-# nginx for the https devnet (the globe's compose.yml, scripts/snowglobe render). One leaf
-# certificate names every host below; data/https/ca.crt is the CA that signed it (scripts/https-ca.sh).
+# nginx for the https devnet (the globe's compose.yml, bin/snowglobe.mjs render). One leaf
+# certificate names every host below; data/https/ca.crt is the CA that signed it (bin/snowglobe.mjs certs).
 # A template: at start the image writes it to conf.d/default.conf with the DEVNET_DOMAIN
 # setting filled in, so this is the http block's whole server list. The comments below
 # name its default, devnet.test.
@@ -36,7 +36,7 @@ server {
 }
 
 # Each PDS and its handles, and the relay, the feed, Slingshot and PDSls, at their names under
-# the domain: rendered from snowglobe.yml by scripts/snowglobe render into the globe's nginx/
+# the domain: rendered from snowglobe.yml by bin/snowglobe.mjs render into the globe's nginx/
 # folder (data/globe/nginx/globe.conf), mounted at /etc/nginx/globe/. Each PDS is its own
 # service, pds-<name>:3000. A PDS answers /.well-known/atproto-did by Host, which the http block
 # passes through as sent. An app's handle ending (below) wins over a PDS's *.<domain> as the
@@ -56,7 +56,7 @@ server {
 
 # The network's own page at the bare name, as a globe serves it at <globe>.snowglobe.at: the same
 # page/index.html, with this stack's relays (page/devnet.conf) and a globe.json naming its
-# services, which scripts/https-up.sh and https-app.sh write.
+# services, which scripts/https-up.sh and snowglobe app write.
 server {
     listen 443 ssl;
     server_name ${DEVNET_DOMAIN};
@@ -76,12 +76,12 @@ server {
 }
 
 # Apps on this machine: https://<name>.devnet.internal goes to the port that
-# scripts/https-app.sh recorded for <name> (data/https/apps). That script writes, into
+# bin/snowglobe.mjs app recorded for <name> (data/https/apps). It writes, into
 # data/https/nginx/ (mounted at /etc/nginx/devnet/), one upstream per app, naming
 # host.docker.internal, and one map line per name. An upstream's name is resolved
 # once, when nginx loads it, through the container's hosts file (extra_hosts), which
 # Docker's DNS does not serve. Neither file has to exist. An app that claimed a handle
-# ending (scripts/https-app.sh <name> <port> <ending>) also gets a server there for
+# ending (bin/snowglobe.mjs app <name> <port> <ending>) also gets a server there for
 # *.<ending>.devnet.test, which wins over a PDS's *.devnet.test as the longer wildcard.
 include /etc/nginx/devnet/*.conf;
 
@@ -95,7 +95,7 @@ server {
     listen 443 ssl;
     server_name *.devnet.internal;
     if ($devnet_app = "") {
-        return 404 "No app is registered at $host (scripts/https-app.sh).\n";
+        return 404 "No app is registered at $host (bin/snowglobe.mjs app).\n";
     }
     location / {
         proxy_pass http://$devnet_app;

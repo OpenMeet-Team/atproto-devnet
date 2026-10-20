@@ -1,4 +1,4 @@
-// Preloaded into each PDS (NODE_OPTIONS=--require, in the globe scripts/snowglobe render writes), so a PDS can
+// Preloaded into each PDS (NODE_OPTIONS=--require, in the globe bin/snowglobe.mjs render writes), so a PDS can
 // reach an app at https://<name>.devnet.internal: it fetches a confidential client's
 // metadata and keys from there. Docker's DNS has no wildcard names, so every such name is
 // looked up as nginx instead, which routes it by name (https/nginx.conf.template). Only

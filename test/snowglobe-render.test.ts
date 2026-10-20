@@ -12,9 +12,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parse } from 'yaml';
 // @ts-expect-error: a plain .mjs module, without types
-import { checkGlobe, loadGlobe } from '../scripts/snowglobe-config.mjs';
+import { checkGlobe, loadGlobe } from '../lib/config.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { loadBase, renderGlobe } from '../scripts/snowglobe-render.mjs';
+import { loadBase, renderGlobe } from '../lib/render.mjs';
 
 const ROOT = join(__dirname, '..');
 const RENDERED = join(__dirname, 'snowglobe', 'rendered');
@@ -38,7 +38,7 @@ describe('snowglobe render', () => {
     const { globe, errors } = loadGlobe(join(ROOT, 'snowglobe.default.yml'));
     expect(errors).toEqual([]);
     const files: Record<string, string> = renderGlobe(globe, base, { source: 'snowglobe.default.yml' });
-    expect(Object.keys(files).sort()).toEqual(['compose.yml', 'globe.env', 'leaf-names', 'nginx/globe.conf', 'nginx/page.inc']);
+    expect(Object.keys(files).sort()).toEqual(['compose.yml', 'globe.env', 'leaf-names', 'nginx/globe.conf', 'nginx/page.inc', 'page.json']);
     for (const [name, text] of Object.entries(files)) {
       const path = join(RENDERED, name);
       if (process.env.SNOWGLOBE_WRITE_RENDERED) {
@@ -163,9 +163,22 @@ describe('snowglobe render', () => {
     expect(env.DEVNET_DOMAIN).toBe('mine.test');
   });
 
+  it('tells snowglobe account which PDS has bare handles, which take invites, and which names are taken', () => {
+    const { env } = render({
+      ...FOUR,
+      pds: [PDS('alpha', { bare_handles: true, invites: 'required' }), PDS('regular'), PDS('beta', { invites: 'required' })],
+      grouphosts: [{ name: 'gh', kind: 'opensocial' }],
+      apps: [{ name: 'atmo', local: { port: 5173, handles: 'ev' } }],
+    });
+    expect(env.SNOWGLOBE_BARE_PDS).toBe('alpha');
+    expect(env.SNOWGLOBE_INVITE_PDS).toBe('alpha beta');
+    expect(env.SNOWGLOBE_TAKEN.split(' ')).toEqual(expect.arrayContaining(['plc', 'lex-authority', 'alpha', 'regular', 'beta', 'gh', 'ev']));
+    expect(render({ ...THREE, pds: [PDS('regular')] }).env.SNOWGLOBE_BARE_PDS).toBe('');
+  });
+
   it('takes a domain from the command line in place of the file\'s', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
-    const r = spawnSync('node', [join(ROOT, 'scripts/snowglobe'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);
     expect(envOf(readFileSync(join(dir, 'globe.env'), 'utf8')).DEVNET_DOMAIN).toBe('other.test');
     expect(readFileSync(join(dir, 'leaf-names'), 'utf8')).toContain('alpha.other.test');
@@ -174,7 +187,7 @@ describe('snowglobe render', () => {
   const docker = spawnSync('docker', ['compose', 'version']).status === 0;
   it.skipIf(!docker)('writes a compose file that docker compose reads', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
-    const r = spawnSync('node', [join(ROOT, 'scripts/snowglobe'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);
     const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8' });
     expect(c.status, c.stderr).toBe(0);

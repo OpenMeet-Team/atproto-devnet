@@ -1,0 +1,11 @@
+# Four PDSes: two take invite codes, one has bare handles (the apps and accounts tests, and a live check).
+globe: four
+domain: four.test
+pds:
+  - { name: alpha, image: spaces-alpha, bare_handles: true, invites: required }
+  - { name: beta, image: ghcr.io/bluesky-social/pds:0.4.5037, invites: required }
+  - { name: regular, image: ghcr.io/bluesky-social/pds:0.4.5037 }
+  - { name: prod, image: "ghcr.io/bluesky-social/pds@sha256:1fa8bbceabb65d8e1710749b1ea92c1c20a7489ca38da4a0a5f64c0c10a70c29" }
+services: { relay: auto, jetstream: true, tap: true, slingshot: true, pdsls: true }
+lexicons: { authority: alpha }
+accounts: [alice@alpha, bob@alpha]
