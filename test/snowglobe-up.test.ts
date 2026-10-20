@@ -8,7 +8,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { devnetEnv, endingClash, pdsVar } from '../lib/up.mjs';
+import { accountPrefixes, devnetEnv, endingClash, mergeRoutes, pdsVar } from '../lib/up.mjs';
 // @ts-expect-error: a plain .mjs module, without types
 import { hostsFile, runNames } from '../lib/hosts.mjs';
 
@@ -172,5 +172,24 @@ describe('snowglobe run', () => {
     const r = globeRoot();
     expect(sg(r, ['run']).status).toBe(2);
     expect(sg(r, ['run', '--']).status).toBe(2);
+  });
+});
+
+describe('what up seeds from the file', () => {
+  it('sets the file\'s app routes and keeps the others', () => {
+    const routes = [{ name: 'probe', port: 5480, ending: null }, { name: 'atmo', port: 1, ending: null }];
+    const file = [{ name: 'atmo', local: { port: 5173, handles: 'ev' } }, { name: 'web', local: { port: 8080, handles: null } }, { name: 'far', local: null }];
+    expect(mergeRoutes(routes, file)).toEqual([
+      { name: 'probe', port: 5480, ending: null },
+      { name: 'atmo', port: 5173, ending: 'ev' },
+      { name: 'web', port: 8080, ending: null },
+    ]);
+    expect(() => mergeRoutes([{ name: 'other', port: 1, ending: 'ev' }], file)).toThrow();
+  });
+
+  it('keeps each account\'s login under its name on the home PDS, with the PDS elsewhere', () => {
+    const accounts = [{ name: 'alice', pds: 'alpha' }, { name: 'bob', pds: 'regular' }, { name: 'my-bot', pds: 'alpha' }, { name: '1st', pds: 'alpha' }];
+    expect(accountPrefixes(accounts, 'alpha').map((a: { prefix: string }) => a.prefix)).toEqual(['ALICE', 'BOB_REGULAR', 'MY_BOT', '_1ST']);
+    expect(() => accountPrefixes([{ name: 'bob', pds: 'regular' }, { name: 'bob-regular', pds: 'alpha' }], 'alpha')).toThrow();
   });
 });

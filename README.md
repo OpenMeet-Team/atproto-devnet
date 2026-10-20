@@ -95,8 +95,10 @@ Changes to the default stack that existing setups will notice:
   DIDs, and the old `pds` container would be left running beside it. So take such a devnet down with
   the previous checkout first, `-v` included, and the next `snowglobe up` starts it fresh. The plain
   http stacks are unchanged.
-- **The `scripts/https-*` tools are gone: use `bin/snowglobe.mjs up`, `down` and `run`.**
-  `https-up.sh` is `up` (the file can also be its argument), `https-down.sh` is `down`, which takes
+- **The `scripts/https-*` tools are gone: use `bin/snowglobe.mjs up`, `down` and `run`.** To keep
+  the old layout, check out tag `v0.2.0`, the last version that has them. `https-up.sh` is `up`
+  (the file can also be its argument, and `up` now seeds the file's `accounts`, `lexicons.publish`
+  and `apps`), `https-down.sh` is `down`, which takes
   `-v` and nothing else, and `https-run` is `run`. `run` now maps every name the rendered globe
   answers to, each PDS in the file included, not a fixed three, to `DEVNET_BIND`. `data/devnet.env`
   takes the Jetstream, maildev and proxy ports from `.env` too, as compose does.
@@ -664,7 +666,7 @@ image, and the patch has to apply.
 The stacks above serve every PDS at `http://localhost:<port>`, so an app has to be told it is on a
 devnet before it will sign in there: allow plain http, and ask the devnet PLC instead of
 `plc.directory`. The https devnet goes the other way. It is the globe a `snowglobe.yml` describes
-(`snowglobe.default.yml` unless `SNOWGLOBE_FILE` names another), which `bin/snowglobe.mjs up`
+(`snowglobe.default.yml` unless you name another; [the file](#the-file-and-the-commands)), which `bin/snowglobe.mjs up`
 renders into one compose file (`bin/snowglobe.mjs render`) and brings up. It looks like the real
 network, so an app built for the real network runs against it with no devnet code. With the
 default file:
@@ -752,6 +754,81 @@ works against the devnet's PDSes.
 A record's Schema tab shows its lexicon when the authority holds it and pdsls's parser accepts it.
 Measured 2026-10-19: the opensocial proposal's lexicons (a `space` definition, a `space-ref` format)
 and atmo's permission set fail that parser, as they would on pds.ls; the record view is unaffected.
+
+### The file and the commands
+
+One file says what a globe runs: `snowglobe.yml`. It belongs in an app's repo, next to the lexicons
+it publishes, and is committed. Everything the globe makes while it runs (the CA's key, passwords,
+invite codes, app routes) goes under this checkout's `data/`, which is git-ignored and never
+committed ([What it writes](#what-it-writes)).
+
+```yaml
+globe: bookclub                  # lowercase letters and digits; the globe's own name
+domain: devnet.test              # every name below is under it (devnet.test if left out)
+
+pds:                             # at least one; each is pds-<name> at https://<name>.<domain>
+  - name: alpha
+    image: spaces-alpha          # a short name (pinned by digest), or any image reference
+    bare_handles: true           # handles <name>.<domain>; at most one PDS. Others: <name>.<pds>.<domain>
+    invites: required            # open (default) or required
+  - name: regular
+    image: ghcr.io/bluesky-social/pds:0.4.5037
+
+services:                        # each true or false; these are the defaults
+  relay: auto                    # auto: on when there is more than one PDS
+  jetstream: true
+  tap: true
+  slingshot: true                # needs jetstream
+  pdsls: true
+
+lexicons:
+  authority: alpha               # the PDS lex-authority is made on (the bare-handle PDS by default)
+  publish: lexicons              # a folder next to this file; up publishes every lexicon in it
+
+accounts:                        # <name>@<pds>; up makes each one
+  - owner@alpha
+  - reader@regular
+
+apps:
+  - name: bookclub
+    local: { port: 5173, handles: bc }   # https://bookclub.devnet.internal and handles *.bc.<domain>
+```
+
+`bin/snowglobe.mjs check` says what is wrong with a file, one line per problem, and touches
+nothing. A name used twice, a PDS named like a service, an app's handle ending that is a PDS's
+name, a handle longer than DNS allows: each fails here, before anything starts. `grouphosts`,
+`hosted` and an app's `hosted` are read and checked, for a globe hosted on the cluster; a local
+globe does not run them yet.
+
+`up` seeds what the file asks for, every run, and a rerun changes nothing that is already there:
+
+- **accounts**: each one is made with `snowglobe account` (below). Its login goes to
+  `data/accounts.env` as `<NAME>_*` on the PDS with bare handles (else the first), where init's
+  `alice` and `bob` are, so `alice@alpha` is init's own alice; on any other PDS as
+  `<NAME>_<PDS>_*`, so `reader@regular` is `READER_REGULAR_*`. Passwords are generated and never
+  printed.
+- **lexicons.publish**: every lexicon in the folder, at any depth, goes into the authority as
+  `snowglobe lexicons` does; an unchanged one is left alone, and other JSON is skipped.
+- **apps[].local**: the route `snowglobe app <name> <port> [<handles>]` would make, set before the
+  certificate and nginx, so both have it. A route made by hand with `snowglobe app` stays.
+
+The commands, each `bin/snowglobe.mjs <command>`:
+
+| Command | What it does |
+| --- | --- |
+| `check [<file>]` | checks a file |
+| `render [<file>]` | writes the globe it describes into `data/globe/` (`up` does this itself) |
+| `certs [--check]` | makes the CA and the leaf nginx serves (`up` does this itself) |
+| `up [<file>]` | brings the globe up as `DEVNET_PROJECT` and seeds it ([Up and down](#up-and-down)) |
+| `down [-v]` | stops it; `-v` drops its volumes too |
+| `run [--] <cmd>` | runs a command that reaches the globe at the real network's names (Linux) |
+| `account`, `invite`, `lexicons`, `app` | make an app's own accounts, invite codes, lexicons and routes ([Tools for an app](#tools-for-an-app)) |
+
+With no `<file>`, `up` reads `SNOWGLOBE_FILE` if it is set; past that, each command reads
+`./snowglobe.yml` in the folder it runs in if there is one, else `snowglobe.default.yml` here:
+alpha, regular and prod, with `alice` and `bob`. Exit 2 means
+the command was called wrong, 1 that the globe refused, 3 that `up` or `down` refused the shared
+devnet.
 
 ### Up and down
 
