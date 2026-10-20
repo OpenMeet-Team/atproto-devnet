@@ -1,7 +1,7 @@
-// snowglobe certs (scripts/snowglobe-certs.mjs): the globe's CA and leaf, made in Node. No Docker
+// snowglobe certs (lib/certs.mjs): the globe's CA and leaf, made in Node. No Docker
 // needed; run them alone with `npx vitest run snowglobe-certs`. Where openssl is installed, it
 // checks the result as a second opinion and makes a CA the way the old scripts/https-ca.sh did;
-// those cases are skipped without it. The CLI runs on a copy of scripts/ in a temporary root.
+// those cases are skipped without it. The CLI runs on a copy of bin/ and lib/ in a temporary root.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { X509Certificate, createPrivateKey } from 'node:crypto';
@@ -12,19 +12,19 @@ import { join } from 'node:path';
 import { AsnConvert } from '@peculiar/asn1-schema';
 import { Certificate } from '@peculiar/asn1-x509';
 // @ts-expect-error: a plain .mjs module, without types
-import { ensureCerts, leafLacks, leafNames } from '../scripts/snowglobe-certs.mjs';
+import { ensureCerts, leafLacks, leafNames } from '../lib/certs.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { devnetRequest, paths } from '../scripts/snowglobe-env.mjs';
+import { devnetRequest, paths } from '../lib/env.mjs';
 
 const ROOT = join(__dirname, '..');
 const D = 'certs.test';
 const NAMES = [D, `alpha.${D}`, `*.${D}`, `regular.${D}`, `*.regular.${D}`, `plc.${D}`, 'plc.directory', '*.devnet.internal'];
 const hasOpenssl = spawnSync('openssl', ['version']).status === 0;
 
-// A root with scripts/ and a rendered globe's leaf-names, as https-up.sh leaves it.
+// A root with bin/ and lib/ and a rendered globe's leaf-names, as https-up.sh leaves it.
 function globeRoot(names = NAMES) {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-certs-'));
-  cpSync(join(ROOT, 'scripts'), join(r, 'scripts'), { recursive: true });
+  for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
   mkdirSync(join(r, 'data/globe'), { recursive: true });
@@ -37,7 +37,7 @@ const certs = (r: string, args: string[] = [], env: Record<string, string> = {})
   delete e.DEVNET_DOMAIN;
   delete e.HTTPS_EXTRA_NAMES;
   Object.assign(e, env);
-  return spawnSync('node', [join(r, 'scripts/snowglobe'), 'certs', ...args], { encoding: 'utf8', cwd: r, env: e });
+  return spawnSync('node', [join(r, 'bin/snowglobe.mjs'), 'certs', ...args], { encoding: 'utf8', cwd: r, env: e });
 };
 const https = (r: string) => join(r, 'data/https');
 const cert = (r: string, f: string) => new X509Certificate(readFileSync(join(https(r), f)));

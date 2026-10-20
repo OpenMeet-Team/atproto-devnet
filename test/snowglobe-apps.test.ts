@@ -1,8 +1,8 @@
-// snowglobe app (scripts/snowglobe-apps.mjs): app routes through the globe's nginx and the
+// snowglobe app (lib/commands/app.mjs, lib/apps.mjs): app routes through the globe's nginx and the
 // network page. No Docker needed; run them alone with `npx vitest run snowglobe-apps`. The
 // renderers are checked against test/snowglobe/apps/<globe>/; after a deliberate change, rewrite
 // them with SNOWGLOBE_WRITE_RENDERED=1 npx vitest run snowglobe-apps, and read the diff. The CLI
-// runs on a copy of scripts/ in a temporary root, with no globe running, so nginx is not touched.
+// runs on a copy of bin/ and lib/ in a temporary root, with no globe running, so nginx is not touched.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { X509Certificate } from 'node:crypto';
@@ -10,11 +10,11 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { formatApps, parseApps, renderApps, renderPage } from '../scripts/snowglobe-apps.mjs';
+import { formatApps, parseApps, renderApps, renderPage } from '../lib/apps.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { loadGlobe } from '../scripts/snowglobe-config.mjs';
+import { loadGlobe } from '../lib/config.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { loadBase, renderGlobe } from '../scripts/snowglobe-render.mjs';
+import { loadBase, renderGlobe } from '../lib/render.mjs';
 
 const ROOT = join(__dirname, '..');
 const base = loadBase(ROOT);
@@ -72,16 +72,16 @@ describe('the app renderers', () => {
   });
 });
 
-// A root with scripts/, a rendered four-PDS globe and its certificates, as https-up.sh leaves it.
+// A root with bin/ and lib/, a rendered four-PDS globe and its certificates, as https-up.sh leaves it.
 function globeRoot() {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-apps-'));
-  cpSync(join(ROOT, 'scripts'), join(r, 'scripts'), { recursive: true });
+  for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
   for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml']) cpSync(join(ROOT, f), join(r, f));
   const env = cleanEnv();
-  expect(spawnSync('node', [join(r, 'scripts/snowglobe'), 'render', GLOBES.four], { cwd: r, env, encoding: 'utf8' }).status).toBe(0);
-  expect(spawnSync('node', [join(r, 'scripts/snowglobe'), 'certs'], { cwd: r, env, encoding: 'utf8' }).status).toBe(0);
+  expect(spawnSync('node', [join(r, 'bin/snowglobe.mjs'), 'render', GLOBES.four], { cwd: r, env, encoding: 'utf8' }).status).toBe(0);
+  expect(spawnSync('node', [join(r, 'bin/snowglobe.mjs'), 'certs'], { cwd: r, env, encoding: 'utf8' }).status).toBe(0);
   return r;
 }
 function cleanEnv() {
@@ -90,7 +90,7 @@ function cleanEnv() {
   return e;
 }
 const app = (r: string, ...args: string[]) =>
-  spawnSync('node', [join(r, 'scripts/snowglobe'), 'app', ...args], { cwd: r, env: cleanEnv(), encoding: 'utf8' });
+  spawnSync('node', [join(r, 'bin/snowglobe.mjs'), 'app', ...args], { cwd: r, env: cleanEnv(), encoding: 'utf8' });
 const appsFile = (r: string) => (existsSync(join(r, 'data/https/apps')) ? readFileSync(join(r, 'data/https/apps'), 'utf8') : '');
 const page = (r: string) => JSON.parse(readFileSync(join(r, 'data/https/nginx/globe.json'), 'utf8'));
 const leaf = (r: string) => new X509Certificate(readFileSync(join(r, 'data/https/leaf.crt')));
@@ -158,6 +158,6 @@ describe('snowglobe app', () => {
     const r = globeRoot();
     expect(app(r, '--render').status).toBe(0);
     expect(page(r).domain).toBe('four.test');
-    expect(readFileSync(join(r, 'data/https/nginx/apps.conf'), 'utf8')).toMatch(/^# Written by scripts\/snowglobe app/);
+    expect(readFileSync(join(r, 'data/https/nginx/apps.conf'), 'utf8')).toMatch(/^# Written by bin\/snowglobe\.mjs app/);
   });
 });

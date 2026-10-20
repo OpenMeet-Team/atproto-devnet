@@ -1,4 +1,4 @@
-# Written by scripts/snowglobe render from snowglobe.default.yml; render again instead of editing.
+# Written by bin/snowglobe.mjs render from snowglobe.default.yml; render again instead of editing.
 
 set $pds_alpha http://pds-alpha:3000;
 set $pds_regular http://pds-regular:3000;

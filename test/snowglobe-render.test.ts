@@ -12,9 +12,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parse } from 'yaml';
 // @ts-expect-error: a plain .mjs module, without types
-import { checkGlobe, loadGlobe } from '../scripts/snowglobe-config.mjs';
+import { checkGlobe, loadGlobe } from '../lib/config.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { loadBase, renderGlobe } from '../scripts/snowglobe-render.mjs';
+import { loadBase, renderGlobe } from '../lib/render.mjs';
 
 const ROOT = join(__dirname, '..');
 const RENDERED = join(__dirname, 'snowglobe', 'rendered');
@@ -178,7 +178,7 @@ describe('snowglobe render', () => {
 
   it('takes a domain from the command line in place of the file\'s', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
-    const r = spawnSync('node', [join(ROOT, 'scripts/snowglobe'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);
     expect(envOf(readFileSync(join(dir, 'globe.env'), 'utf8')).DEVNET_DOMAIN).toBe('other.test');
     expect(readFileSync(join(dir, 'leaf-names'), 'utf8')).toContain('alpha.other.test');
@@ -187,7 +187,7 @@ describe('snowglobe render', () => {
   const docker = spawnSync('docker', ['compose', 'version']).status === 0;
   it.skipIf(!docker)('writes a compose file that docker compose reads', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
-    const r = spawnSync('node', [join(ROOT, 'scripts/snowglobe'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);
     const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8' });
     expect(c.status, c.stderr).toBe(0);

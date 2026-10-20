@@ -4,6 +4,9 @@
   "description": "Standalone, testable ATProto development network for local development and CI",
   "private": true,
   "type": "module",
+  "bin": {
+    "snowglobe": "bin/snowglobe.mjs"
+  },
   "license": "MIT",
   "author": "OpenMeet Team",
   "repository": {

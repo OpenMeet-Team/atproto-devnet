@@ -18,11 +18,11 @@ fi
 #
 # Usage: DEVNET_PROJECT=<project> [SNOWGLOBE_FILE=<snowglobe.yml>] ./scripts/https-up.sh
 #
-#   1. scripts/snowglobe render: data/globe/ from SNOWGLOBE_FILE, or the default globe
+#   1. bin/snowglobe.mjs render: data/globe/ from SNOWGLOBE_FILE, or the default globe
 #      (snowglobe.default.yml: alpha, regular and prod). DEVNET_DOMAIN, from the
 #      environment or .env, replaces the file's domain.
-#   2. scripts/snowglobe certs, if data/https has no leaf yet, or it lacks a name (the CA is kept)
-#   3. nginx's app routes and the network page, from data/https/apps (scripts/snowglobe app)
+#   2. bin/snowglobe.mjs certs, if data/https has no leaf yet, or it lacks a name (the CA is kept)
+#   3. nginx's app routes and the network page, from data/https/apps (bin/snowglobe.mjs app)
 #   4. pass 1: up. The base init seeds alice, bob and DEVNET_INVITE_CODE into
 #      data/accounts.env on the PDS with bare handles (else the first), as it does for the
 #      http stacks.
@@ -33,7 +33,7 @@ fi
 #      secret, for an app to source
 #
 # It seeds no app's data: an app makes its own accounts, invite codes and lexicons with
-# scripts/snowglobe account, invite and lexicons. Nothing secret is
+# bin/snowglobe.mjs account, invite and lexicons. Nothing secret is
 # printed. The tool ports come from the usual variables (DEVNET_PLC_PORT,
 # DEVNET_JETSTREAM_PORT, DEVNET_JETSTREAM_METRICS_PORT, DEVNET_MAILDEV_WEB_PORT,
 # DEVNET_MAILDEV_SMTP_PORT, DEVNET_PROXY_PORT); pass the same ones on every run.
@@ -52,7 +52,7 @@ for _p in $(env_get SNOWGLOBE_PDS "${_ahead}/globe/globe.env"); do
   _app="$(awk -v e="${_p}" '$3 == e { print $1; exit }' "${HTTPS_DIR}/apps" 2>/dev/null || true)"
   if [ -n "${_app}" ]; then
     rm -rf "${_ahead}"
-    echo "https-up: the PDS ${_p} would take the handles under ${_p}.<domain>, the ending app ${_app} claimed; rename the PDS, or scripts/snowglobe app --remove ${_app}" >&2
+    echo "https-up: the PDS ${_p} would take the handles under ${_p}.<domain>, the ending app ${_app} claimed; rename the PDS, or bin/snowglobe.mjs app --remove ${_app}" >&2
     exit 1
   fi
 done
@@ -60,15 +60,15 @@ rm -rf "${_ahead}"
 render_globe
 mkdir -p "${HTTPS_DIR}/nginx"
 
-# The leaf must carry every name (scripts/snowglobe-certs.mjs): a leaf from before the app routes lacks
+# The leaf must carry every name (lib/certs.mjs): a leaf from before the app routes lacks
 # *.devnet.internal, and one from before an app claimed a handle ending lacks its wildcard.
 NEW_CERTS=""
 if leaf_lacks; then
-  node "${SCRIPT_DIR}/snowglobe" certs
+  node "${ROOT_DIR}/bin/snowglobe.mjs" certs
   NEW_CERTS=1
 fi
 
-node "${SCRIPT_DIR}/snowglobe" app --render
+node "${ROOT_DIR}/bin/snowglobe.mjs" app --render
 
 # `up --wait` alone fails as soon as a one-shot service exits, even with 0. So: up, then
 # wait for the one-shots (init seeds data/accounts.env; relay-init registers every PDS with
@@ -120,7 +120,7 @@ else
   dc exec -T nginx nginx -s reload >/dev/null
 fi
 
-AUTH_DID=$(node "${SCRIPT_DIR}/snowglobe" account lex-authority LEX_AUTHORITY "$(env_get SNOWGLOBE_AUTHORITY_PDS "${GLOBE_ENV}")")
+AUTH_DID=$(node "${ROOT_DIR}/bin/snowglobe.mjs" account lex-authority LEX_AUTHORITY "$(env_get SNOWGLOBE_AUTHORITY_PDS "${GLOBE_ENV}")")
 if [ "${AUTH_DID}" != "${DEVNET_LEXICON_AUTHORITY_DID}" ]; then
   DEVNET_LEXICON_AUTHORITY_DID="${AUTH_DID}"
   echo "Pass 2: up with the lexicon authority ${AUTH_DID}" >&2

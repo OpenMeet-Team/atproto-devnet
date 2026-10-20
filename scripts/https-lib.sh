@@ -3,7 +3,7 @@
 # secret.
 #
 # The devnet is the globe a snowglobe.yml describes, rendered into data/globe/ by
-# scripts/snowglobe render (render_globe, which https-up.sh runs): its compose file, nginx's
+# bin/snowglobe.mjs render (render_globe, which https-up.sh runs): its compose file, nginx's
 # servers, the leaf's names and globe.env, the facts read here.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,7 +11,7 @@ DATA_DIR="${ROOT_DIR}/data"
 HTTPS_DIR="${DATA_DIR}/https"
 CA="${HTTPS_DIR}/ca.crt"
 # The devnet's own logins (the base init's alice, bob and invite code, the lexicon
-# authority, and accounts made by scripts/snowglobe account).
+# authority, and accounts made by bin/snowglobe.mjs account).
 DEVNET_ACCOUNTS="${DATA_DIR}/accounts.env"
 # The rendered globe. Nothing in it is secret.
 GLOBE_DIR="${DATA_DIR}/globe"
@@ -53,7 +53,7 @@ globe_pds() {
 # domain from the environment or .env when one is set there, into data/globe/; DEVNET_DOMAIN is
 # then the globe's. With <dir>, into that folder instead, to look at before data/globe/ changes.
 render_globe() {
-  node "${ROOT_DIR}/scripts/snowglobe" render "${SNOWGLOBE_FILE:-${ROOT_DIR}/snowglobe.default.yml}" \
+  node "${ROOT_DIR}/bin/snowglobe.mjs" render "${SNOWGLOBE_FILE:-${ROOT_DIR}/snowglobe.default.yml}" \
     --out "${1:-${GLOBE_DIR}}" ${DEVNET_DOMAIN_SET:+--domain "${DEVNET_DOMAIN_SET}"} >&2
   [ -n "${1:-}" ] || DEVNET_DOMAIN="$(env_get DEVNET_DOMAIN "${GLOBE_ENV}")"
 }
@@ -160,7 +160,7 @@ add_name() {
 }
 
 # leaf_lacks: true when there is no leaf, or it lacks one of the rendered globe's names, an app's
-# ending or HTTPS_EXTRA_NAMES (scripts/snowglobe certs --check).
+# ending or HTTPS_EXTRA_NAMES (bin/snowglobe.mjs certs --check).
 leaf_lacks() {
-  ! node "${ROOT_DIR}/scripts/snowglobe" certs --check
+  ! node "${ROOT_DIR}/bin/snowglobe.mjs" certs --check
 }

@@ -1,4 +1,4 @@
-// snowglobe account, invite and lexicons (scripts/snowglobe-accounts.mjs), run as an app runs
+// snowglobe account, invite and lexicons (lib/commands/), run as an app runs
 // them, against a fake globe: one https server on a loopback address of its own, port 443, that
 // answers as each PDS by its Host. No Docker needed; run them alone with
 // `npx vitest run snowglobe-accounts`. PATH holds node alone, so nothing here needs jq, openssl or
@@ -10,7 +10,7 @@ import { createServer, type Server } from 'node:https';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { ensureCerts } from '../scripts/snowglobe-certs.mjs';
+import { ensureCerts } from '../lib/certs.mjs';
 
 const ROOT = join(__dirname, '..');
 const D = 'acct.test';
@@ -76,7 +76,7 @@ let bin: string;
 beforeAll(async () => {
   if (!canBind443) return;
   root = mkdtempSync(join(tmpdir(), 'snowglobe-accounts-'));
-  cpSync(join(ROOT, 'scripts'), join(root, 'scripts'), { recursive: true });
+  for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(root, d), { recursive: true });
   symlinkSync(join(ROOT, 'node_modules'), join(root, 'node_modules'));
   writeFileSync(join(root, 'package.json'), '{"type": "module"}\n');
   mkdirSync(join(root, 'data/globe'), { recursive: true });
@@ -125,7 +125,7 @@ afterAll(() => server?.close());
 // The CLI, as an app runs it; spawned, not spawnSync, so the fake globe in this process answers.
 function sg(args: string[], env: Record<string, string> = {}): Promise<{ status: number; stdout: string; stderr: string }> {
   return new Promise((done) => {
-    const p = spawn(join(bin, 'node'), [join(root, 'scripts/snowglobe'), ...args], {
+    const p = spawn(join(bin, 'node'), [join(root, 'bin/snowglobe.mjs'), ...args], {
       cwd: root,
       env: { PATH: bin, HOME: root, DEVNET_BIND: BIND, ...env },
     });

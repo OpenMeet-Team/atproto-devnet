@@ -9,13 +9,13 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { checkGlobe, loadGlobe } from '../scripts/snowglobe-config.mjs';
+import { checkGlobe, loadGlobe } from '../lib/config.mjs';
 
 const ROOT = join(__dirname, '..');
 const FIXTURES = join(__dirname, 'snowglobe');
 
 function check(...args: string[]) {
-  const r = spawnSync('node', [join(ROOT, 'scripts/snowglobe'), 'check', ...args], { encoding: 'utf8', cwd: FIXTURES });
+  const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'check', ...args], { encoding: 'utf8', cwd: FIXTURES });
   return { code: r.status, out: r.stdout, err: r.stderr };
 }
 
@@ -81,7 +81,7 @@ describe('snowglobe check', () => {
   });
 
   it('fails an unknown command', () => {
-    const r = spawnSync('node', [join(ROOT, 'scripts/snowglobe'), 'up'], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'up'], { encoding: 'utf8' });
     expect(r.status).toBe(2);
   });
 });

@@ -1,5 +1,5 @@
 # The default globe: today's https devnet (scripts/https-up.sh), as a snowglobe.yml.
-# scripts/snowglobe uses it when there is no snowglobe.yml where it runs. Copy it into
+# bin/snowglobe.mjs uses it when there is no snowglobe.yml where it runs. Copy it into
 # your app's repo as snowglobe.yml to change what your globe runs.
 
 globe: devnet

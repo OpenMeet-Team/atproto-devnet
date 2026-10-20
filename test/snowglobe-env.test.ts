@@ -1,4 +1,4 @@
-// The shared core of the snowglobe subcommands (scripts/snowglobe-env.mjs): reading settings as
+// The shared core of the snowglobe subcommands (lib/env.mjs): reading settings as
 // compose reads .env, the refusals, and the env files that hold logins. No Docker needed; run
 // them alone with `npx vitest run snowglobe-env`.
 import { describe, it, expect } from 'vitest';
@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { envCompose, envGet, envPut, makePrivate, resolveBind, resolveDomain } from '../scripts/snowglobe-env.mjs';
+import { envCompose, envGet, envPut, makePrivate, resolveBind, resolveDomain } from '../lib/env.mjs';
 
 function root(dotenv?: string, globeDomain?: string) {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-env-'));
