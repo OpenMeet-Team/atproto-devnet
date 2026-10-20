@@ -1,6 +1,10 @@
 # Shared by the scripts/https-* tools; sourced, not run. Paths, the compose command for
 # the https devnet, curl to a devnet name, and private env files. Nothing here prints a
 # secret.
+#
+# The devnet is the globe a snowglobe.yml describes, rendered into data/globe/ by
+# scripts/snowglobe render (render_globe, which https-up.sh runs): its compose file, nginx's
+# servers, the leaf's names and globe.env, the facts read here.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DATA_DIR="${ROOT_DIR}/data"
@@ -9,6 +13,9 @@ CA="${HTTPS_DIR}/ca.crt"
 # The devnet's own logins (the base init's alice, bob and invite code, the lexicon
 # authority, and accounts made by https-account.sh).
 DEVNET_ACCOUNTS="${DATA_DIR}/accounts.env"
+# The rendered globe. Nothing in it is secret.
+GLOBE_DIR="${DATA_DIR}/globe"
+GLOBE_ENV="${GLOBE_DIR}/globe.env"
 
 # The three PDSes: short name, https name, handle domain. Each is under DEVNET_DOMAIN
 # (set below), devnet.test by default.
@@ -26,16 +33,28 @@ pds_domain() {
   esac
 }
 
-# docker compose on DEVNET_PROJECT with the six files, the https overlay last.
+# docker compose on DEVNET_PROJECT with the rendered globe. Its paths are from the repo root,
+# which is also where compose reads .env.
 dc() {
-  docker compose -p "${DEVNET_PROJECT}" \
-    -f "${ROOT_DIR}/docker-compose.yml" \
-    -f "${ROOT_DIR}/docker-compose.test.yml" \
-    -f "${ROOT_DIR}/docker-compose.spaces.yml" \
-    -f "${ROOT_DIR}/docker-compose.multi-pds.yml" \
-    -f "${ROOT_DIR}/docker-compose.relay.yml" \
-    -f "${ROOT_DIR}/docker-compose.https.yml" \
-    "$@"
+  if [ ! -f "${GLOBE_DIR}/compose.yml" ]; then
+    echo "No ${GLOBE_DIR}/compose.yml: run scripts/https-up.sh, which renders it" >&2
+    return 1
+  fi
+  docker compose -p "${DEVNET_PROJECT}" --project-directory "${ROOT_DIR}" \
+    -f "${GLOBE_DIR}/compose.yml" "$@"
+}
+
+# globe_pds: the globe's PDSes, by name, space-separated.
+globe_pds() {
+  env_get SNOWGLOBE_PDS "${GLOBE_ENV}"
+}
+
+# render_globe: write data/globe/ from SNOWGLOBE_FILE, or the default globe, with the domain
+# from the environment or .env when one is set there. DEVNET_DOMAIN is then the globe's.
+render_globe() {
+  node "${ROOT_DIR}/scripts/snowglobe" render "${SNOWGLOBE_FILE:-${ROOT_DIR}/snowglobe.default.yml}" \
+    --out "${GLOBE_DIR}" ${DEVNET_DOMAIN_SET:+--domain "${DEVNET_DOMAIN_SET}"} >&2
+  DEVNET_DOMAIN="$(env_get DEVNET_DOMAIN "${GLOBE_ENV}")"
 }
 
 # curl <https URL on a devnet name> [curl args...]: the name goes to nginx on
@@ -68,13 +87,22 @@ env_compose() {
     sed -E "s/^\"([^\"]*)\".*/\1/; t; s/^'([^']*)'.*/\1/; t; s/[[:space:]]+#.*//; s/[[:space:]]+\$//"
 }
 
-# The domain every devnet name sits under, as compose works out ${DEVNET_DOMAIN:-devnet.test}:
-# set in the environment (even empty), that wins; else .env; empty means devnet.test.
-# Compose works it out itself, so it is not exported.
+# The domain every devnet name sits under: set in the environment (even empty), that wins;
+# else .env; else the rendered globe's, which is the file's unless one of those replaced it
+# (render_globe); empty means devnet.test. A setting that differs from the rendered globe's
+# means the render is stale, so it is refused until https-up.sh renders again
+# (SNOWGLOBE_RENDER=1 there).
 if [ -z "${DEVNET_DOMAIN+set}" ]; then
   DEVNET_DOMAIN="$(env_compose DEVNET_DOMAIN "${ROOT_DIR}/.env")"
 fi
-DEVNET_DOMAIN="${DEVNET_DOMAIN:-devnet.test}"
+DEVNET_DOMAIN_SET="${DEVNET_DOMAIN}"
+_globe_domain="$(env_get DEVNET_DOMAIN "${GLOBE_ENV}")"
+if [ -n "${DEVNET_DOMAIN}" ] && [ -n "${_globe_domain}" ] && [ "${DEVNET_DOMAIN}" != "${_globe_domain}" ] \
+   && [ -z "${SNOWGLOBE_RENDER:-}" ]; then
+  echo "DEVNET_DOMAIN=${DEVNET_DOMAIN}, but the globe in data/globe/ was rendered for ${_globe_domain}; run scripts/https-up.sh" >&2
+  exit 1
+fi
+DEVNET_DOMAIN="${DEVNET_DOMAIN:-${_globe_domain:-devnet.test}}"
 # A domain name and nothing else. This also refuses ${...} in .env, which compose would
 # expand and these scripts do not.
 case "${DEVNET_DOMAIN}" in
@@ -136,14 +164,17 @@ app_handles() {
   awk 'NF >= 3 { print $3 }' "${HTTPS_DIR}/apps"
 }
 
-# leaf_names: every name the leaf carries, one or more per line. A TLS wildcard covers one
-# label, so each handle domain has its own: the three PDSes', and *.<ending>.<domain> for
-# each ending an app claimed. The bare domain, where the network's page is, needs its own
-# too. HTTPS_EXTRA_NAMES adds names (space-separated).
+# leaf_names: every name the leaf carries, one or more per line: the rendered globe's (its
+# page, each PDS and its handles, its services, plc.directory and *.devnet.internal), and
+# *.<ending>.<domain> for each ending an app claimed. A TLS wildcard covers one label, so each
+# handle domain has its own. HTTPS_EXTRA_NAMES adds names (space-separated).
 leaf_names() {
-  _d="${DEVNET_DOMAIN}"
-  echo "${_d} alpha.${_d} regular.${_d} prod.${_d} slingshot.${_d} *.${_d} *.regular.${_d} *.prod.${_d} plc.directory *.devnet.internal"
-  app_handles | sed "s/.*/*.&.${_d}/"
+  if [ ! -f "${GLOBE_DIR}/leaf-names" ]; then
+    echo "No ${GLOBE_DIR}/leaf-names: run scripts/https-up.sh, which renders it" >&2
+    return 1
+  fi
+  cat "${GLOBE_DIR}/leaf-names"
+  app_handles | sed "s/.*/*.&.${DEVNET_DOMAIN}/"
   echo "${HTTPS_EXTRA_NAMES:-}"
 }
 

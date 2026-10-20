@@ -62,8 +62,11 @@ const TAG_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
 const DIGEST_HEX = { sha256: 64, sha384: 96, sha512: 128 };
 const IMAGE_NAME_MAX = 255;
 
-/** Read and check a file. Returns { globe, errors }; globe is the filled-in file. */
-export function loadGlobe(file) {
+/**
+ * Read and check a file. Returns { globe, errors }; globe is the filled-in file. A domain
+ * given here replaces the file's, before the checks (a copy of a globe beside another).
+ */
+export function loadGlobe(file, { domain } = {}) {
   let text;
   try {
     text = readFileSync(file, 'utf8');
@@ -76,6 +79,7 @@ export function loadGlobe(file) {
   } catch (e) {
     return { globe: null, errors: [`${file}: not YAML: ${e.message.split('\n')[0]}`] };
   }
+  if (domain !== undefined && isMap(doc)) doc.domain = domain;
   return checkGlobe(doc, { baseDir: dirname(resolve(file)) });
 }
 

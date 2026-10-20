@@ -15,8 +15,7 @@ set -eu
 #             DNS label. Every name under <ending>.<domain> (DEVNET_DOMAIN, devnet.test by
 #             default) goes to the app too, so a handle there resolves at the app. The
 #             leaf gains *.<ending>.<domain>, from the same CA, so nothing has to be
-#             trusted again. alpha, regular and prod are the PDSes' own; an ending is one
-#             app's.
+#             trusted again. The PDSes' names are their own; an ending is one app's.
 #
 # The route is kept in data/https/apps (a rerun with the same name changes its port, and
 # drops its ending unless given again); data/https/nginx/ is rendered from it, and nginx
@@ -66,12 +65,12 @@ else
     exit 2
   fi
   if [ -n "${ENDING}" ]; then
-    case "${ENDING}" in
-      alpha | regular | prod)
+    for _p in $(globe_pds); do
+      if [ "${ENDING}" = "${_p}" ]; then
         echo "https-app: ${ENDING}.${DEVNET_DOMAIN} is a PDS's own" >&2
         exit 1
-        ;;
-    esac
+      fi
+    done
     OWNER="$(awk -v n="${NAME}" -v e="${ENDING}" '$1 != n && $3 == e { print $1; exit }' "${APPS}")"
     if [ -n "${OWNER}" ]; then
       echo "https-app: handles under ${ENDING}.${DEVNET_DOMAIN} already go to ${OWNER} (data/https/apps)" >&2

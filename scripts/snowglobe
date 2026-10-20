@@ -1,31 +1,67 @@
 #!/usr/bin/env node
-// snowglobe: run the globe a snowglobe.yml describes. For now, one command:
+// snowglobe: run the globe a snowglobe.yml describes.
 //
 //   scripts/snowglobe check [<file>]
+//   scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]
 //
-// checks the file and exits 0 if it is sound, 1 with one line per problem if not. With no
-// <file>, ./snowglobe.yml if there is one, else the default globe beside this script
+// check checks the file and exits 0 if it is sound, 1 with one line per problem if not.
+// render checks it the same way, then writes the https globe it describes into <dir>
+// (data/globe/ by default): compose.yml, nginx's servers, the leaf certificate's names and
+// globe.env, the facts the https-* scripts read (scripts/snowglobe-render.mjs). Nothing in
+// them is secret. --domain replaces the file's domain, for a copy beside another globe.
+//
+// With no <file>, ./snowglobe.yml if there is one, else the default globe beside this script
 // (snowglobe.default.yml: today's https devnet).
 
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadGlobe } from './snowglobe-config.mjs';
+import { loadBase, renderGlobe } from './snowglobe-render.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const usage = 'Usage: scripts/snowglobe check [<file>]';
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const usage = 'Usage: scripts/snowglobe check [<file>]\n       scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]';
 
-const [cmd, file, ...rest] = process.argv.slice(2);
-if (cmd !== 'check' || rest.length) {
-  console.error(usage);
-  process.exit(2);
+const [cmd, ...args] = process.argv.slice(2);
+const opts = {};
+const positional = [];
+for (let i = 0; i < args.length; i++) {
+  const a = args[i];
+  if (cmd === 'render' && (a === '--out' || a === '--domain') && i + 1 < args.length) opts[a.slice(2)] = args[++i];
+  else if (a.startsWith('-')) fail();
+  else positional.push(a);
 }
+if (!['check', 'render'].includes(cmd) || positional.length > 1) fail();
 
-const path = file ?? (existsSync('snowglobe.yml') ? 'snowglobe.yml' : join(ROOT, 'snowglobe.default.yml'));
-const { globe, errors } = loadGlobe(path);
+const path = positional[0] ?? (existsSync('snowglobe.yml') ? 'snowglobe.yml' : join(ROOT, 'snowglobe.default.yml'));
+const { globe, errors } = loadGlobe(path, { domain: opts.domain });
 if (errors.length) {
   for (const e of errors) console.error(`${path}: ${e}`);
   process.exit(1);
 }
-const extra = globe.grouphosts.length ? `, ${globe.grouphosts.length} group host(s)` : '';
-console.log(`${path}: ok: globe ${globe.globe} at ${globe.domain}, PDSs ${globe.pds.map((p) => p.name).join(' ')}${extra}`);
+
+if (cmd === 'check') {
+  const extra = globe.grouphosts.length ? `, ${globe.grouphosts.length} group host(s)` : '';
+  console.log(`${path}: ok: globe ${globe.globe} at ${globe.domain}, PDSs ${globe.pds.map((p) => p.name).join(' ')}${extra}`);
+  process.exit(0);
+}
+
+// The compose file mounts nginx's part of the output, by a path from the repo root, which is
+// the compose project directory (scripts/https-lib.sh).
+const out = resolve(opts.out ?? join(ROOT, 'data/globe'));
+const rel = relative(ROOT, out);
+const globeDir = rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel : out;
+const files = renderGlobe(globe, loadBase(ROOT), { globeDir, source: basename(path) });
+for (const [name, text] of Object.entries(files)) {
+  const target = join(out, name);
+  mkdirSync(dirname(target), { recursive: true });
+  // Written aside and renamed, so nothing reads half a file.
+  writeFileSync(`${target}.tmp`, text);
+  renameSync(`${target}.tmp`, target);
+}
+console.log(`${path}: wrote ${out}: globe ${globe.globe} at ${globe.domain}, PDSs ${globe.pds.map((p) => p.name).join(' ')}`);
+
+function fail() {
+  console.error(usage);
+  process.exit(2);
+}
