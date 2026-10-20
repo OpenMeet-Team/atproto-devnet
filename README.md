@@ -668,8 +668,14 @@ devnet before it will sign in there: allow plain http, and ask the devnet PLC in
 `plc.directory`. The https devnet goes the other way. It is the globe a `snowglobe.yml` describes
 (`snowglobe.default.yml` unless you name another; [the file](#the-file-and-the-commands)), which `bin/snowglobe.mjs up`
 renders into one compose file (`bin/snowglobe.mjs render`) and brings up. It looks like the real
-network, so an app built for the real network runs against it with no devnet code. With the
-default file:
+network, so an app built for the real network runs against it with no devnet code.
+
+It runs on Linux, and on Windows under WSL 2; both are tested with `node scripts/smoke.mjs`
+([Test suite](#test-suite)). macOS is not supported yet: nobody working on it has a Mac to test on.
+If you have one, please try it and [open an issue](https://github.com/OpenMeet-Team/atproto-devnet/issues)
+with what broke, or that it worked; we'll add Mac support over time.
+
+With the default file:
 
 | Name | Served by |
 | --- | --- |
