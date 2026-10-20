@@ -1,0 +1,3 @@
+globe: mine
+pds:
+  - { name: alpha, image: ghcr.io/bluesky-social/pds:latest }

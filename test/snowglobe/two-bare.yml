@@ -1,0 +1,4 @@
+globe: mine
+pds:
+  - { name: alpha, image: spaces-alpha, bare_handles: true }
+  - { name: beta, image: ghcr.io/bluesky-social/pds:0.4.5037, bare_handles: true }

@@ -1,0 +1,31 @@
+# The default globe: today's https devnet (scripts/https-up.sh), as a snowglobe.yml.
+# scripts/snowglobe uses it when there is no snowglobe.yml where it runs. Copy it into
+# your app's repo as snowglobe.yml to change what your globe runs.
+
+globe: devnet
+domain: devnet.test            # every name below is under it
+
+pds:
+  - name: alpha                # https://alpha.devnet.test
+    image: spaces-alpha        # the permissioned-spaces alpha, pinned by digest
+    bare_handles: true         # its handles are <name>.devnet.test
+    invites: required
+  - name: regular              # a current release; handles <name>.regular.devnet.test
+    image: ghcr.io/bluesky-social/pds:0.4.5037
+  - name: prod                 # OpenMeet's production build (the 0.4.5009 release)
+    image: ghcr.io/bluesky-social/pds@sha256:1fa8bbceabb65d8e1710749b1ea92c1c20a7489ca38da4a0a5f64c0c10a70c29
+
+# With more than one PDS the relay is on, so Jetstream and TAP see every PDS's writes.
+services:
+  relay: auto
+  jetstream: true
+  tap: true
+  slingshot: true
+  pdsls: true
+
+lexicons:
+  authority: alpha             # lex-authority.devnet.test, which every PDS resolves NSIDs from
+
+accounts:
+  - alice@alpha
+  - bob@alpha

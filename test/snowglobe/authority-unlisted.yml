@@ -1,0 +1,5 @@
+globe: mine
+pds:
+  - { name: alpha, image: spaces-alpha }
+lexicons:
+  authority: beta

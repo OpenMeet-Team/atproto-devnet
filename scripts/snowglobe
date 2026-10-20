@@ -1,0 +1,31 @@
+#!/usr/bin/env node
+// snowglobe: run the globe a snowglobe.yml describes. For now, one command:
+//
+//   scripts/snowglobe check [<file>]
+//
+// checks the file and exits 0 if it is sound, 1 with one line per problem if not. With no
+// <file>, ./snowglobe.yml if there is one, else the default globe beside this script
+// (snowglobe.default.yml: today's https devnet).
+
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadGlobe } from './snowglobe-config.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const usage = 'Usage: scripts/snowglobe check [<file>]';
+
+const [cmd, file, ...rest] = process.argv.slice(2);
+if (cmd !== 'check' || rest.length) {
+  console.error(usage);
+  process.exit(2);
+}
+
+const path = file ?? (existsSync('snowglobe.yml') ? 'snowglobe.yml' : join(ROOT, 'snowglobe.default.yml'));
+const { globe, errors } = loadGlobe(path);
+if (errors.length) {
+  for (const e of errors) console.error(`${path}: ${e}`);
+  process.exit(1);
+}
+const extra = globe.grouphosts.length ? `, ${globe.grouphosts.length} group host(s)` : '';
+console.log(`${path}: ok: globe ${globe.globe} at ${globe.domain}, PDSs ${globe.pds.map((p) => p.name).join(' ')}${extra}`);

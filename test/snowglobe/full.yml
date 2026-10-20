@@ -1,0 +1,17 @@
+# Every setting, once: the shape in the design note.
+globe: mine
+domain: mine.test
+pds:
+  - { name: alpha, image: spaces-alpha, bare_handles: true, invites: required }
+  - { name: regular, image: ghcr.io/bluesky-social/pds:0.4.5037 }
+grouphosts:
+  - { name: gh, kind: opensocial }
+  - { name: gh2, kind: opensocial, image: ghcr.io/example/grouphost@sha256:0000000000000000000000000000000000000000000000000000000000000000 }
+services: { relay: auto, jetstream: true, tap: false, slingshot: true, pdsls: false, cdn: false }
+lexicons: { authority: alpha }
+accounts: [alice@alpha, bob@regular]
+apps:
+  - name: atmo
+    local: { port: 5173, handles: ev }
+    hosted: { service: "atmo:8080", link: "https://atmo.mine.snowglobe.at" }
+hosted: { ses_region: us-east-1 }

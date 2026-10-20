@@ -1,0 +1,4 @@
+globe: mine
+pds:
+  - { name: alpha, image: spaces-alpha }
+  - { name: alpha, image: ghcr.io/bluesky-social/pds:0.4.5037 }

@@ -30,12 +30,15 @@
   },
   "devDependencies": {
     "@atproto/api": "^0.15.0",
-    "vitest": "^3.0.0",
-    "ws": "^8.18.0",
     "@types/ws": "^8.5.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
   }
 }
