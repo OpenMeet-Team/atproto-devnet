@@ -780,6 +780,11 @@ pds:                             # at least one; each is pds-<name> at https://<
   - name: regular
     image: ghcr.io/bluesky-social/pds:0.4.5037
 
+grouphosts:                      # optional; each is grouphost-<name> at https://<name>.<domain>
+  - name: gh                     # its groups' handles are <group>.gh.<domain>
+    kind: opensocial             # atproto-group-host, the only kind so far
+    build: ../atproto-group-host # a folder with a Dockerfile, from this file's folder; or image:
+
 services:                        # each true or false; these are the defaults
   relay: auto                    # auto: on when there is more than one PDS
   jetstream: true
@@ -802,9 +807,29 @@ apps:
 
 `bin/snowglobe.mjs check` says what is wrong with a file, one line per problem, and touches
 nothing. A name used twice, a PDS named like a service, an app's handle ending that is a PDS's
-name, a handle longer than DNS allows: each fails here, before anything starts. `grouphosts`,
-`hosted` and an app's `hosted` are read and checked, for a globe hosted on the cluster; a local
-globe does not run them yet.
+name, a handle longer than DNS allows: each fails here, before anything starts. `hosted` and an
+app's `hosted` are read and checked, for a globe hosted on the cluster; a local globe does not use
+them.
+
+**Group hosts** are optional. Each one runs beside the PDSes as a service of its own at
+`https://<name>.<domain>`, with every group's handle under `<name>.<domain>`; nginx, the
+certificate and the network page (its health, and its groups under accounts) get each one, as they
+get each PDS. The one kind, `opensocial`, is
+atproto-group-host, which is not public yet and publishes no image,
+so `up` builds it from a checkout with the repo's own Dockerfile, on every run (Docker's cache keeps
+an unchanged one quick). The checkout is the group host's `build` folder in the file, else
+`SNOWGLOBE_OPENSOCIAL_BUILD` (a path from where you run the command), so a file shared between
+machines can leave it out:
+
+```bash
+SNOWGLOBE_OPENSOCIAL_BUILD=../atproto-group-host bin/snowglobe.mjs up ../myapp/snowglobe.yml
+```
+
+`image:` in place of `build` runs a built image instead. With neither, and the variable unset,
+`render` and `up` stop before anything changes and say so. A group host makes its groups' accounts
+itself, takes no invite code, and resolves every name under the domain through nginx, its members'
+handles too. Under `snowglobe run`, list a group's handle in `HTTPS_RUN_EXTRA_NAMES`, as for any
+handle.
 
 `up` seeds what the file asks for, every run, and a rerun changes nothing that is already there:
 
@@ -896,8 +921,8 @@ a new DID.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
 - `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the tools below add.
-- `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's server
-  and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
+- `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's and
+  group host's server and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
   `snowglobe up` writes it again on every run; `bin/snowglobe.mjs render` writes it alone.
 - `data/https/`: `ca.crt` and `ca.key` (the CA), `leaf.crt` and `leaf.key` (what nginx serves),
   `names` (the handles `snowglobe run` maps), `apps` and `nginx/` (the app routes and the page's
@@ -1057,7 +1082,8 @@ leaf only when it lacks a name, so a browser or OS that trusts `ca.crt` keeps tr
 A CA made by the old `scripts/https-ca.sh` is kept the same way. `bin/snowglobe.mjs certs --check`
 only says whether the leaf lacks a name (exit 1) or not (exit 0). The leaf names what the render lists in
 `data/globe/leaf-names`: `devnet.test` itself, each PDS and its handles (`*.devnet.test` for the one
-with bare handles, `*.<name>.devnet.test` for each other), `plc.`, `relay.`, `jetstream.`,
+with bare handles, `*.<name>.devnet.test` for each other), each group host and its groups' handles,
+`plc.`, `relay.`, `jetstream.`,
 `slingshot.` and `pdsls.devnet.test`, `plc.directory` and `*.devnet.internal`; and
 `*.<ending>.devnet.test` for each handle ending an app claimed. A TLS wildcard covers one label, so
 each handle domain needs its own. `snowglobe app` reissues the leaf

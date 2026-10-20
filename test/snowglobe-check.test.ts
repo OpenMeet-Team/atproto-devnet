@@ -222,6 +222,16 @@ describe('the rules behind the check', () => {
     expect(whereOf(ok({ grouphosts: [{ name: 'gh', kind: 'opensocial' }] }))).toEqual([]);
   });
 
+  it('takes a group host\'s image or its build folder, a folder with a Dockerfile beside the file, not both', () => {
+    const gh = (extra: object) => ok({ grouphosts: [{ name: 'gh', kind: 'opensocial', ...extra }] });
+    expect(whereOf(gh({ build: 'grouphost-build' }), { baseDir: FIXTURES })).toEqual([]);
+    expect(checkGlobe(gh({ build: 'grouphost-build' }), { baseDir: FIXTURES }).globe.grouphosts[0].build).toBe(join(FIXTURES, 'grouphost-build'));
+    expect(whereOf(gh({ build: 'nope' }), { baseDir: FIXTURES })).toEqual(['grouphosts[0].build']);
+    expect(whereOf(gh({ build: 'apps' }), { baseDir: FIXTURES })).toEqual(['grouphosts[0].build']); // no Dockerfile
+    expect(whereOf(gh({ build: 1 }))).toEqual(['grouphosts[0].build']);
+    expect(whereOf(gh({ build: 'grouphost-build', image: 'ghcr.io/example/gh:1' }), { baseDir: FIXTURES })).toEqual(['grouphosts[0]']);
+  });
+
   it('refuses an unknown setting at every level', () => {
     const found = whereOf(
       ok({
