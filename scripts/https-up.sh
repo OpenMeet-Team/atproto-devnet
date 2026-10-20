@@ -118,6 +118,7 @@ DENV="${DATA_DIR}/devnet.env"
   echo "LEX_AUTHORITY_DID=${AUTH_DID}"
   echo "LEX_AUTHORITY_HANDLE=$(env_get LEX_AUTHORITY_HANDLE "${DEVNET_ACCOUNTS}")"
   echo "DEVNET_CA_FILE=${CA}"
+  echo "DEVNET_BIND=${DEVNET_BIND}"
 } > "${DENV}.tmp"
 mv "${DENV}.tmp" "${DENV}"
 echo "Wrote ${DENV}" >&2

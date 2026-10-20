@@ -6,6 +6,9 @@
 # answered here.
 # nginx's address changes when nginx is recreated, so it is looked up again every few
 # seconds and dnsmasq restarted when it moved.
+# When dnsmasq dies it is started again here, and this script does not exit: slingshot runs
+# in this container's network namespace, and restarting this container leaves slingshot
+# with no network at all until slingshot is recreated too.
 set -eu
 : "${DEVNET_DOMAIN:?}"
 ip_of_nginx() { getent hosts nginx | awk 'NR == 1 { print $1 }'; }
@@ -15,7 +18,12 @@ start() {
   pid=$!
 }
 trap 'kill "${pid:-0}" 2>/dev/null; exit 0' TERM INT
-ip=$(ip_of_nginx)
+# With no address, --address would answer NXDOMAIN for the whole domain, so wait for one.
+ip=""
+until [ -n "${ip}" ]; do
+  ip=$(ip_of_nginx || true)
+  [ -n "${ip}" ] || sleep 1
+done
 start "${ip}"
 while sleep 5; do
   now=$(ip_of_nginx || true)
@@ -24,6 +32,9 @@ while sleep 5; do
     wait "${pid}" 2>/dev/null || true
     ip="${now}"
     start "${ip}"
+  elif ! kill -0 "${pid}" 2>/dev/null; then
+    echo "dns.sh: dnsmasq exited; starting it again" >&2
+    wait "${pid}" 2>/dev/null || true
+    start "${ip}"
   fi
-  kill -0 "${pid}" 2>/dev/null || exit 1
 done

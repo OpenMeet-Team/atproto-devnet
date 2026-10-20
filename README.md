@@ -630,7 +630,7 @@ to this stack's PLC and this stack's Jetstream. The public Slingshot cannot see 
 this one answers for it:
 
 ```sh
-scripts/https-run curl -s \
+scripts/https-run curl -sS --cacert data/https/ca.crt \
   'https://slingshot.devnet.test/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.devnet.test'
 # {"did":"did:plc:...","handle":"alice.devnet.test","pds":"https://alpha.devnet.test","signing_key":"zQ3..."}
 ```
@@ -641,6 +641,8 @@ the network namespace of `slingshot-dns` (the way the extra PDSes share the alph
 that answers nginx's address for any name under `DEVNET_DOMAIN` and nothing else, and its only
 root is the devnet CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
 handle: `https-account.sh` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
+To build another Slingshot, set `DEVNET_SLINGSHOT_COMMIT` to a full microcosm-rs commit; it picks
+the source and names the image.
 
 ### Up and down
 
@@ -672,7 +674,11 @@ Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`DEVNET_PLC_PORT
 (`DEVNET_JETSTREAM_PORT`, `DEVNET_JETSTREAM_METRICS_PORT`) and maildev (`DEVNET_MAILDEV_WEB_PORT`,
 `DEVNET_MAILDEV_SMTP_PORT`). Set those to run a second https devnet beside another; pass the same
 values on every run. The PDS, relay, TAP and Postgres ports are not published: reach a PDS by its
-https name. Port 443 is one per machine, so only one https devnet can serve at a time.
+https name. nginx needs port 443 itself, so a second https devnet also takes another loopback
+address, `DEVNET_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
+environment or `.env`; the scripts read it as compose does, `https-run` maps the names to it, and
+`data/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the devnet's
+logins are throwaway, so it is never published beyond this machine.
 
 `https-down.sh` passes its arguments to `docker compose down` and never deletes `data/`. The PLC's
 database is a named volume (`plc-db`), so a `down` without `-v` keeps every DID along with the

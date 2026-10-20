@@ -53,11 +53,11 @@ env_get() {
   sed -n "s/^$1=//p" "$2" | tail -1
 }
 
-# env_domain <file>: DEVNET_DOMAIN's last value in an env file, read as compose reads
+# env_compose <NAME> <file>: NAME's last value in an env file, read as compose reads
 # it: an export prefix, quotes, a trailing " # comment" and a CRLF line end are allowed.
-env_domain() {
-  [ -f "$1" ] || return 0
-  sed -n -E 's/\r$//; s/^[[:space:]]*(export[[:space:]]+)?DEVNET_DOMAIN[[:space:]]*=[[:space:]]*//p' "$1" |
+env_compose() {
+  [ -f "$2" ] || return 0
+  sed -n -E "s/\\r\$//; s/^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=[[:space:]]*//p" "$2" |
     tail -1 |
     sed -E "s/^\"([^\"]*)\".*/\1/; t; s/^'([^']*)'.*/\1/; t; s/[[:space:]]+#.*//; s/[[:space:]]+\$//"
 }
@@ -66,7 +66,7 @@ env_domain() {
 # set in the environment (even empty), that wins; else .env; empty means devnet.test.
 # Compose works it out itself, so it is not exported.
 if [ -z "${DEVNET_DOMAIN+set}" ]; then
-  DEVNET_DOMAIN="$(env_domain "${ROOT_DIR}/.env")"
+  DEVNET_DOMAIN="$(env_compose DEVNET_DOMAIN "${ROOT_DIR}/.env")"
 fi
 DEVNET_DOMAIN="${DEVNET_DOMAIN:-devnet.test}"
 # A domain name and nothing else. This also refuses ${...} in .env, which compose would
@@ -77,6 +77,21 @@ case "${DEVNET_DOMAIN}" in
     exit 1
     ;;
 esac
+
+# The address nginx publishes 443 on, worked out as compose works out
+# ${DEVNET_BIND:-127.0.0.1}, so devnet_curl and https-run's hosts file go where compose
+# published it. A loopback address only (127.x.y.z, one per devnet run side by side): the
+# devnet's logins are throwaway, so it is never published beyond this machine.
+if [ -z "${DEVNET_BIND+set}" ]; then
+  DEVNET_BIND="$(env_compose DEVNET_BIND "${ROOT_DIR}/.env")"
+fi
+DEVNET_BIND="${DEVNET_BIND:-127.0.0.1}"
+if ! printf '%s\n' "${DEVNET_BIND}" | awk -F. '
+  NF != 4 || $1 != "127" { exit 1 }
+  { for (i = 2; i <= 4; i++) if ($i !~ /^[0-9]+$/ || $i > 255) exit 1 }'; then
+  echo "DEVNET_BIND=${DEVNET_BIND} is not a loopback address 127.x.y.z (set in the environment or .env)" >&2
+  exit 1
+fi
 
 # env_put <file> <regex of lines to drop>: replace those lines with stdin's lines. The
 # file stays mode 600 and is never readable by anyone else, even briefly.

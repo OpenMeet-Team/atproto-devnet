@@ -141,8 +141,13 @@ services:
       - atproto-devnet
 
   slingshot:
-    build: ./slingshot
-    image: atproto-devnet-slingshot:${DEVNET_SLINGSHOT_COMMIT:-3137b07}
+    # DEVNET_SLINGSHOT_COMMIT is a full microcosm-rs commit: it picks what is built and
+    # names the image, so the tag is always the source.
+    build:
+      context: ./slingshot
+      args:
+        MICROCOSM_COMMIT: ${DEVNET_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
+    image: atproto-devnet-slingshot:${DEVNET_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
     restart: unless-stopped
     network_mode: service:slingshot-dns
     depends_on:
