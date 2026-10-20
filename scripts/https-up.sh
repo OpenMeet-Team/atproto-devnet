@@ -22,7 +22,7 @@ fi
 #      (snowglobe.default.yml: alpha, regular and prod). DEVNET_DOMAIN, from the
 #      environment or .env, replaces the file's domain.
 #   2. scripts/snowglobe certs, if data/https has no leaf yet, or it lacks a name (the CA is kept)
-#   3. nginx's app routes, from data/https/apps (scripts/https-app.sh)
+#   3. nginx's app routes and the network page, from data/https/apps (scripts/snowglobe app)
 #   4. pass 1: up. The base init seeds alice, bob and DEVNET_INVITE_CODE into
 #      data/accounts.env on the PDS with bare handles (else the first), as it does for the
 #      http stacks.
@@ -52,7 +52,7 @@ for _p in $(env_get SNOWGLOBE_PDS "${_ahead}/globe/globe.env"); do
   _app="$(awk -v e="${_p}" '$3 == e { print $1; exit }' "${HTTPS_DIR}/apps" 2>/dev/null || true)"
   if [ -n "${_app}" ]; then
     rm -rf "${_ahead}"
-    echo "https-up: the PDS ${_p} would take the handles under ${_p}.<domain>, the ending app ${_app} claimed; rename the PDS, or scripts/https-app.sh --remove ${_app}" >&2
+    echo "https-up: the PDS ${_p} would take the handles under ${_p}.<domain>, the ending app ${_app} claimed; rename the PDS, or scripts/snowglobe app --remove ${_app}" >&2
     exit 1
   fi
 done
@@ -68,7 +68,7 @@ if leaf_lacks; then
   NEW_CERTS=1
 fi
 
-render_apps
+node "${SCRIPT_DIR}/snowglobe" app --render
 
 # `up --wait` alone fails as soon as a one-shot service exits, even with 0. So: up, then
 # wait for the one-shots (init seeds data/accounts.env; relay-init registers every PDS with

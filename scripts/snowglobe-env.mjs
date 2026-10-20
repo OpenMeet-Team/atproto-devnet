@@ -11,6 +11,9 @@ import { request } from 'node:https';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// A mistake in how a command was called, as opposed to one the globe answered with.
+export class UsageError extends Error {}
+
 // The repo root, which is also the compose project directory, where compose reads .env.
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -28,7 +31,7 @@ export function paths(root = ROOT) {
     // The devnet's own logins: the base init's alice, bob and invite code, the lexicon
     // authority, and accounts made by snowglobe account.
     accounts: join(data, 'accounts.env'),
-    // App routes, "<name> <port> [<ending>]" per line (https-app.sh).
+    // App routes, "<name> <port> [<ending>]" per line (snowglobe app).
     apps: join(https, 'apps'),
     // Handles https-run maps to nginx, one per line (snowglobe account, https-up.sh).
     names: join(https, 'names'),

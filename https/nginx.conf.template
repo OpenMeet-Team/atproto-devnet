@@ -56,7 +56,7 @@ server {
 
 # The network's own page at the bare name, as a globe serves it at <globe>.snowglobe.at: the same
 # page/index.html, with this stack's relays (page/devnet.conf) and a globe.json naming its
-# services, which scripts/https-up.sh and https-app.sh write.
+# services, which scripts/https-up.sh and snowglobe app write.
 server {
     listen 443 ssl;
     server_name ${DEVNET_DOMAIN};
@@ -76,12 +76,12 @@ server {
 }
 
 # Apps on this machine: https://<name>.devnet.internal goes to the port that
-# scripts/https-app.sh recorded for <name> (data/https/apps). That script writes, into
+# scripts/snowglobe app recorded for <name> (data/https/apps). It writes, into
 # data/https/nginx/ (mounted at /etc/nginx/devnet/), one upstream per app, naming
 # host.docker.internal, and one map line per name. An upstream's name is resolved
 # once, when nginx loads it, through the container's hosts file (extra_hosts), which
 # Docker's DNS does not serve. Neither file has to exist. An app that claimed a handle
-# ending (scripts/https-app.sh <name> <port> <ending>) also gets a server there for
+# ending (scripts/snowglobe app <name> <port> <ending>) also gets a server there for
 # *.<ending>.devnet.test, which wins over a PDS's *.devnet.test as the longer wildcard.
 include /etc/nginx/devnet/*.conf;
 
@@ -95,7 +95,7 @@ server {
     listen 443 ssl;
     server_name *.devnet.internal;
     if ($devnet_app = "") {
-        return 404 "No app is registered at $host (scripts/https-app.sh).\n";
+        return 404 "No app is registered at $host (scripts/snowglobe app).\n";
     }
     location / {
         proxy_pass http://$devnet_app;

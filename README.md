@@ -386,7 +386,7 @@ an https origin where the PDS can fetch its client metadata and keys. The devnet
 with an app route. From the devnet checkout:
 
 ```bash
-./scripts/https-app.sh atmo 5454                       # https://atmo.devnet.internal -> port 5454
+./scripts/snowglobe app atmo 5454                       # https://atmo.devnet.internal -> port 5454
 ./scripts/snowglobe invite GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
 ```
 
@@ -443,7 +443,7 @@ and Firefox through the proxy, with no request leaving the devnet.
    cookie secret and client key and prints neither), and its tables:
 
    ```bash
-   ../../../atproto-devnet/scripts/https-app.sh atmo 5454     # from apps/web; or run it from the devnet checkout
+   ../../../atproto-devnet/scripts/snowglobe app atmo 5454     # from apps/web; or run it from the devnet checkout
    npx tsx src/lib/atproto/scripts/setup-dev.ts
    pnpm exec wrangler d1 migrations apply DB --local
    ```
@@ -671,8 +671,8 @@ default file:
 | `plc.devnet.test`, `relay.devnet.test`, `jetstream.devnet.test` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
 | `pdsls.devnet.test` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
 | `devnet.test` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
-| `<name>.devnet.internal` | an app on this machine, at the port `scripts/https-app.sh` recorded for `<name>` |
-| `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/https-app.sh`, for the handles it hands out |
+| `<name>.devnet.internal` | an app on this machine, at the port `scripts/snowglobe app` recorded for `<name>` |
+| `*.<ending>.devnet.test` | the app that claimed `<ending>` with `scripts/snowglobe app`, for the handles it hands out |
 
 Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.devnet.test`; the one with
 `bare_handles` takes `*.devnet.test`, and every other its own `*.<name>.devnet.test`. nginx answers
@@ -721,9 +721,9 @@ the source and names the image.
 ### The network's page
 
 `https://devnet.test/` is the network's own page (`page/index.html`): every service and its
-health, every account on the three PDSes, the apps `https-app.sh` routed, and the network's writes
+health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
 from Jetstream, the last week's and then live. nginx serves it with this stack's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
-asks nothing but `devnet.test`. `https-up.sh` and `https-app.sh` write what it lists into
+asks nothing but `devnet.test`. `snowglobe render` and `snowglobe app` write what it lists into
 `data/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
 computer](#from-a-browser-on-your-own-computer), or `scripts/https-run curl -s https://devnet.test/globe.json`.
 
@@ -767,7 +767,7 @@ docker compose -p "$DEVNET_PROJECT" --project-directory . -f data/globe/compose.
 one-shot `init` and `relay-init` run again. A rerun on a changed file stops what the file no longer
 runs, and when it adds a PDS beside a running relay it restarts the relay, which otherwise can wait
 a long time before it redials a PDS that went away and came back. It refuses a PDS named for a handle ending an app
-claimed with `https-app.sh`, before it writes anything. It makes the leaf certificate if there is
+claimed with `snowglobe app`, before it writes anything. It makes the leaf certificate if there is
 none, brings the stack up, makes the lexicon authority (`lex-authority.devnet.test` on the file's
 `lexicons.authority` PDS, the alpha by default),
 brings the stack up again with `DEVNET_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
@@ -880,16 +880,16 @@ already holds the same document. Or publish with the app's own tooling: sign in 
 `com.atproto.lexicon.schema` with the NSID as the record key.
 
 **An app route**, so the app has an https origin that both the PDSes and `https-run`'s processes
-reach: `scripts/https-app.sh <name> <port>`.
+reach: `scripts/snowglobe app <name> <port>`.
 
 ```bash
-scripts/https-app.sh bookclub 5600     # https://bookclub.devnet.internal -> port 5600 on this machine
+scripts/snowglobe app bookclub 5600     # https://bookclub.devnet.internal -> port 5600 on this machine
 ```
 
 The app must listen where Docker's host gateway lands (`host.docker.internal` inside the
 containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `data/https/apps` (a
 rerun with the same name changes the port), and nginx in `DEVNET_PROJECT`'s stack is reloaded.
-`scripts/https-app.sh --remove bookclub` drops the route the same way, and the app comes off the
+`scripts/snowglobe app --remove bookclub` drops the route the same way, and the app comes off the
 network page. A
 `.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
 OAuth client can use `https://bookclub.devnet.internal/...` as its client_id: the PDS fetches its
@@ -901,7 +901,7 @@ metadata and keys from there over TLS. A client_id under `.test` is refused by t
 claims one:
 
 ```bash
-scripts/https-app.sh grouphost 7070 gh  # also https://<handle>.gh.devnet.test -> port 7070
+scripts/snowglobe app grouphost 7070 gh  # also https://<handle>.gh.devnet.test -> port 7070
 ```
 
 nginx then sends every name under `gh.devnet.test` to the app, Host and all, so the app answers
@@ -917,7 +917,7 @@ Under `https-run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any 
 `@atcute/oauth-node-client` and `@atcute/identity-resolver` from.
 
 ```bash
-scripts/https-app.sh probe 5480
+scripts/snowglobe app probe 5480
 ATCUTE_DIR=<dir> PROBE_DID=<did> scripts/https-run node scripts/https-probe.mjs
 ```
 
@@ -966,7 +966,7 @@ only says whether the leaf lacks a name (exit 1) or not (exit 0). The leaf names
 with bare handles, `*.<name>.devnet.test` for each other), `plc.`, `relay.`, `jetstream.`,
 `slingshot.` and `pdsls.devnet.test`, `plc.directory` and `*.devnet.internal`; and
 `*.<ending>.devnet.test` for each handle ending an app claimed. A TLS wildcard covers one label, so
-each handle domain needs its own. `https-app.sh` reissues the leaf
+each handle domain needs its own. `snowglobe app` reissues the leaf
 when it claims an ending, and `https-up.sh` when the leaf lacks any of these names. Add deeper names
 with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"` on every run, then restart nginx. A name one label
 under `devnet.test` is already covered. To start over, delete `data/https/ca.*` and trust the new
@@ -1020,7 +1020,7 @@ address and any port but 443.
    (`DEVNET_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
    fetched from. The proxy asks no one to sign in, so whoever can reach the forwarded port reaches
    the whole devnet: every PDS, the PLC, the network page, and every app of yours routed with
-   `https-app.sh`, each behind only its own sign-in. Keep the forwarded port on your computer's
+   `snowglobe app`, each behind only its own sign-in. Keep the forwarded port on your computer's
    loopback address and don't open it to a network.
 3. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (the forwarded port):
    - Windows, for Chrome, Edge and Firefox: Settings, Network & internet, Proxy, "Use setup script",

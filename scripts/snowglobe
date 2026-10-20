@@ -7,6 +7,7 @@
 //   scripts/snowglobe account <name> <PREFIX> [<pds>]
 //   scripts/snowglobe invite <VAR> [<file>] [--pds <pds>]
 //   scripts/snowglobe lexicons <dir>
+//   scripts/snowglobe app <name> <port> [<ending>] | --remove <name> | --render
 //
 // check checks the file and exits 0 if it is sound, 1 with one line per problem if not.
 // render checks it the same way, then writes the https globe it describes into <dir>
@@ -35,6 +36,14 @@
 //   lexicons publishes every lexicon document under <dir> into the lexicon authority (LEX_AUTHORITY_*
 //            in ACCOUNTS_FILE), leaving one that holds the same document alone, and prints each
 //            NSID. DEVNET_PUBLIC=1 for a globe on the cluster, with ACCOUNTS_FILE its operator logins.
+//
+// app routes https://<name>.devnet.internal to <port> on this machine through the globe's nginx
+// (scripts/snowglobe-apps.mjs), and with <ending> every name under <ending>.<domain> too, for an
+// app that hands out handles; the leaf gains that wildcard from the same CA. Kept in
+// data/https/apps (a rerun changes the port, and drops the ending unless given again); nginx's
+// routes and the network page are rendered from it, and nginx reloads after nginx -t if the globe
+// runs (DEVNET_PROJECT, else the one data/devnet.env names). --remove drops a route; --render only
+// renders, as https-up.sh does before starting the globe.
 // Exit 2 for a usage mistake, 1 when the globe refuses.
 
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
@@ -47,11 +56,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const usage =
   'Usage: scripts/snowglobe check [<file>]\n       scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]\n' +
   '       scripts/snowglobe certs [--check]\n       scripts/snowglobe account <name> <PREFIX> [<pds>]\n' +
-  '       scripts/snowglobe invite <VAR> [<file>] [--pds <pds>]\n       scripts/snowglobe lexicons <dir>';
+  '       scripts/snowglobe invite <VAR> [<file>] [--pds <pds>]\n       scripts/snowglobe lexicons <dir>\n' +
+  '       scripts/snowglobe app <name> <port> [<ending>] | --remove <name> | --render';
 
 const [cmd, ...args] = process.argv.slice(2);
 if (cmd === 'certs') await certs(args);
 if (['account', 'invite', 'lexicons'].includes(cmd)) await accounts(cmd, args);
+if (cmd === 'app') await apps(args);
 const opts = {};
 const positional = [];
 for (let i = 0; i < args.length; i++) {
@@ -123,7 +134,8 @@ async function accounts(cmd, args) {
   }
   const max = { account: 3, invite: 2, lexicons: 1 }[cmd];
   if (pos.length < (cmd === 'account' ? 2 : 1) || pos.length > max) fail();
-  const { UsageError, account, invite, lexicons } = await import('./snowglobe-accounts.mjs');
+  const { account, invite, lexicons } = await import('./snowglobe-accounts.mjs');
+  const { UsageError } = await import('./snowglobe-env.mjs');
   const log = (m) => console.error(m);
   try {
     if (cmd === 'account') console.log(await account({ name: pos[0], prefix: pos[1], pds: pos[2], log }));
@@ -132,6 +144,23 @@ async function accounts(cmd, args) {
     process.exit(0);
   } catch (e) {
     console.error(`snowglobe ${cmd}: ${e.message}`);
+    process.exit(e instanceof UsageError ? 2 : 1);
+  }
+}
+
+async function apps(args) {
+  const { app, renderRoutes } = await import('./snowglobe-apps.mjs');
+  const { UsageError } = await import('./snowglobe-env.mjs');
+  const log = (m) => console.error(m);
+  try {
+    if (args[0] === '--render' && args.length === 1) renderRoutes();
+    else if (args[0] === '--remove' && args.length === 2) await app({ name: args[1], remove: true, log });
+    else if (args.length >= 2 && args.length <= 3 && !args.some((a) => a.startsWith('-')))
+      await app({ name: args[0], port: args[1], ending: args[2], log });
+    else fail();
+    process.exit(0);
+  } catch (e) {
+    console.error(`snowglobe app: ${e.message}`);
     process.exit(e instanceof UsageError ? 2 : 1);
   }
 }

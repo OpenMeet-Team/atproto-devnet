@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { parse, stringify } from 'yaml';
-import { RESERVED } from './snowglobe-config.mjs';
+import { IMAGE_NAMES, RESERVED } from './snowglobe-config.mjs';
 
 // Every PDS listens on this port inside its own container.
 export const PDS_PORT = 3000;
@@ -206,7 +206,7 @@ export function renderGlobe(globe, base, { globeDir = 'data/globe', source = 'sn
     depends_on: { plc: healthy, ...Object.fromEntries(globe.pds.map((p) => [svc(p), healthy])) },
     ports: ['${DEVNET_BIND:-127.0.0.1}:443:443'],
     extra_hosts: [
-      // This machine, where an app registered with scripts/https-app.sh listens.
+      // This machine, where an app registered with scripts/snowglobe app listens.
       'host.docker.internal:host-gateway',
     ],
     environment: {
@@ -219,7 +219,7 @@ export function renderGlobe(globe, base, { globeDir = 'data/globe', source = 'sn
       './https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro',
       './data/https/leaf.crt:/etc/nginx/https/leaf.crt:ro',
       './data/https/leaf.key:/etc/nginx/https/leaf.key:ro',
-      // The app routes and the page's globe.json, which scripts/https-app.sh writes (a
+      // The app routes and the page's globe.json, which scripts/snowglobe app writes (a
       // directory, so a rewrite shows up).
       './data/https/nginx:/etc/nginx/devnet:ro',
       // The globe's own servers and the page's relays to its PDSes, rendered here.
@@ -367,6 +367,41 @@ export function renderGlobe(globe, base, { globeDir = 'data/globe', source = 'sn
     ].join('\n') +
     '\n';
 
+  // The network page's facts (page/index.html reads them as globe.json): every PDS, with its
+  // health relay and account list above, and each service the globe runs. scripts/snowglobe app
+  // adds the routed apps and writes globe.json. A group host is not listed until a local globe
+  // runs one (om-r1vrl.31.4).
+  const shortImage = (image) => {
+    const named = Object.entries(IMAGE_NAMES).find(([, ref]) => ref === image)?.[0];
+    return named ?? image.split('/').pop().replace(/@sha256:([0-9a-f]{12})[0-9a-f]+$/, '@sha256:$1…');
+  };
+  const page = {
+    globe: globe.globe,
+    domain: D,
+    about:
+      'An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under scripts/https-run reach it at the real network\'s names.',
+    accountsNote: `Every account on the network, on each of its ${globe.pds.length} account server${globe.pds.length === 1 ? '' : 's'}.`,
+    ...(on.jetstream ? { feed: '/subscribe' } : {}),
+    services: [
+      ...globe.pds.map((p) => [
+        'Account server',
+        p.name,
+        p.name,
+        `Handles under ${handleDomain(p).slice(1)}${p.invites === 'required' ? ', by invite' : ''} (${shortImage(p.image)})`,
+      ]),
+      ['Directory', 'plc', 'plc', 'Maps each DID to its keys and account server; also plc.directory under https-run'],
+      on.relay && ['Relay', 'relay', 'relay', "Collects every account server's changes into one stream"],
+      on.jetstream && ['Feed', 'jetstream', 'jetstream', "The network's stream as JSON, for apps (and this page)"],
+      on.slingshot && ['Handle lookup', 'slingshot', 'slingshot', 'Resolves handles and records from this network only'],
+      on.tap && ['Sync', '', 'sync', 'TAP: backfills and syncs repos'],
+      ['Mail', '', 'mail', 'Catches every message the account servers send'],
+      on.pdsls && ['Record browser', 'pdsls', 'pdsls', "PDSls, for this network's repos and records"],
+    ].filter(Boolean),
+    accounts: globe.pds.map((p) => [`/people/${p.name}`, `person, ${p.name}`]),
+    // Links on the page before the routed apps.
+    apps: on.pdsls ? [{ name: 'pdsls', url: `https://pdsls.${D}` }] : [],
+  };
+
   // The leaf names everything above answers to; a TLS wildcard covers one label, so each handle
   // domain has its own. scripts/https-lib.sh adds the apps' names.
   const leafNames = [
@@ -407,5 +442,6 @@ export function renderGlobe(globe, base, { globeDir = 'data/globe', source = 'sn
     'nginx/page.inc': pageInc,
     'leaf-names': leafNames.join('\n') + '\n',
     'globe.env': globeEnv,
+    'page.json': JSON.stringify(page, null, 2) + '\n',
   };
 }

@@ -7,10 +7,7 @@
 import { randomBytes } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, addName, devnetRequest, envGet, envPut, globeFacts, makePrivate, paths, setting } from './snowglobe-env.mjs';
-
-// A mistake in how the command was called, as opposed to one the globe answered with.
-export class UsageError extends Error {}
+import { ROOT, UsageError, addName, devnetRequest, envGet, envPut, globeFacts, makePrivate, paths, setting } from './snowglobe-env.mjs';
 
 const LABEL_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 const NSID_RE = /^[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?){2,}$/;

@@ -1,0 +1,3 @@
+# Written by scripts/snowglobe app from data/https/apps; rerun it instead of editing.
+atmo.devnet.internal devnet_app_atmo;
+probe.devnet.internal devnet_app_probe;

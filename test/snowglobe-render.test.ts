@@ -38,7 +38,7 @@ describe('snowglobe render', () => {
     const { globe, errors } = loadGlobe(join(ROOT, 'snowglobe.default.yml'));
     expect(errors).toEqual([]);
     const files: Record<string, string> = renderGlobe(globe, base, { source: 'snowglobe.default.yml' });
-    expect(Object.keys(files).sort()).toEqual(['compose.yml', 'globe.env', 'leaf-names', 'nginx/globe.conf', 'nginx/page.inc']);
+    expect(Object.keys(files).sort()).toEqual(['compose.yml', 'globe.env', 'leaf-names', 'nginx/globe.conf', 'nginx/page.inc', 'page.json']);
     for (const [name, text] of Object.entries(files)) {
       const path = join(RENDERED, name);
       if (process.env.SNOWGLOBE_WRITE_RENDERED) {

@@ -33,7 +33,7 @@ export const RESERVED = [
 // The lexicon authority's account, made on its PDS before any account in the file.
 const AUTHORITY_ACCOUNT = 'lex-authority';
 
-// Names nginx answers whatever the domain: apps on this machine (https-app.sh) at
+// Names nginx answers whatever the domain: apps on this machine (snowglobe app) at
 // *.devnet.internal, and the stand-in for the real PLC directory at exactly plc.directory.
 // A domain that is one, or above one, would share it; so would one under the apps' wildcard.
 const FIXED_DOMAINS = [

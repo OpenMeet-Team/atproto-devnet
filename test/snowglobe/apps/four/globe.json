@@ -1,0 +1,107 @@
+{
+  "globe": "four",
+  "domain": "four.test",
+  "about": "An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under scripts/https-run reach it at the real network's names.",
+  "accountsNote": "Every account on the network, on each of its 4 account servers.",
+  "feed": "/subscribe",
+  "services": [
+    [
+      "Account server",
+      "alpha",
+      "alpha",
+      "Handles under four.test, by invite (spaces-alpha)"
+    ],
+    [
+      "Account server",
+      "beta",
+      "beta",
+      "Handles under beta.four.test, by invite (pds:0.4.5037)"
+    ],
+    [
+      "Account server",
+      "regular",
+      "regular",
+      "Handles under regular.four.test (pds:0.4.5037)"
+    ],
+    [
+      "Account server",
+      "prod",
+      "prod",
+      "Handles under prod.four.test (pds@sha256:1fa8bbceabb6…)"
+    ],
+    [
+      "Directory",
+      "plc",
+      "plc",
+      "Maps each DID to its keys and account server; also plc.directory under https-run"
+    ],
+    [
+      "Relay",
+      "relay",
+      "relay",
+      "Collects every account server's changes into one stream"
+    ],
+    [
+      "Feed",
+      "jetstream",
+      "jetstream",
+      "The network's stream as JSON, for apps (and this page)"
+    ],
+    [
+      "Handle lookup",
+      "slingshot",
+      "slingshot",
+      "Resolves handles and records from this network only"
+    ],
+    [
+      "Sync",
+      "",
+      "sync",
+      "TAP: backfills and syncs repos"
+    ],
+    [
+      "Mail",
+      "",
+      "mail",
+      "Catches every message the account servers send"
+    ],
+    [
+      "Record browser",
+      "pdsls",
+      "pdsls",
+      "PDSls, for this network's repos and records"
+    ]
+  ],
+  "accounts": [
+    [
+      "/people/alpha",
+      "person, alpha"
+    ],
+    [
+      "/people/beta",
+      "person, beta"
+    ],
+    [
+      "/people/regular",
+      "person, regular"
+    ],
+    [
+      "/people/prod",
+      "person, prod"
+    ]
+  ],
+  "apps": [
+    {
+      "name": "pdsls",
+      "url": "https://pdsls.four.test"
+    },
+    {
+      "name": "atmo",
+      "url": "https://atmo.devnet.internal"
+    },
+    {
+      "name": "probe",
+      "url": "https://probe.devnet.internal"
+    }
+  ]
+}
