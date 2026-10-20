@@ -163,6 +163,19 @@ describe('snowglobe render', () => {
     expect(env.DEVNET_DOMAIN).toBe('mine.test');
   });
 
+  it('tells snowglobe account which PDS has bare handles, which take invites, and which names are taken', () => {
+    const { env } = render({
+      ...FOUR,
+      pds: [PDS('alpha', { bare_handles: true, invites: 'required' }), PDS('regular'), PDS('beta', { invites: 'required' })],
+      grouphosts: [{ name: 'gh', kind: 'opensocial' }],
+      apps: [{ name: 'atmo', local: { port: 5173, handles: 'ev' } }],
+    });
+    expect(env.SNOWGLOBE_BARE_PDS).toBe('alpha');
+    expect(env.SNOWGLOBE_INVITE_PDS).toBe('alpha beta');
+    expect(env.SNOWGLOBE_TAKEN.split(' ')).toEqual(expect.arrayContaining(['plc', 'lex-authority', 'alpha', 'regular', 'beta', 'gh', 'ev']));
+    expect(render({ ...THREE, pds: [PDS('regular')] }).env.SNOWGLOBE_BARE_PDS).toBe('');
+  });
+
   it('takes a domain from the command line in place of the file\'s', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
     const r = spawnSync('node', [join(ROOT, 'scripts/snowglobe'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8' });

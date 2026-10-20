@@ -5,7 +5,7 @@ set -eu
 # process tree only:
 #   - the network's page (devnet.test) and the three PDS names (alpha.devnet.test,
 #     regular.devnet.test, prod.devnet.test, all under DEVNET_DOMAIN if it is set; scripts/https-lib.sh),
-#     plc.directory, every handle in data/https/names (scripts/https-account.sh and
+#     plc.directory, every handle in data/https/names (scripts/snowglobe account and
 #     https-up.sh add them) and every app in data/https/apps, as <name>.devnet.internal
 #     (scripts/https-app.sh), resolve to 127.0.0.1 (DEVNET_BIND), where nginx answers on 443;
 #   - Node trusts the devnet CA (NODE_EXTRA_CA_CERTS=data/https/ca.crt), on top of

@@ -11,7 +11,7 @@ DATA_DIR="${ROOT_DIR}/data"
 HTTPS_DIR="${DATA_DIR}/https"
 CA="${HTTPS_DIR}/ca.crt"
 # The devnet's own logins (the base init's alice, bob and invite code, the lexicon
-# authority, and accounts made by https-account.sh).
+# authority, and accounts made by scripts/snowglobe account).
 DEVNET_ACCOUNTS="${DATA_DIR}/accounts.env"
 # The rendered globe. Nothing in it is secret.
 GLOBE_DIR="${DATA_DIR}/globe"

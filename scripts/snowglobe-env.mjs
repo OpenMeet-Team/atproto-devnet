@@ -6,7 +6,7 @@
 // read the same files the same way.
 
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { request } from 'node:https';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,10 +26,12 @@ export function paths(root = ROOT) {
     // The devnet's CA, which https-run's processes and devnetRequest trust.
     ca: join(https, 'ca.crt'),
     // The devnet's own logins: the base init's alice, bob and invite code, the lexicon
-    // authority, and accounts made by https-account.sh.
+    // authority, and accounts made by snowglobe account.
     accounts: join(data, 'accounts.env'),
     // App routes, "<name> <port> [<ending>]" per line (https-app.sh).
     apps: join(https, 'apps'),
+    // Handles https-run maps to nginx, one per line (snowglobe account, https-up.sh).
+    names: join(https, 'names'),
     // The rendered globe (scripts/snowglobe render). Nothing in it is secret.
     globe,
     globeEnv: join(globe, 'globe.env'),
@@ -64,9 +66,10 @@ export function envCompose(name, file) {
   return raw.replace(/\s+#.*/, '').replace(/\s+$/, '');
 }
 
-// A setting from the environment, where set (even empty, which then wins), else from .env.
-function setting(name, p, env) {
-  return env[name] !== undefined ? env[name] : (envCompose(name, p.dotenv) ?? '');
+// A setting from the environment, where set (even empty, which then wins), else from .env, as
+// compose reads it; '' when neither sets it.
+export function setting(name, { root = ROOT, env = process.env } = {}) {
+  return env[name] !== undefined ? env[name] : (envCompose(name, paths(root).dotenv) ?? '');
 }
 
 // The domain every globe name sits under: DEVNET_DOMAIN from the environment or .env; else the
@@ -75,7 +78,7 @@ function setting(name, p, env) {
 // this run is about to render again (rendering). `set` is the setting alone, for render --domain.
 export function resolveDomain({ root = ROOT, env = process.env, rendering = false } = {}) {
   const p = paths(root);
-  const set = setting('DEVNET_DOMAIN', p, env);
+  const set = setting('DEVNET_DOMAIN', { root, env });
   const rendered = envGet('DEVNET_DOMAIN', p.globeEnv);
   if (set && rendered && set !== rendered && !rendering)
     throw new Error(`DEVNET_DOMAIN=${set}, but the globe in data/globe/ was rendered for ${rendered}; run scripts/https-up.sh`);
@@ -87,11 +90,29 @@ export function resolveDomain({ root = ROOT, env = process.env, rendering = fals
   return { domain, set };
 }
 
+// The rendered globe's facts (globe.env): its domain, its PDSes by name, the one with bare
+// handles (<name>.<domain>, '' if none), those that take an invite code, the seed and authority
+// PDSes, and the names under the domain a bare handle would take.
+export function globeFacts({ root = ROOT, env = process.env } = {}) {
+  const p = paths(root);
+  if (!existsSync(p.globeEnv)) throw new Error(`No ${p.globeEnv}: run scripts/https-up.sh, which renders it`);
+  const list = (name) => envGet(name, p.globeEnv).split(' ').filter(Boolean);
+  return {
+    domain: resolveDomain({ root, env }).domain,
+    pds: list('SNOWGLOBE_PDS'),
+    bare: envGet('SNOWGLOBE_BARE_PDS', p.globeEnv),
+    invites: list('SNOWGLOBE_INVITE_PDS'),
+    seed: envGet('SNOWGLOBE_SEED_PDS', p.globeEnv),
+    authority: envGet('SNOWGLOBE_AUTHORITY_PDS', p.globeEnv),
+    taken: list('SNOWGLOBE_TAKEN'),
+  };
+}
+
 // The address nginx publishes 443 on, worked out as compose works out ${DEVNET_BIND:-127.0.0.1}.
 // A loopback address only (127.x.y.z, one per globe run side by side): the globe's logins are
 // throwaway, so it is never published beyond this machine.
 export function resolveBind({ root = ROOT, env = process.env } = {}) {
-  const bind = setting('DEVNET_BIND', paths(root), env) || '127.0.0.1';
+  const bind = setting('DEVNET_BIND', { root, env }) || '127.0.0.1';
   const parts = bind.split('.');
   if (parts.length !== 4 || parts[0] !== '127' || parts.slice(1).some((x) => !/^[0-9]+$/.test(x) || Number(x) > 255))
     throw new Error(`DEVNET_BIND=${bind} is not a loopback address 127.x.y.z (set in the environment or .env)`);
@@ -121,6 +142,14 @@ export function makePrivate(file) {
   if (!existsSync(file)) return;
   if (statSync(file).uid === process.getuid?.()) chmodSync(file, 0o600);
   else envPut(file, /^$/);
+}
+
+// Add a handle to the names https-run maps to nginx; a process already running under it picks a
+// new one up when it restarts.
+export function addName(host, { root = ROOT } = {}) {
+  const p = paths(root);
+  mkdirSync(p.https, { recursive: true });
+  if (!lines(p.names).includes(host)) appendFileSync(p.names, `${host}\n`);
 }
 
 // docker compose on `project` with the rendered globe. Its paths are from the repo root, which is

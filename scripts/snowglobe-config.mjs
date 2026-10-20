@@ -25,7 +25,7 @@ export const GROUPHOST_KINDS = { opensocial: null };
 // compose services the https devnet always runs, and as the page's own /health/<name> routes
 // (page/devnet.conf, where TAP is sync). A PDS, group host or bare handle by one of these names
 // would take its address, its service or its route.
-const RESERVED = [
+export const RESERVED = [
   'plc', 'relay', 'jetstream', 'slingshot', 'pdsls', 'tap', 'mail', 'lex-authority',
   'pds', 'nginx', 'postgres', 'maildev', 'proxy', 'init', 'relay-init', 'slingshot-dns', 'sync',
 ];

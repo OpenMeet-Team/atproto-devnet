@@ -313,13 +313,13 @@ for nsid in rsvp.atmo.permissionSet app.bsky.authCreatePosts; do
   curl -s "$pds/xrpc/com.atproto.repo.getRecord?repo=$did&collection=com.atproto.lexicon.schema&rkey=$nsid" |
     jq '.value | del(."$type")' > "data/atmo-lexicons/$nsid.json"
 done
-./scripts/https-lexicons.sh data/atmo-lexicons
-./scripts/https-lexicons.sh ../opensocial-proposal/lexicons
+./scripts/snowglobe lexicons data/atmo-lexicons
+./scripts/snowglobe lexicons ../opensocial-proposal/lexicons
 ```
 
 **An account.** `alice.devnet.test` and `bob.devnet.test` are already there (see
 [Seeded test accounts](#seeded-test-accounts)). To use another, make it with
-`scripts/https-account.sh` before you start atmo, because `https-run` maps only the handles it knows
+`scripts/snowglobe account` before you start atmo, because `https-run` maps only the handles it knows
 when the command starts.
 
 **Configure atmo.** In `atmo-events/apps/web`, after `pnpm install`, write a git-ignored `.env`.
@@ -387,7 +387,7 @@ with an app route. From the devnet checkout:
 
 ```bash
 ./scripts/https-app.sh atmo 5454                       # https://atmo.devnet.internal -> port 5454
-./scripts/https-invite.sh GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
+./scripts/snowglobe invite GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
 ```
 
 Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.devnet.internal` in `.env`
@@ -433,12 +433,12 @@ and Firefox through the proxy, with no request leaving the devnet.
    ```bash
    mkdir -p data/proposal-main
    git -C ../opensocial-proposal archive origin/main lexicons | tar -x -C data/proposal-main
-   ./scripts/https-lexicons.sh data/proposal-main/lexicons
+   ./scripts/snowglobe lexicons data/proposal-main/lexicons
    ```
 
    Without `dig`, look up a lexicon authority over DNS-over-HTTPS in the copy loop above:
    `curl -s -H 'accept: application/dns-json' "https://cloudflare-dns.com/dns-query?name=_lexicon.$authority&type=TXT" | jq -r '.Answer[0].data'`.
-2. An account to sign in with, made before atmo starts: `./scripts/https-account.sh <name> <PREFIX>`.
+2. An account to sign in with, made before atmo starts: `./scripts/snowglobe account <name> <PREFIX>`.
 3. Route atmo, then from `atmo-events/apps/web` make its `.env` with its own script (it writes the
    cookie secret and client key and prints neither), and its tables:
 
@@ -479,12 +479,12 @@ lexicons above:
 
 ```bash
 export ACCOUNTS_FILE=$PWD/data/atmo-e2e.env       # the test's logins, kept mode 600
-./scripts/https-account.sh e2e-owner E2E_OWNER
-./scripts/https-account.sh e2e-admin E2E_ADMIN
-./scripts/https-account.sh e2e-outsider E2E_OUTSIDER
-./scripts/https-account.sh e2enospaces E2E_NOSPACES regular   # a member on a PDS without spaces
+./scripts/snowglobe account e2e-owner E2E_OWNER
+./scripts/snowglobe account e2e-admin E2E_ADMIN
+./scripts/snowglobe account e2e-outsider E2E_OUTSIDER
+./scripts/snowglobe account e2enospaces E2E_NOSPACES regular   # a member on a PDS without spaces
 unset ACCOUNTS_FILE
-./scripts/https-invite.sh E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
+./scripts/snowglobe invite E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
 # what the test reads: URLs, DIDs, the handle domain and where the secrets are; no secret
 { grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
   echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
@@ -524,8 +524,9 @@ Create additional accounts at any time:
 ```
 
 It talks to `http://localhost:3000`. On the spaces stacks, set `DEVNET_PDS_URL=http://localhost:3010`.
-On the https devnet, use [`scripts/https-account.sh`](#tools-for-an-app) instead. It needs `curl` and
-`jq`, and it prints the new password.
+It needs `curl` and `jq`, and it prints the new password. On the https devnet, use
+[`scripts/snowglobe account`](#tools-for-an-app) instead, which needs only Node and prints no
+password.
 
 ## Choosing a PDS version
 
@@ -713,7 +714,7 @@ from inside the compose network, and a handle's name exists nowhere but in nginx
 the network namespace of `slingshot-dns`, a dnsmasq
 that answers nginx's address for any name under `DEVNET_DOMAIN` and nothing else, and its only
 root is the devnet CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
-handle: `https-account.sh` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
+handle: `snowglobe account` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
 To build another Slingshot, set `DEVNET_SLINGSHOT_COMMIT` to a full microcosm-rs commit; it picks
 the source and names the image.
 
@@ -788,7 +789,7 @@ logins are throwaway, so it is never published beyond this machine.
 database is a named volume (`plc-db`), so a `down` without `-v` keeps every DID along with the
 PDSes. After `-v`, the next `https-up.sh` starts over: init reseeds `alice` and `bob` and rewrites
 `data/accounts.env` from scratch, so the logins the tools wrote there are gone along with their
-accounts (run `https-account.sh` and `https-invite.sh` again), and the authority is made again with
+accounts (run `snowglobe account` and `snowglobe invite` again), and the authority is made again with
 a new DID.
 
 ### What it writes
@@ -838,28 +839,31 @@ Node's certificate checks stay on: `https-run` only adds a CA for them to trust.
 Each example uses a made-up app, `bookclub`. None of them prints a secret; a login or code goes only
 to the file named.
 
-**An account**, on any of the three PDSes: `scripts/https-account.sh <name> <PREFIX> [alpha|regular|prod]`.
+**An account**, on any PDS in the globe: `scripts/snowglobe account <name> <PREFIX> [<pds>]`.
 
 ```bash
-scripts/https-account.sh bookclubowner BOOKCLUB_OWNER            # bookclubowner.devnet.test on the alpha
-scripts/https-account.sh bookreader BOOKCLUB_READER regular      # bookreader.regular.devnet.test
+scripts/snowglobe account bookclubowner BOOKCLUB_OWNER            # bookclubowner.devnet.test on the alpha
+scripts/snowglobe account bookreader BOOKCLUB_READER regular      # bookreader.regular.devnet.test
 ```
 
-It prints the DID alone, and a rerun finds the account instead of making another. The login goes to
-`ACCOUNTS_FILE` (default `data/accounts.env`, mode 600) as `<PREFIX>_HANDLE`, `_DID`, `_PASSWORD`
-and `_PDS`, and the handle goes to `data/https/names`. On the alpha it sends `DEVNET_INVITE_CODE`;
-the other two require no invite and are sent none. The labels `alpha`, `regular` and `prod` are
-refused on the alpha, where the handle would be another PDS's name.
+Without `<pds>` it uses the PDS with `bare_handles`, else the first. It prints the DID alone, and a
+rerun finds the account instead of making another. The login goes to `ACCOUNTS_FILE` (default
+`data/accounts.env`, mode 600) as `<PREFIX>_HANDLE`, `_DID`, `_PASSWORD` and `_PDS`, and the
+handle goes to `data/https/names`. A PDS with `invites: required` is sent `DEVNET_INVITE_CODE` if it
+is set, else a single-use code minted for the account; the others are sent none. On the PDS with
+bare handles, a name the globe uses itself (a PDS's, a service's, an app's handle ending) is
+refused, because the handle would be that name.
 
-**An invite code** on the alpha, for an app that creates accounts itself:
-`scripts/https-invite.sh <VAR> [file]`.
+**An invite code**, for an app that creates accounts itself:
+`scripts/snowglobe invite <VAR> [file] [--pds <pds>]`.
 
 ```bash
-scripts/https-invite.sh BOOKCLUB_INVITE_CODE ../bookclub/.env.devnet
+scripts/snowglobe invite BOOKCLUB_INVITE_CODE ../bookclub/.env.devnet
 ```
 
 It mints the code through the PDS's admin API (`INVITE_USES`, default 100) and writes
-`<VAR>=<code>` to the file (default `data/accounts.env`, mode 600), replacing an earlier line.
+`<VAR>=<code>` to the file (default `data/accounts.env`, mode 600), replacing an earlier line. The
+PDS is the one with `invites: required`; name it with `--pds` when the globe has more than one.
 
 **Lexicons.** With `PDS_LEXICON_AUTHORITY_DID` set, every devnet PDS resolves **every** NSID from
 the authority account, never from DNS, so an app's record types, permission sets and space types
@@ -867,7 +871,7 @@ have to be published there as `com.atproto.lexicon.schema` records, keyed by NSI
 its own:
 
 ```bash
-scripts/https-lexicons.sh ../bookclub/lexicons    # prints each NSID: com.example.bookclub.review, ...
+scripts/snowglobe lexicons ../bookclub/lexicons    # prints each NSID: com.example.bookclub.review, ...
 ```
 
 It publishes every lexicon JSON under the folder, at any depth, and leaves a record alone when it

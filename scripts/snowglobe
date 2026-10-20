@@ -4,6 +4,9 @@
 //   scripts/snowglobe check [<file>]
 //   scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]
 //   scripts/snowglobe certs [--check]
+//   scripts/snowglobe account <name> <PREFIX> [<pds>]
+//   scripts/snowglobe invite <VAR> [<file>] [--pds <pds>]
+//   scripts/snowglobe lexicons <dir>
 //
 // check checks the file and exits 0 if it is sound, 1 with one line per problem if not.
 // render checks it the same way, then writes the https globe it describes into <dir>
@@ -18,6 +21,21 @@
 // of the rendered globe's names (scripts/snowglobe-certs.mjs). --check only says whether it would:
 // exit 0 when the leaf carries every name, 1 when it lacks one. HTTPS_EXTRA_NAMES adds names
 // (space-separated), on every run.
+//
+// account, invite and lexicons are what an app makes on the running https globe for itself
+// (scripts/snowglobe-accounts.mjs); each reads the rendered globe, and none prints a secret.
+//   account  creates or finds <name> on <pds> (the PDS with bare handles, else the seed PDS):
+//            <name>.<domain> there, <name>.<pds>.<domain> on the others. Its login goes into
+//            ACCOUNTS_FILE (data/accounts.env by default, mode 600) as <PREFIX>_HANDLE, _DID,
+//            _PASSWORD and _PDS, its handle into the names scripts/https-run maps (restart a
+//            process under it to pick one up), and its DID alone to stdout. A rerun finds it.
+//   invite   mints an invite code, INVITE_USES uses (100), on a PDS with invites: required (the
+//            only one, unless --pds names it) and writes <VAR>=<code> to <file>
+//            (data/accounts.env). DEVNET_PDS_ADMIN_PASSWORD as the globe was started with.
+//   lexicons publishes every lexicon document under <dir> into the lexicon authority (LEX_AUTHORITY_*
+//            in ACCOUNTS_FILE), leaving one that holds the same document alone, and prints each
+//            NSID. DEVNET_PUBLIC=1 for a globe on the cluster, with ACCOUNTS_FILE its operator logins.
+// Exit 2 for a usage mistake, 1 when the globe refuses.
 
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -28,10 +46,12 @@ import { loadBase, renderGlobe } from './snowglobe-render.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const usage =
   'Usage: scripts/snowglobe check [<file>]\n       scripts/snowglobe render [<file>] [--out <dir>] [--domain <domain>]\n' +
-  '       scripts/snowglobe certs [--check]';
+  '       scripts/snowglobe certs [--check]\n       scripts/snowglobe account <name> <PREFIX> [<pds>]\n' +
+  '       scripts/snowglobe invite <VAR> [<file>] [--pds <pds>]\n       scripts/snowglobe lexicons <dir>';
 
 const [cmd, ...args] = process.argv.slice(2);
 if (cmd === 'certs') await certs(args);
+if (['account', 'invite', 'lexicons'].includes(cmd)) await accounts(cmd, args);
 const opts = {};
 const positional = [];
 for (let i = 0; i < args.length; i++) {
@@ -90,5 +110,28 @@ async function certs(args) {
   } catch (e) {
     console.error(`snowglobe certs: ${e.message}`);
     process.exit(2);
+  }
+}
+
+async function accounts(cmd, args) {
+  let pds;
+  const pos = [];
+  for (let i = 0; i < args.length; i++) {
+    if (cmd === 'invite' && args[i] === '--pds' && i + 1 < args.length) pds = args[++i];
+    else if (args[i].startsWith('-')) fail();
+    else pos.push(args[i]);
+  }
+  const max = { account: 3, invite: 2, lexicons: 1 }[cmd];
+  if (pos.length < (cmd === 'account' ? 2 : 1) || pos.length > max) fail();
+  const { UsageError, account, invite, lexicons } = await import('./snowglobe-accounts.mjs');
+  const log = (m) => console.error(m);
+  try {
+    if (cmd === 'account') console.log(await account({ name: pos[0], prefix: pos[1], pds: pos[2], log }));
+    else if (cmd === 'invite') await invite({ variable: pos[0], file: pos[1], pds, log });
+    else await lexicons({ dir: pos[0], log, out: (nsid) => console.log(nsid) });
+    process.exit(0);
+  } catch (e) {
+    console.error(`snowglobe ${cmd}: ${e.message}`);
+    process.exit(e instanceof UsageError ? 2 : 1);
   }
 }

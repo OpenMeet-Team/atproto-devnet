@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { parse, stringify } from 'yaml';
+import { RESERVED } from './snowglobe-config.mjs';
 
 // Every PDS listens on this port inside its own container.
 export const PDS_PORT = 3000;
@@ -389,6 +390,11 @@ export function renderGlobe(globe, base, { globeDir = 'data/globe', source = 'sn
     `DEVNET_DOMAIN=${D}`,
     `SNOWGLOBE_PDS=${globe.pds.map((p) => p.name).join(' ')}`,
     `SNOWGLOBE_SEED_PDS=${seed.name}`,
+    // The PDS whose handles are <name>.<domain> (empty if none), the PDSes that take an invite
+    // code, and every name under the domain a bare handle would take (scripts/snowglobe account).
+    `SNOWGLOBE_BARE_PDS=${globe.pds.find((p) => p.bare_handles)?.name ?? ''}`,
+    `SNOWGLOBE_INVITE_PDS=${globe.pds.filter((p) => p.invites === 'required').map((p) => p.name).join(' ')}`,
+    `SNOWGLOBE_TAKEN=${[...RESERVED, ...globe.pds.map((p) => p.name), ...globe.grouphosts.map((g) => g.name), ...globe.apps.map((a) => a.local?.handles).filter(Boolean)].join(' ')}`,
     `SNOWGLOBE_AUTHORITY_PDS=${globe.lexicons.authority}`,
     `SNOWGLOBE_ONESHOTS=${oneShots.join(' ')}`,
     `SNOWGLOBE_SERVICES=${Object.keys(services).filter((s) => !oneShots.includes(s)).join(' ')}`,

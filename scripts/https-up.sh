@@ -33,7 +33,7 @@ fi
 #      secret, for an app to source
 #
 # It seeds no app's data: an app makes its own accounts, invite codes and lexicons with
-# scripts/https-account.sh, https-invite.sh and https-lexicons.sh. Nothing secret is
+# scripts/snowglobe account, invite and lexicons. Nothing secret is
 # printed. The tool ports come from the usual variables (DEVNET_PLC_PORT,
 # DEVNET_JETSTREAM_PORT, DEVNET_JETSTREAM_METRICS_PORT, DEVNET_MAILDEV_WEB_PORT,
 # DEVNET_MAILDEV_SMTP_PORT, DEVNET_PROXY_PORT); pass the same ones on every run.
@@ -120,7 +120,7 @@ else
   dc exec -T nginx nginx -s reload >/dev/null
 fi
 
-AUTH_DID=$("${SCRIPT_DIR}/https-account.sh" lex-authority LEX_AUTHORITY "$(env_get SNOWGLOBE_AUTHORITY_PDS "${GLOBE_ENV}")")
+AUTH_DID=$(node "${SCRIPT_DIR}/snowglobe" account lex-authority LEX_AUTHORITY "$(env_get SNOWGLOBE_AUTHORITY_PDS "${GLOBE_ENV}")")
 if [ "${AUTH_DID}" != "${DEVNET_LEXICON_AUTHORITY_DID}" ]; then
   DEVNET_LEXICON_AUTHORITY_DID="${AUTH_DID}"
   echo "Pass 2: up with the lexicon authority ${AUTH_DID}" >&2
