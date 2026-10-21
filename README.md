@@ -16,7 +16,7 @@ One file, `snowglobe.yml`, says what a globe runs. The default file in this repo
 - three PDSes, each at its own https name: the permissioned-spaces alpha, a current release, and an
   older release (0.4.5009);
 - a PLC directory, which also answers as `plc.directory` for your app;
-- a relay, Jetstream and Tap;
+- a relay and Jetstream (Tap is off by default; turn it on with `services: { tap: true }`);
 - Slingshot, for handle and DID lookups inside the network;
 - PDSls, to browse the network's records;
 - the network's own page, with its services, accounts and live activity;
