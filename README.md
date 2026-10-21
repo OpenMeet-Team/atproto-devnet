@@ -1,10 +1,11 @@
-# snowglobe
+# Snowglobe
 
-A self-contained [AT Protocol](https://atproto.com) network for local development and CI. It runs
-on Docker Compose, so it works wherever Docker Compose does, and nothing in it touches Bluesky's
-production network.
+A self-contained [AT Protocol](https://atproto.com) network for testing and demos, with its own PDS,
+PLC directory and Jetstream, and nothing in it reaches Bluesky's network. This repo runs one on your
+machine for local development and CI, on Docker Compose, so it works wherever Docker Compose does. [snowglobe.at](https://snowglobe.at) says what Snowglobe is, and lists the globes we host on a
+server, such as [lighthouse.snowglobe.at](https://lighthouse.snowglobe.at).
 
-The default stack is one PDS, a PLC, Jetstream and TAP. That is enough to create accounts, publish
+The default stack is one PDS, a PLC directory, Jetstream and Tap. That is enough to create accounts, publish
 and read records, and test Jetstream consumers. Optional overlays add a PDS that supports
 permissioned spaces, two more PDS builds beside it, a local relay that crawls them all, and https
 names with a local CA. There is no AppView and no feed generator.
@@ -12,7 +13,7 @@ names with a local CA. There is no AppView and no feed generator.
 ## Services
 
 `npm run up` starts the services below. In your own project, `docker-compose.yml` alone runs PDS,
-PLC, Jetstream, TAP and init, and your project provides Postgres and SMTP (see
+PLC, Jetstream, Tap and init, and your project provides Postgres and SMTP (see
 [Integrating into your project](#integrating-into-your-project)).
 
 | Service | Image | Default Port | Purpose |
@@ -20,7 +21,7 @@ PLC, Jetstream, TAP and init, and your project provides Postgres and SMTP (see
 | **PDS** | `ghcr.io/bluesky-social/pds:0.4` | 3000 | Personal Data Server — stores repos, handles auth |
 | **PLC** | `itaru2622/bluesky-did-method-plc` | 2582 | DID registry — local resolution, no plc.directory dependency |
 | **Jetstream** | `ghcr.io/bluesky-social/jetstream` | 6008 | JSON event stream from PDS firehose |
-| **TAP** | `ghcr.io/bluesky-social/indigo/tap` | 2480 | Repo sync + backfill |
+| **Tap** | `ghcr.io/bluesky-social/indigo/tap` | 2480 | Repo sync + backfill |
 | **init** | `alpine:3.20` | — | One-shot: creates invite codes and seeds test accounts |
 | **Postgres** | `postgres:16-alpine` | 5433 | The PLC's database (`docker-compose.test.yml`) |
 | **MailDev** | `maildev/maildev:latest` | 1081 web, 1026 SMTP | Email for the PDS (`docker-compose.test.yml`) |
@@ -37,8 +38,8 @@ The overlays add more services:
 Run the devnet with its own Postgres and MailDev for self-contained testing:
 
 ```bash
-git clone https://github.com/OpenMeet-Team/snowglobe.git atproto-devnet
-cd atproto-devnet
+git clone https://github.com/OpenMeet-Team/snowglobe.git
+cd snowglobe
 cp .env.example .env
 npm install
 
@@ -52,7 +53,10 @@ npm test
 npm run down
 ```
 
-The suite checks health, account seeding, record CRUD, Jetstream events, the raw firehose, TAP tracking, and that no service points at Bluesky.
+The suite checks health, account seeding, record CRUD, Jetstream events, the raw firehose, Tap tracking, and that no service points at Bluesky.
+
+To use it from another project, clone it beside that project as `atproto-devnet` instead, the name
+the overlays below expect ([Integrating into your project](#integrating-into-your-project)).
 
 ### If a port is already taken
 
@@ -147,11 +151,11 @@ Changes to the default stack that existing setups will notice:
 
 ## Integrating into your project
 
-atproto-devnet is designed to be **composed into** your project's Docker environment using [Docker Compose file stacking](https://docs.docker.com/compose/how-it-works/#merge). Clone it as a sibling directory and layer it with a thin overlay file in your project.
+Snowglobe is designed to be **composed into** your project's Docker environment using [Docker Compose file stacking](https://docs.docker.com/compose/how-it-works/#merge). Clone it as a sibling directory and layer it with a thin overlay file in your project.
 
 ### Prerequisites
 
-Your project needs to provide two things that atproto-devnet expects from the network:
+Your project needs to provide two things that Snowglobe expects from the network:
 
 1. **PostgreSQL** — PLC stores DIDs here (database name configurable via `SG_DB_NAME`)
 2. **SMTP server** — PDS sends email verification through this (e.g., MailDev)
@@ -169,7 +173,7 @@ parent/
 │       ├── devnet-up.sh            # Start everything
 │       └── devnet-down.sh          # Stop everything
 └── atproto-devnet/                 # This repo (cloned as sibling)
-    ├── docker-compose.yml          # PDS, PLC, Jetstream, TAP, init
+    ├── docker-compose.yml          # PDS, PLC, Jetstream, Tap, init
     └── .env                        # Port configuration
 ```
 
@@ -662,7 +666,7 @@ Each PDS writes `http://localhost:<port>` into its accounts' DID documents. For 
 another's accounts, that URL has to work inside every PDS container as well as on the host, so the
 two extra PDSes share the alpha's network namespace (`network_mode: service:pds`). Other containers
 reach them as `pds:3020` and `pds:3030`. The extra PDSes don't require invites, and each has its own
-service DID, since all three would otherwise be `did:web:localhost`. On their own, Jetstream and TAP
+service DID, since all three would otherwise be `did:web:localhost`. On their own, Jetstream and Tap
 follow only the alpha; add the local relay below to get one stream from all three.
 
 A PDS forwards any XRPC method it doesn't implement (`com.atproto.space.*` on a non-spaces build,
@@ -673,11 +677,11 @@ UpstreamFailure`, because every devnet PDS points its AppView at `https://appvie
 ## A local relay
 
 `docker-compose.relay.yml`, stacked after the multi-PDS overlay, adds a relay that crawls all three
-PDSes. Jetstream and TAP read from the relay, which is the shape production has:
+PDSes. Jetstream and Tap read from the relay, which is the shape production has:
 
 ```
 PDSes --> relay (:2470) --> Jetstream (:6008)
-                       \--> TAP (:2480)
+                       \--> Tap (:2480)
 ```
 
 ```bash
@@ -686,7 +690,7 @@ docker compose $F up -d --wait     # builds the relay image the first time
 ```
 
 `relay-init` registers each PDS through the relay's admin API, because a relay won't accept a
-localhost host from a PDS's own `requestCrawl`. The relay and TAP join the PDSes' network namespace,
+localhost host from a PDS's own `requestCrawl`. The relay and Tap join the PDSes' network namespace,
 so the `http://localhost:<port>` URLs in DID documents work for them as well.
 
 **The relay is built locally, not pulled.** Upstream's relay (`ghcr.io/bluesky-social/indigo:relay-<commit>`)
@@ -734,7 +738,7 @@ Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.local.sno
 all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's public URL, OAuth
 issuer and DID document endpoint is `https://<its name>`, and the relay crawls every PDS as a
 `wss://` host. Inside the compose network nginx also answers to every PDS's name, so the PDSes,
-the relay and TAP reach each other over TLS; no service shares another's network but Slingshot. On the machine, the names resolve to `127.0.0.1` only for
+the relay and Tap reach each other over TLS; no service shares another's network but Slingshot. On the machine, the names resolve to `127.0.0.1` only for
 commands run under `bin/snowglobe.mjs run`, so every other program still reaches the real
 `plc.directory`.
 
@@ -937,7 +941,7 @@ stacks. Nothing else is seeded.
 Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`SG_PLC_PORT`), Jetstream
 (`SG_JETSTREAM_PORT`, `SG_JETSTREAM_METRICS_PORT`) and maildev (`SG_MAILDEV_WEB_PORT`,
 `SG_MAILDEV_SMTP_PORT`). Set those to run a second https devnet beside another; pass the same
-values on every run. The PDS, relay, TAP and Postgres ports are not published: reach a PDS by its
+values on every run. The PDS, relay, Tap and Postgres ports are not published: reach a PDS by its
 https name. nginx needs port 443 itself, so a second https devnet also takes another loopback
 address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
 environment or `.env`; the scripts read it as compose does, `snowglobe run` maps the names to it, and
@@ -1112,7 +1116,7 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
   `/etc/ssl/certs`, which Go reads on top of its bundle. `RELAY_ALLOW_INSECURE_HOSTS` is dropped. The
   image has its own tag, `atproto-devnet-relay:https-<commit>`. The relay's `listHosts` shows a host
   only once it has sent an event.
-- **TAP resync is not supported.** TAP follows the relay's stream, but it fetches a repo to resync
+- **Tap resync is not supported.** Tap follows the relay's stream, but it fetches a repo to resync
   through an SSRF-safe transport that refuses nginx's address, so a resync fails here.
 - **Jetstream is unchanged**, at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the
   compose network.
@@ -1305,7 +1309,7 @@ All settings have sensible defaults. Override via `.env` or environment variable
 | `SG_PLC_PORT` | `2582` | PLC |
 | `SG_JETSTREAM_PORT` | `6008` | Jetstream WebSocket |
 | `SG_JETSTREAM_METRICS_PORT` | `6009` | Jetstream metrics |
-| `SG_TAP_PORT` | `2480` | TAP |
+| `SG_TAP_PORT` | `2480` | Tap |
 | `SG_SPACES_PDS_PORT` | `3010` | The spaces PDS. `SG_PDS_PORT` applies to the default PDS only, and `pds-regular` and `pds-prod` always use 3020 and 3030 |
 | `SG_RELAY_PORT` | `2470` | Relay |
 | `SG_POSTGRES_PORT` | `5433` | Postgres (`npm run up` only) |
@@ -1338,8 +1342,8 @@ The test suite validates all major operations against a running devnet:
 | `record-crud.test.ts` | Create, read, list, and delete ATProto records |
 | `jetstream.test.ts` | JSON event stream delivers commit events, supports filtering |
 | `firehose.test.ts` | Raw PDS firehose emits CBOR events |
-| `isolation.test.ts` | PDS, Jetstream and TAP point only at the local PLC and the local PDS or relay, with no crawlers and no Bluesky AppView. It checks settings, not traffic |
-| `tap.test.ts` | TAP accepts a DID to track. Live sync is not tested yet |
+| `isolation.test.ts` | PDS, Jetstream and Tap point only at the local PLC and the local PDS or relay, with no crawlers and no Bluesky AppView. It checks settings, not traffic |
+| `tap.test.ts` | Tap accepts a DID to track. Live sync is not tested yet |
 
 The `snowglobe-*.test.ts` files need no Docker: they check the file, what is rendered from it and
 each command's refusals. For the https devnet end to end on a machine, `node scripts/smoke.mjs`
