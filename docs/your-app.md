@@ -1,0 +1,118 @@
+# Your app on a globe
+
+## Running a command against it: `snowglobe run`
+
+```bash
+bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the real address outside
+(cd ../bookclub && ../atproto-devnet/bin/snowglobe.mjs run npm run dev)
+```
+
+`snowglobe run <cmd>` runs the command with two changes, for its process tree only:
+
+- the globe's names (its page, every PDS, its services and `plc.directory`, as the rendered globe
+  lists them), every handle in `data/https/names` and every app in `data/https/apps` (as
+  `<name>.devnet.internal`) resolve to `SG_BIND` (`127.0.0.1` by default).
+  [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
+  with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
+  `HTTPS_RUN_EXTRA_NAMES` adds names.
+- Node trusts the devnet CA on top of its own roots (`NODE_EXTRA_CA_CERTS=data/https/ca.crt`).
+  Miniflare's source passes the same file to workerd, so a Worker's `fetch` should trust it too.
+
+The names are read when the command starts. Handles are listed one by one (there is no wildcard
+DNS), so restart a command under `snowglobe run` to pick up a handle or app made after it started.
+Node's certificate checks stay on: `snowglobe run` only adds a CA for them to trust. It needs Linux
+and bubblewrap; on a Mac it says so and exits, and an app there reaches the devnet through its
+proxy instead (`PROXY_PAC_URL` in `data/devnet.env`).
+
+## Tools for an app
+
+Each example uses a made-up app, `bookclub`. None of them prints a secret; a login or code goes only
+to the file named.
+
+**An account**, on any PDS in the globe: `bin/snowglobe.mjs account <name> <PREFIX> [<pds>]`.
+
+```bash
+bin/snowglobe.mjs account bookclubowner BOOKCLUB_OWNER            # bookclubowner.local.snowglobe.at on the alpha
+bin/snowglobe.mjs account bookreader BOOKCLUB_READER regular      # bookreader.regular.local.snowglobe.at
+```
+
+Without `<pds>` it uses the PDS with `bare_handles`, else the first. It prints the DID alone, and a
+rerun finds the account instead of making another. The login goes to `ACCOUNTS_FILE` (default
+`data/accounts.env`, mode 600) as `<PREFIX>_HANDLE`, `_DID`, `_PASSWORD` and `_PDS`, and the
+handle goes to `data/https/names`. A PDS with `invites: required` is sent `SG_INVITE_CODE` if it
+is set, else a single-use code minted for the account; the others are sent none. On the PDS with
+bare handles, a name the globe uses itself (a PDS's, a service's, an app's handle ending) is
+refused, because the handle would be that name.
+
+**An invite code**, for an app that creates accounts itself:
+`bin/snowglobe.mjs invite <VAR> [file] [--pds <pds>]`.
+
+```bash
+bin/snowglobe.mjs invite BOOKCLUB_INVITE_CODE ../bookclub/.env.devnet
+```
+
+It mints the code through the PDS's admin API (`INVITE_USES`, default 100) and writes
+`<VAR>=<code>` to the file (default `data/accounts.env`, mode 600), replacing an earlier line. The
+PDS is the one with `invites: required`; name it with `--pds` when the globe has more than one.
+
+**Lexicons.** With `PDS_LEXICON_AUTHORITY_DID` set, every devnet PDS resolves **every** NSID from
+the authority account, never from DNS, so an app's record types, permission sets and space types
+have to be published there as `com.atproto.lexicon.schema` records, keyed by NSID. An app publishes
+its own:
+
+```bash
+bin/snowglobe.mjs lexicons ../bookclub/lexicons    # prints each NSID: com.example.bookclub.review, ...
+```
+
+It publishes every lexicon JSON under the folder, at any depth, and leaves a record alone when it
+already holds the same document. Or publish with the app's own tooling: sign in with the
+`LEX_AUTHORITY_*` login in `data/accounts.env` and `putRecord` each document into
+`com.atproto.lexicon.schema` with the NSID as the record key.
+
+**An app route**, so the app has an https origin that both the PDSes and `snowglobe run`'s processes
+reach: `bin/snowglobe.mjs app <name> <port>`.
+
+```bash
+bin/snowglobe.mjs app bookclub 5600     # https://bookclub.devnet.internal -> port 5600 on this machine
+```
+
+The app must listen where Docker's host gateway lands (`host.docker.internal` inside the
+containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `data/https/apps` (a
+rerun with the same name changes the port), and nginx in `SG_PROJECT`'s stack is reloaded.
+`bin/snowglobe.mjs app --remove bookclub` drops the route the same way, and the app comes off the
+network page. A
+`.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
+OAuth client can use `https://bookclub.devnet.internal/...` as its client_id: the PDS fetches its
+metadata and keys from there over TLS. A client_id under `.test` is refused by the PDS
+(`invalid_client_id: The client_id's TLD must not be a local hostname`), which is why apps live under
+`.devnet.internal`.
+
+**A handle ending**, for an app that hands out handles of its own, as a PDS does. A third word
+claims one:
+
+```bash
+bin/snowglobe.mjs app grouphost 7070 gh  # also https://<handle>.gh.local.snowglobe.at -> port 7070
+```
+
+nginx then sends every name under `gh.local.snowglobe.at` to the app, Host and all, so the app answers
+`/.well-known/atproto-did` for its handles and they resolve from anywhere on the devnet. The leaf
+gains `*.gh.local.snowglobe.at` from the same CA, so nothing has to be trusted again. `alpha`, `regular` and
+`prod` belong to the PDSes, and an ending belongs to one app. A rerun without the ending drops it.
+Under `snowglobe run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any handle.
+
+`scripts/https-probe.mjs` checks the whole path for any app name. It resolves an account through
+`https://plc.directory` with stock atcute at its defaults, serves a confidential client at
+`https://<PROBE_APP>.devnet.internal/`, pushes a PAR with that client_id, and pushes a raw PAR with a
+`.test` client_id, which the PDS refuses. `ATCUTE_DIR` is required: a directory node resolves
+`@atcute/oauth-node-client` and `@atcute/identity-resolver` from.
+
+```bash
+bin/snowglobe.mjs app probe 5480
+ATCUTE_DIR=<dir> PROBE_DID=<did> bin/snowglobe.mjs run node scripts/https-probe.mjs
+```
+
+```
+RESOLVED did:plc:... on https://alpha.local.snowglobe.at through plc.directory, ... off
+PAR ACCEPTED for confidential client https://probe.devnet.internal/probe-<run>/oauth-client-metadata.json
+REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must not be a local hostname
+```
