@@ -66,18 +66,14 @@ echo SG_PDS_PORT=3100 >> .env
 npm run up
 ```
 
-The tests read the same `.env`, so `npm test` follows the move.
+The tests read the same `.env`, so `npm test` follows the move. Every setting is in
+[Host port mapping](#host-port-mapping).
 
-| Setting | Default | Service |
-|---------|---------|---------|
-| `SG_PDS_PORT` | 3000 | PDS |
-| `SG_PLC_PORT` | 2582 | PLC |
-| `SG_JETSTREAM_PORT` | 6008 | Jetstream |
-| `SG_JETSTREAM_METRICS_PORT` | 6009 | Jetstream metrics |
-| `SG_TAP_PORT` | 2480 | TAP |
-| `SG_POSTGRES_PORT` | 5433 | Postgres (`docker-compose.test.yml`) |
-| `SG_MAILDEV_WEB_PORT` | 1081 | MailDev web |
-| `SG_MAILDEV_SMTP_PORT` | 1026 | MailDev SMTP |
+### The network's page
+
+This stack has no web page. The page that lists the network's services, accounts and live activity
+comes with [the https devnet](#the-https-devnet), at `https://local.snowglobe.at/`
+([The network's page](#the-networks-page)).
 
 ## Upgrading from earlier versions
 
