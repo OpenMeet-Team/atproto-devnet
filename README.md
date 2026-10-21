@@ -54,6 +54,31 @@ npm run down
 
 The suite checks health, account seeding, record CRUD, Jetstream events, the raw firehose, TAP tracking, and that no service points at Bluesky.
 
+### If a port is already taken
+
+`npm run up` fails with `port is already allocated` when something on your machine already uses one
+of the devnet's ports, often 3000. Each port the devnet opens on your machine can be moved in `.env`;
+inside Docker the services keep their usual ports, so nothing else changes. For example, to move the
+PDS to 3100:
+
+```bash
+echo SG_PDS_PORT=3100 >> .env
+npm run up
+```
+
+The tests read the same `.env`, so `npm test` follows the move.
+
+| Setting | Default | Service |
+|---------|---------|---------|
+| `SG_PDS_PORT` | 3000 | PDS |
+| `SG_PLC_PORT` | 2582 | PLC |
+| `SG_JETSTREAM_PORT` | 6008 | Jetstream |
+| `SG_JETSTREAM_METRICS_PORT` | 6009 | Jetstream metrics |
+| `SG_TAP_PORT` | 2480 | TAP |
+| `SG_POSTGRES_PORT` | 5433 | Postgres (`docker-compose.test.yml`) |
+| `SG_MAILDEV_WEB_PORT` | 1081 | MailDev web |
+| `SG_MAILDEV_SMTP_PORT` | 1026 | MailDev SMTP |
+
 ## Upgrading from earlier versions
 
 Changes to the default stack that existing setups will notice:
