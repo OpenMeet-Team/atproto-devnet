@@ -4,115 +4,212 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Snowglobe network</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
 <style>
+  /* The Snowglobe look, winter blue and gold: the colors and type snowglobe.at shares with this page.
+     Light by default, dark when the viewer's system asks for it. */
   :root {
-    --bg: #f7f8fa; --panel: #ffffff; --text: #1b1f24; --muted: #5b6470; --line: #dde1e6;
-    --accent: #2f6fd6; --ok: #1f8a4c; --warn: #b7791f; --bad: #c53030; --banner: #fff4d6; --banner-text: #6b4a00;
+    --font: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --bg: #F1F5FA; --panel: #FFFFFF; --ink: #12213A; --muted: #44546B; --line: #D5DFEC; --line2: #E4EBF4;
+    --accent: #1F4F9A; --accent-hover: #163A73; --btn: #1F4F9A; --btn-hover: #163A73; --btn-ink: #FFFFFF;
+    --tint: #FFF4DC; --tint-line: #EFD597; --focus: #D99A1E; --mark: #D99A1E;
+    --warn-bg: #FFF1C7; --warn-ink: #5C4300; --warn-line: #F0D98A;
+    --up: #1F8A5B; --down: #B42318; --down-ring: #FBD5D1;
+    color-scheme: light dark;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #12151a; --panel: #1a1f26; --text: #e6e9ee; --muted: #9aa4b1; --line: #2c333d;
-      --accent: #7aa7ff; --ok: #4cc38a; --warn: #e0b04a; --bad: #f07171; --banner: #3a2f12; --banner-text: #f3dc9b;
+      --bg: #0E1A2E; --panel: #15243C; --ink: #E6EDF7; --muted: #A5B4CA; --line: #263A58; --line2: #20324D;
+      --accent: #F2C46B; --accent-hover: #F7D894; --btn: #E3A92E; --btn-hover: #F0BC4E; --btn-ink: #12213A;
+      --tint: #2A2414; --tint-line: #5A4720; --focus: #F2C46B; --mark: #F2C46B;
+      --warn-bg: #FFD98A; --warn-ink: #3A2A00; --warn-line: #FFD98A;
+      --up: #5FD39A; --down: #FF8A7A; --down-ring: #4A1F1A;
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; }
-  h2 { font-size: 1.1rem; margin: 0 0 12px; }
-  p { margin: 0 0 8px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--font); }
   a { color: var(--accent); }
-  .muted { color: var(--muted); }
-  .banner { background: var(--banner); color: var(--banner-text); border-radius: 8px; padding: 10px 14px; margin: 16px 0; }
-  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 16px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 0.85rem; border-top: none; }
-  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
-  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
-  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
-  .apps { display: flex; flex-wrap: wrap; gap: 8px; }
-  .apps a { display: inline-block; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; text-decoration: none; }
-  .scroll { overflow-x: auto; }
-  .handle { overflow-wrap: anywhere; }
-  #feed { max-height: 360px; overflow-y: auto; }
-  .stat { font-size: 1.4rem; font-weight: 600; margin-right: 4px; }
-  @media (max-width: 600px) { .hide-narrow { display: none; } }
+  a:hover { color: var(--accent-hover); }
+  a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+  .mono { font-family: var(--font-mono); font-size: 0.84em; overflow-wrap: anywhere; }
+
+  .demo { background: var(--warn-bg); color: var(--warn-ink); border-bottom: 1px solid var(--warn-line); }
+  .demo .wrap { display: flex; gap: 10px; align-items: center; padding-top: 12px; padding-bottom: 12px; font-weight: 500; }
+  .demo svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--warn-ink); stroke-width: 2; }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding: 20px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--ink); text-decoration: none; }
+  .brand:hover { color: var(--ink); }
+  .mk { width: 28px; height: 28px; flex: none; }
+  .mk .dome { fill: none; stroke: currentColor; stroke-width: 2; }
+  .mk .node { fill: currentColor; }
+  .mk .base { fill: var(--mark); }
+
+  .head { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 48px; align-items: end; padding: 40px 0 48px; }
+  .head h1 { font-size: clamp(48px, 7vw, 88px); line-height: 1; letter-spacing: -0.03em; font-weight: 650; margin: 0 0 12px; overflow-wrap: anywhere; }
+  .sub { color: var(--muted); font-size: 18px; margin: 0; }
+  .state { display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 20px 24px; }
+  .state b { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .state > span { color: var(--muted); }
+
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; display: inline-block; background: var(--line); }
+  .dot.up { background: var(--up); }
+  .dot.down { background: var(--down); box-shadow: 0 0 0 3px var(--down-ring); }
+
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px; }
+  .panel h2 { font-size: 22px; font-weight: 600; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .panel p { margin: 0 0 12px; color: var(--muted); }
+  .panel p:last-child { margin-bottom: 0; }
+  .blk { margin-top: 24px; }
+
+  .apps { display: flex; flex-direction: column; gap: 12px; }
+  .app { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border: 1px solid var(--tint-line); background: var(--tint); border-radius: 16px; padding: 18px 20px; }
+  .app b { display: block; font-size: 19px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 999px; background: var(--btn); color: var(--btn-ink); font-weight: 600; text-decoration: none; }
+  .btn:hover { background: var(--btn-hover); color: var(--btn-ink); }
+
+  .row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) minmax(0, 1.3fr) 150px; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid var(--line2); }
+  .row:first-child { border-top: 0; }
+  .row b { font-weight: 600; }
+  .row .what { color: var(--muted); }
+  .st { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .st.down { color: var(--down); }
+  .checked { color: var(--muted); font-size: 15px; margin: 12px 0 0; }
+
+  .acct h3 { font-size: 17px; margin: 20px 0 4px; font-weight: 600; }
+  .list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; }
+  .who { padding: 9px 0; border-top: 1px solid var(--line2); min-width: 0; }
+  .who b { font-weight: 600; display: block; overflow-wrap: anywhere; }
+  .who .mono { color: var(--muted); font-size: 12.5px; display: block; }
+
+  .feedhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .live { display: inline-flex; align-items: center; gap: 8px; background: var(--tint); color: var(--accent); border-radius: 999px; padding: 4px 12px; font-weight: 600; font-size: 14px; }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .live.on .pulse { background: var(--up); animation: pl 2s ease-in-out infinite; }
+  @keyframes pl { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .live.on .pulse { animation: none; } }
+  .feed { max-height: 620px; overflow-y: auto; }
+  .ev { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 12px 0; border-top: 1px solid var(--line2); }
+  .ev time { color: var(--muted); font-size: 14px; }
+  .ev b { font-weight: 600; overflow-wrap: anywhere; }
+  .ev .mono { color: var(--muted); font-size: 12.5px; display: block; }
+  .empty { color: var(--muted); padding: 9px 0; }
+
+  .foot { padding: 40px 0 56px; color: var(--muted); font-size: 15px; }
+
+  @media (max-width: 820px) {
+    .wrap { padding: 0 16px; }
+    .head, .grid2 { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .head { padding: 16px 0 24px; }
+    .head h1 { font-size: 52px; }
+    .sub { font-size: 16px; }
+    .blk { margin-top: 16px; }
+    .row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 12px 0; }
+    .row .what { display: none; }
+    .row .host { grid-column: 1 / -1; font-size: 12.5px; }
+    .row .st { grid-row: 1 / 2; grid-column: 2 / 3; }
+    .panel { padding: 20px; border-radius: 16px; }
+    .list { grid-template-columns: minmax(0, 1fr); }
+    .ev { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .feed { max-height: 480px; }
+    .app .btn { width: 100%; }
+    .demo .wrap { align-items: flex-start; font-size: 15px; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1 id="title">Snowglobe network</h1>
-  <p class="muted" id="subtitle"></p>
-  <div class="banner">Demo only. Everything on this network is test data and may be lost at any time.</div>
+<div class="demo" role="note">
+  <div class="wrap">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16.5v.5"></path></svg>
+    <span>Demo only. Everything on this network is test data and may be lost at any time.</span>
+  </div>
+</div>
+<div class="wrap">
+  <nav class="nav" aria-label="Snowglobe">
+    <a class="brand" href="https://github.com/OpenMeet-Team/snowglobe">
+      <svg class="mk" viewBox="0 0 32 32" aria-hidden="true"><circle class="dome" cx="16" cy="14" r="11"></circle><path class="node" d="M9.5 22.5v-6.1l3.6-3.1 3.6 3.1v6.1z"></path><path class="node" d="M21.5 10.2l-2.7 4.3h1.4l-2.4 4.2h7.4l-2.4-4.2h1.4z"></path><rect class="node" x="20.9" y="18.6" width="1.2" height="3.9"></rect><circle class="node" cx="11.5" cy="9" r="1"></circle><circle class="node" cx="16.5" cy="7.4" r="0.9"></circle><circle class="node" cx="24.6" cy="9.6" r="0.9"></circle><path class="base" d="M9 22.5h14l2.2 5.5H6.8z"></path></svg>
+      Snowglobe
+    </a>
+    <a href="https://github.com/OpenMeet-Team/snowglobe#readme">Run a globe of your own</a>
+  </nav>
 
-  <section>
-    <h2>What this is</h2>
-    <p id="about">A sealed atproto network: its own account server, directory, relay and feed. It has no route to the
-      public internet, and its accounts live in its own directory, not the public one, so nothing here
-      reaches Bluesky and Bluesky cannot find anything here. Apps point at it to test against real
-      protocol services without touching real people's data.</p>
-  </section>
-
-  <section>
-    <h2>Apps on this network</h2>
-    <div class="apps" id="apps"><span class="muted">None attached.</span></div>
-  </section>
-
-  <section>
-    <h2>Services and health</h2>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Service</th><th class="hide-narrow">What it does</th><th>Health</th></tr></thead>
-        <tbody id="services"></tbody>
-      </table>
+  <header class="head">
+    <div>
+      <h1 id="title">Snowglobe network</h1>
+      <p class="sub" id="subtitle"></p>
     </div>
-    <p class="muted" id="checked"></p>
+    <div class="state" role="status">
+      <b><span class="dot" id="overall-dot"></span><span id="overall">Checking services</span></b>
+      <span id="tally"></span>
+    </div>
+  </header>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>What this is</h2>
+      <p id="about">A sealed atproto network: its own PDS, PLC directory, relay and Jetstream. It has no route to the
+        public internet, and its accounts live in its own directory, not the public one, so nothing here
+        reaches Bluesky and Bluesky cannot find anything here.</p>
+      <p>Apps point at it to test against real protocol services without touching the shared network that
+        Bluesky and everyone else use.</p>
+    </section>
+    <section class="panel">
+      <h2>Apps on this network</h2>
+      <div class="apps" id="apps"><p>None attached.</p></div>
+    </section>
+  </div>
+
+  <section class="panel blk" aria-labelledby="h-svc">
+    <h2 id="h-svc">Services and health</h2>
+    <div id="services"></div>
+    <p class="checked" id="checked"></p>
   </section>
 
-  <section>
-    <h2>Accounts</h2>
-    <p class="muted"><span id="accounts-note">Every account on the network: people on the account server, groups on the group host.</span>
+  <section class="panel acct blk" aria-labelledby="h-acct">
+    <h2 id="h-acct">Accounts</h2>
+    <p><span id="accounts-note">Every account on the network: people on the PDS, groups on the group host.</span>
       Logins for the seeded test people are kept by the network's operator, not on this page.</p>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Account</th><th>Kind</th></tr></thead>
-        <tbody id="accounts"><tr><td colspan="2" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
+    <div id="accounts"><p class="empty">Loading…</p></div>
   </section>
 
-  <section>
-    <h2>Activity</h2>
-    <p><span class="stat" id="count">0</span><span class="muted">writes in the last week, newest first, then live</span>
-      <span class="muted" id="stream"></span></p>
-    <div class="scroll" id="feed">
-      <table>
-        <thead><tr><th>Time</th><th>Account</th><th>What</th></tr></thead>
-        <tbody id="events"><tr><td colspan="3" class="muted">Waiting for the next write on the network…</td></tr></tbody>
-      </table>
+  <section class="panel blk" aria-labelledby="h-act">
+    <div class="feedhead">
+      <h2 id="h-act" style="margin:0">Activity</h2>
+      <span class="live" id="stream"><span class="pulse"></span><span id="stream-text">Connecting</span></span>
     </div>
+    <p><span id="count">0</span> writes in the last week, newest first, then live as they happen.</p>
+    <div class="feed" id="events"><p class="empty">Waiting for the next write on the network…</p></div>
   </section>
-</main>
+
+  <footer class="foot">Run a network like this on your own machine with
+    <a href="https://github.com/OpenMeet-Team/snowglobe">snowglobe</a>.</footer>
+</div>
 <script>
 (function () {
   // A globe's services. A network that differs (the local devnet) lists its own in globe.json as
   // "services": [label, name, health key, what it does] each, where a name with a dot is a whole host
   // name, one without hangs from the network's domain, and an empty one gets no link.
   var SERVICES = [
-    ["Account server", "alpha", "pds", "Holds people's accounts and their records"],
-    ["Directory", "plc", "plc", "Maps each DID to its keys and account server"],
-    ["Relay", "relay", "relay", "Collects every account server's changes into one stream"],
-    ["Feed", "jetstream", "jetstream", "The relay's stream as JSON, for apps (and this page)"],
-    ["Handle lookup", "slingshot", "slingshot", "Resolves handles and records from this network only"],
-    ["Group host", "grouphost", "grouphost", "Holds groups, which are accounts of their own"],
-    ["Images", "cdn", "cdn", "Serves account images in Bluesky's CDN shape"],
-    ["Sync", "tap", "tap", "Backfills and syncs repos; locked by its admin password"],
-    ["Record browser", "pdsls", "pdsls", "PDSls, for this network's repos and records"]
+    ["PDS", "alpha", "pds", "Hosts accounts and their repos"],
+    ["PLC directory", "plc", "plc", "Resolves each did:plc to its keys and PDS"],
+    ["Relay", "relay", "relay", "Crawls the PDS and merges its changes into one firehose"],
+    ["Jetstream", "jetstream", "jetstream", "The relay's firehose as JSON, for apps (and this page)"],
+    ["Slingshot", "slingshot", "slingshot", "Resolves handles, DIDs and records from this network only"],
+    ["Group host", "grouphost", "grouphost", "Hosts groups, which are accounts of their own"],
+    ["Image CDN", "cdn", "cdn", "Serves account images in Bluesky's CDN shape"],
+    ["Tap", "tap", "tap", "Syncs and backfills repos; locked by its admin password"],
+    ["PDSls", "pdsls", "pdsls", "Browses this network's repos and records"]
   ];
-  // Where each kind of account is listed: [relay path, kind]. globe.json may give its own as "accounts".
+  // Where each kind of account is listed: [relay path, kind]. globe.json may give its own as "accounts",
+  // where a kind is "person" or "group", followed by ", <server>" on a network with several.
   var ACCOUNTS = [["/people", "person"], ["/groups", "group"]];
   var handles = {};
+  var tally = { people: null, groups: null, writes: 0 };
 
   function el(tag, attrs, text) {
     var e = document.createElement(tag);
@@ -120,13 +217,21 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  function row(cells) {
-    var tr = el("tr");
-    cells.forEach(function (c) { var td = el("td"); if (c instanceof Node) td.appendChild(c); else td.textContent = c; tr.appendChild(td); });
-    return tr;
+  // Appends each child that is there; returns the parent.
+  function add(parent) {
+    for (var i = 1; i < arguments.length; i++) if (arguments[i]) parent.appendChild(arguments[i]);
+    return parent;
   }
   function getJSON(path) {
     return fetch(path, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  function showTally() {
+    var parts = [];
+    if (tally.people != null) parts.push(plural(tally.people, "person", "people"));
+    if (tally.groups) parts.push(plural(tally.groups, "group", "groups"));
+    var line = parts.length ? parts.join(" and ") + ". " : "";
+    document.getElementById("tally").textContent = line + plural(tally.writes, "write", "writes") + " in the last week.";
   }
 
   function health(domain, services) {
@@ -135,24 +240,35 @@
     var marks = services.map(function (s) {
       var dot = el("span", { "class": "dot" });
       var status = el("span", {}, "checking");
-      var cell = el("span"); cell.appendChild(dot); cell.appendChild(status);
-      var name = el("div");
-      name.appendChild(el("div", {}, s[0]));
+      var st = add(el("span", { "class": "st" }), dot, status);
+      var host;
       if (s[1]) {
-        var host = s[1].indexOf(".") >= 0 ? s[1] : s[1] + "." + domain;
-        name.appendChild(el("a", { "class": "mono", href: "https://" + host + "/" }, host));
-      }
-      var tr = row([name, s[3], cell]);
-      tr.children[1].className = "hide-narrow muted";
-      body.appendChild(tr);
-      return { key: s[2], dot: dot, status: status };
+        var name = s[1].indexOf(".") >= 0 ? s[1] : s[1] + "." + domain;
+        host = el("a", { "class": "mono host", href: "https://" + name + "/" }, name);
+      } else host = el("span", { "class": "mono host" });
+      add(body, add(el("div", { "class": "row" }), el("b", {}, s[0]), el("span", { "class": "what" }, s[3]), host, st));
+      return { key: s[2], dot: dot, st: st, status: status, up: null };
     });
+    // The headline waits until every service has answered once.
+    function overall() {
+      if (marks.some(function (m) { return m.up === null; })) return;
+      var up = marks.filter(function (m) { return m.up; }).length;
+      document.getElementById("overall-dot").className = "dot " + (up === marks.length ? "up" : "down");
+      document.getElementById("overall").textContent =
+        up === marks.length ? "All " + marks.length + " services up" : up + " of " + marks.length + " services up";
+    }
+    function mark(m, ok, text) {
+      m.up = ok;
+      m.dot.className = "dot " + (ok ? "up" : "down");
+      m.st.className = "st " + (ok ? "up" : "down");
+      m.status.textContent = text;
+      overall();
+    }
     function check() {
       marks.forEach(function (m) {
         fetch("/health/" + m.key, { cache: "no-store" }).then(function (r) {
-          m.dot.className = "dot " + (r.ok ? "ok" : "bad");
-          m.status.textContent = r.ok ? (m.key === "tap" ? "up (locked)" : "up") : "down (" + r.status + ")";
-        }).catch(function () { m.dot.className = "dot bad"; m.status.textContent = "no answer"; });
+          mark(m, r.ok, r.ok ? (m.key === "tap" ? "up (locked)" : "up") : "down (" + r.status + ")");
+        }).catch(function () { mark(m, false, "no answer"); });
       });
       document.getElementById("checked").textContent = "Checked " + new Date().toLocaleTimeString() + "; again every 30 seconds.";
     }
@@ -174,6 +290,12 @@
   }
   function accounts(kinds) {
     var body = document.getElementById("accounts");
+    var isGroup = function (kind) { return kind.indexOf("group") === 0; };
+    // Name each account's server only when there is more than one of its kind.
+    var several = {
+      person: kinds.filter(function (k) { return !isGroup(k[1]); }).length > 1,
+      group: kinds.filter(function (k) { return isGroup(k[1]); }).length > 1
+    };
     return Promise.all(kinds.map(function (k) {
       return listAll(k[0]).then(function (repos) {
         return Promise.all(repos.map(function (r) {
@@ -185,16 +307,29 @@
     })).then(function (lists) {
       body.textContent = "";
       var all = [].concat.apply([], lists);
-      all.sort(function (a, b) { return (a.kind + a.handle).localeCompare(b.kind + b.handle); });
-      all.forEach(function (a) {
-        if (a.error) { body.appendChild(row(["Could not list the " + a.error + " accounts", ""])); return; }
-        if (a.handle) handles[a.did] = a.handle;
-        var who = el("div");
-        who.appendChild(el("div", { "class": "handle" }, a.handle || "(no handle)"));
-        who.appendChild(el("div", { "class": "mono muted" }, a.did));
-        body.appendChild(row([who, a.kind + (a.active === false ? ", inactive" : "")]));
+      var errors = all.filter(function (a) { return a.error; });
+      all = all.filter(function (a) { return !a.error; });
+      all.sort(function (a, b) { return (a.handle || a.did).localeCompare(b.handle || b.did); });
+      var people = all.filter(function (a) { return !isGroup(a.kind); });
+      var groups = all.filter(function (a) { return isGroup(a.kind); });
+      tally.people = people.length; tally.groups = groups.length; showTally();
+      [["People", people, several.person], ["Groups", groups, several.group]].forEach(function (g) {
+        if (g[0] === "Groups" && !g[1].length) return;
+        add(body, el("h3", {}, g[0] + " (" + g[1].length + ")"));
+        var list = add(body, el("div", { "class": "list" }));
+        g[1].forEach(function (a) {
+          if (a.handle) handles[a.did] = a.handle;
+          var where = g[2] && a.kind.indexOf(", ") > 0 ? " · " + a.kind.split(", ")[1] : "";
+          add(list, add(el("div", { "class": "who" }),
+            el("b", {}, (a.handle || "(no handle)") + (a.active === false ? " (inactive)" : "")),
+            el("span", { "class": "mono" }, a.did + where)));
+        });
+        if (!g[1].length && !errors.length) add(list, el("div", { "class": "empty" }, "No accounts yet"));
       });
-      if (!all.length) body.appendChild(row(["No accounts yet", ""]));
+      errors.forEach(function (e) {
+        var server = e.error.split(", ")[1];
+        add(body, el("p", {}, "Could not list the " + (isGroup(e.error) ? "groups" : "people") + (server ? " on " + server : "") + "."));
+      });
     });
   }
 
@@ -204,31 +339,38 @@
     // Start a week back, so a quiet network still shows what it did lately (Jetstream replays what it
     // still holds); a reconnect resumes from the last event seen. Older events are dropped here.
     var since = (Date.now() - 7 * 86400 * 1000) * 1000;
-    var count = 0, first = true, wait = 1000, cursor = since;
-    var stream = document.getElementById("stream");
+    var first = true, wait = 1000, cursor = since;
+    var stream = document.getElementById("stream"), streamText = document.getElementById("stream-text");
+    var verbs = { create: "created", update: "updated", "delete": "deleted" };
     function connect() {
       var ws = new WebSocket(feed + "?cursor=" + cursor);
-      ws.onopen = function () { stream.textContent = " · live"; wait = 1000; };
+      ws.onopen = function () { stream.className = "live on"; streamText.textContent = "Live"; wait = 1000; };
       ws.onclose = function () {
-        stream.textContent = " · reconnecting";
+        stream.className = "live";
+        streamText.textContent = "Reconnecting";
         setTimeout(connect, wait);
         wait = Math.min(wait * 2, 30000);
       };
       ws.onmessage = function (m) {
         var e; try { e = JSON.parse(m.data); } catch (x) { return; }
         if (e.time_us) { if (e.time_us < since) return; cursor = e.time_us; }
-        var what;
-        if (e.kind === "commit" && e.commit) what = e.commit.operation + " " + e.commit.collection;
-        else if (e.kind === "identity") what = "identity update";
-        else if (e.kind === "account") what = "account " + (e.account && e.account.active === false ? "deactivated" : "active");
+        var what, detail = null;
+        if (e.kind === "commit" && e.commit) {
+          what = (verbs[e.commit.operation] || e.commit.operation) + " a record";
+          detail = e.commit.collection;
+        } else if (e.kind === "identity") what = "updated its identity";
+        else if (e.kind === "account") what = e.account && e.account.active === false ? "was deactivated" : "is active";
         else return;
         if (first) { body.textContent = ""; first = false; }
-        count += 1;
-        document.getElementById("count").textContent = String(count);
+        tally.writes += 1;
+        document.getElementById("count").textContent = String(tally.writes);
+        showTally();
         var t = e.time_us ? new Date(e.time_us / 1000) : new Date();
         var who = handles[e.did] || (e.identity && e.identity.handle) || e.did;
         var when = t.toDateString() === new Date().toDateString() ? t.toLocaleTimeString() : t.toLocaleString();
-        body.insertBefore(row([when, who, el("span", { "class": "mono" }, what)]), body.firstChild);
+        var text = add(el("div"), el("b", {}, who), document.createTextNode(" " + what),
+          detail && el("span", { "class": "mono" }, detail));
+        body.insertBefore(add(el("div", { "class": "ev" }), el("time", { datetime: t.toISOString() }, when), text), body.firstChild);
         while (body.children.length > 50) body.removeChild(body.lastChild);
       };
     }
@@ -242,12 +384,18 @@
     var apps = document.getElementById("apps");
     if (g.apps && g.apps.length) {
       apps.textContent = "";
-      g.apps.forEach(function (a) { apps.appendChild(el("a", { href: a.url }, a.name)); });
+      g.apps.forEach(function (a) {
+        var host = a.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+        add(apps, add(el("div", { "class": "app" }),
+          add(el("div"), el("b", {}, a.name), el("span", { "class": "mono" }, host)),
+          el("a", { "class": "btn", href: a.url }, "Open " + a.name)));
+      });
     }
     if (g.about) document.getElementById("about").textContent = g.about;
     if (g.accountsNote) document.getElementById("accounts-note").textContent = g.accountsNote;
     var feed = g.feed || "wss://jetstream." + g.domain + "/subscribe";
     if (feed.charAt(0) === "/") feed = "wss://" + location.host + feed;
+    showTally();
     health(g.domain, g.services || SERVICES);
     // The feed names accounts by handle, so it waits for the account list.
     accounts(g.accounts || ACCOUNTS).catch(function () {}).then(function () { activity(feed); });

@@ -50,7 +50,7 @@ describe('the app renderers', () => {
   it('lists every PDS on the page, with its account list, and only the services the globe runs', () => {
     const { globe, files } = rendered(GLOBES.four);
     const page = JSON.parse(renderPage(JSON.parse(files['page.json']), []));
-    expect(page.services.filter((s: string[]) => s[0] === 'Account server').map((s: string[]) => s[1])).toEqual(globe.pds.map((p: { name: string }) => p.name));
+    expect(page.services.filter((s: string[]) => s[0] === 'PDS').map((s: string[]) => s[1])).toEqual(globe.pds.map((p: { name: string }) => p.name));
     expect(page.accounts.map((a: string[]) => a[0])).toEqual(globe.pds.map((p: { name: string }) => `/people/${p.name}`));
     // Each PDS's health key has a relay in page.inc.
     for (const p of globe.pds) expect(files['nginx/page.inc']).toContain(`location = /health/${p.name} `);
@@ -104,7 +104,7 @@ describe('snowglobe app', () => {
     expect(appsFile(r)).toBe('probe 5480\n');
     expect(readFileSync(join(r, 'data/https/nginx/apps.map'), 'utf8')).toContain('probe.devnet.internal devnet_app_probe;');
     expect(page(r).apps.map((a: { name: string }) => a.name)).toEqual(['pdsls', 'probe']);
-    expect(page(r).services.filter((s: string[]) => s[0] === 'Account server')).toHaveLength(4);
+    expect(page(r).services.filter((s: string[]) => s[0] === 'PDS')).toHaveLength(4);
   });
 
   it('reissues the leaf from the same CA when an ending is new', () => {

@@ -1,69 +1,69 @@
 {
   "globe": "devnet",
   "domain": "local.snowglobe.at",
-  "about": "An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under snowglobe run reach it at the real network's names.",
-  "accountsNote": "Every account on the network, on each of its 3 account servers.",
+  "about": "An atproto network on this machine: its own PDSs, PLC directory, relay and Jetstream. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under snowglobe run reach it at the real network's names.",
+  "accountsNote": "Every account on the network, on each of its 3 PDSs.",
   "feed": "/subscribe",
   "services": [
     [
-      "Account server",
+      "PDS",
       "alpha",
       "alpha",
       "Handles under local.snowglobe.at, by invite (spaces-alpha)"
     ],
     [
-      "Account server",
+      "PDS",
       "regular",
       "regular",
       "Handles under regular.local.snowglobe.at (pds:0.4.5037)"
     ],
     [
-      "Account server",
+      "PDS",
       "prod",
       "prod",
       "Handles under prod.local.snowglobe.at (pds@sha256:1fa8bbceabb6…)"
     ],
     [
-      "Directory",
+      "PLC directory",
       "plc",
       "plc",
-      "Maps each DID to its keys and account server; also plc.directory under snowglobe run"
+      "Resolves each did:plc to its keys and PDS; also plc.directory under snowglobe run"
     ],
     [
       "Relay",
       "relay",
       "relay",
-      "Collects every account server's changes into one stream"
+      "Crawls each PDS and merges their changes into one firehose"
     ],
     [
-      "Feed",
+      "Jetstream",
       "jetstream",
       "jetstream",
-      "The network's stream as JSON, for apps (and this page)"
+      "The relay's firehose as JSON, for apps (and this page)"
     ],
     [
-      "Handle lookup",
+      "Slingshot",
       "slingshot",
       "slingshot",
-      "Resolves handles and records from this network only"
+      "Resolves handles, DIDs and records from this network only"
     ],
     [
-      "Sync",
+      "Tap",
       "",
       "sync",
-      "TAP: backfills and syncs repos"
+      "Syncs and backfills repos"
     ],
     [
       "Mail",
       "",
       "mail",
-      "Catches every message the account servers send"
+      "Catches every message the PDSs send"
     ],
     [
-      "Record browser",
+      "PDSls",
       "pdsls",
       "pdsls",
-      "PDSls, for this network's repos and records"
+      "Browses this network's repos and records"
     ]
   ],
   "accounts": [
