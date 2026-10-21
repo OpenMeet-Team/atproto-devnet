@@ -34,17 +34,17 @@ services:
     restart: unless-stopped
     entrypoint: |
       sh -c "
-        export DB_CREDS_JSON=$$(printf '{\"username\":\"%s\",\"password\":\"%s\",\"host\":\"%s\",\"port\":\"%s\",\"database\":\"%s\"}' \"$$SG_DB_USER\" \"$$SG_DB_PASSWORD\" \"$$SG_DB_HOST\" \"$$SG_DB_PORT\" \"$$SG_DB_NAME\")
+        export DB_CREDS_JSON=$$(printf '{\"username\":\"%s\",\"password\":\"%s\",\"host\":\"%s\",\"port\":\"%s\",\"database\":\"%s\"}' \"$$DEVNET_DB_USER\" \"$$DEVNET_DB_PASSWORD\" \"$$DEVNET_DB_HOST\" \"$$DEVNET_DB_PORT\" \"$$DEVNET_DB_NAME\")
         export DB_MIGRATE_CREDS_JSON=$$DB_CREDS_JSON
         exec node /app/packages/server/service/index.js
       "
     environment:
       PORT: 2582
-      SG_DB_USER: ${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}
-      SG_DB_PASSWORD: ${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}
-      SG_DB_HOST: ${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}
-      SG_DB_PORT: ${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}
-      SG_DB_NAME: ${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
+      DEVNET_DB_USER: ${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}
+      DEVNET_DB_PASSWORD: ${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}
+      DEVNET_DB_HOST: ${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}
+      DEVNET_DB_PORT: ${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}
+      DEVNET_DB_NAME: ${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
       DATABASE_URL: postgres://${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}:${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}@${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}:${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}/${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
       ENABLE_MIGRATIONS: "true"
       LOG_ENABLED: "true"
