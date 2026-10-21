@@ -14,7 +14,7 @@ import { parse } from 'yaml';
 // @ts-expect-error: a plain .mjs module, without types
 import { checkGlobe, loadGlobe, withGroupHostSources } from '../lib/config.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { loadBase, renderGlobe } from '../lib/render.mjs';
+import { contextHash, loadBase, renderGlobe } from '../lib/render.mjs';
 
 const ROOT = join(__dirname, '..');
 const RENDERED = join(__dirname, 'snowglobe', 'rendered');
@@ -313,5 +313,24 @@ describe('https/app-names.cjs', () => {
     expect(lookup('club.gh.mine.test', {})).not.toBe('127.0.0.1');
     expect(lookup('notmine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).not.toBe('127.0.0.1');
     expect(lookup('app.devnet.internal', {})).toBe('127.0.0.1');
+  });
+});
+
+describe('snowglobe images built from this repo', () => {
+  it('tags each by a hash of its build folder, so a changed folder is rebuilt', () => {
+    const { compose } = render(THREE);
+    for (const [svc, name] of [['slingshot-dns', 'dns'], ['proxy', 'proxy'], ['pdsls', 'pdsls']])
+      expect(compose.services[svc].image, svc).toMatch(new RegExp(`^atproto-devnet-${name}:[0-9a-f]{12}$`));
+  });
+
+  it('changes the tag when a file in the folder changes, not when a test does', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sg-ctx-'));
+    mkdirSync(join(dir, 'ctx'));
+    writeFileSync(join(dir, 'ctx', 'Dockerfile'), 'FROM alpine\n');
+    const before = contextHash(dir, 'ctx');
+    writeFileSync(join(dir, 'ctx', 'server.test.mjs'), 'x');
+    expect(contextHash(dir, 'ctx')).toBe(before);
+    writeFileSync(join(dir, 'ctx', 'Dockerfile'), 'FROM alpine:3.20\n');
+    expect(contextHash(dir, 'ctx')).not.toBe(before);
   });
 });

@@ -398,7 +398,7 @@ services:
       retries: 10
   slingshot-dns:
     build: ./https/dns
-    image: atproto-devnet-dns:https-1
+    image: atproto-devnet-dns:ae5e99c09df0
     restart: unless-stopped
     environment:
       SG_DOMAIN: local.snowglobe.at
@@ -446,7 +446,7 @@ services:
       retries: 10
   proxy:
     build: ./https/proxy
-    image: atproto-devnet-proxy:https-1
+    image: atproto-devnet-proxy:d77e3c662e22
     restart: unless-stopped
     depends_on:
       nginx:
@@ -471,7 +471,7 @@ services:
       retries: 10
   pdsls:
     build: ./pdsls
-    image: atproto-devnet-pdsls:https-1
+    image: atproto-devnet-pdsls:625e0d7b695d
     restart: unless-stopped
     depends_on:
       nginx:
