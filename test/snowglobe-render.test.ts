@@ -4,7 +4,7 @@
 //
 // The default globe's files are compared whole with test/snowglobe/rendered/, so any change to
 // what the generator writes shows up in review. After an intended change, write them again with
-// SNOWGLOBE_WRITE_RENDERED=1 npx vitest run snowglobe-render, and read the diff.
+// SG_WRITE_RENDERED=1 npx vitest run snowglobe-render, and read the diff.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -41,7 +41,7 @@ describe('snowglobe render', () => {
     expect(Object.keys(files).sort()).toEqual(['compose.yml', 'globe.env', 'leaf-names', 'nginx/globe.conf', 'nginx/page.inc', 'page.json']);
     for (const [name, text] of Object.entries(files)) {
       const path = join(RENDERED, name);
-      if (process.env.SNOWGLOBE_WRITE_RENDERED) {
+      if (process.env.SG_WRITE_RENDERED) {
         mkdirSync(dirname(path), { recursive: true });
         writeFileSync(path, text);
       }
@@ -127,10 +127,10 @@ describe('snowglobe render', () => {
     const bare = render({ ...THREE, pds: [PDS('regular'), PDS('alpha', { bare_handles: true })] });
     expect(bare.compose.services.init.depends_on).toHaveProperty('pds-alpha');
     expect(bare.compose.services.init.command[1]).toContain('http://pds-alpha:3000');
-    expect(bare.env.SNOWGLOBE_SEED_PDS).toBe('alpha');
+    expect(bare.env.SG_SEED_PDS).toBe('alpha');
     const first = render({ ...THREE, pds: [PDS('regular'), PDS('prod')] });
     expect(first.compose.services.init.environment.HANDLE_DOMAIN).toBe('.regular.mine.test');
-    expect(first.env.SNOWGLOBE_SEED_PDS).toBe('regular');
+    expect(first.env.SG_SEED_PDS).toBe('regular');
   });
 
   it('runs no relay for one PDS, and Jetstream and TAP read that PDS', () => {
@@ -140,14 +140,14 @@ describe('snowglobe render', () => {
     expect(compose.services.jetstream.environment.JETSTREAM_WS_URL).toBe('ws://pds-solo:3000/xrpc/com.atproto.sync.subscribeRepos');
     expect(compose.services.tap.environment.TAP_RELAY_URL).toBe('http://pds-solo:3000');
     expect(files['nginx/globe.conf']).not.toContain('relay.one.test');
-    expect(env.SNOWGLOBE_ONESHOTS).toBe('init');
+    expect(env.SG_ONESHOTS).toBe('init');
   });
 
   it('leaves out a service the file turns off, with its name and route', () => {
     const { compose, files, env } = render({ ...THREE, services: { pdsls: false, slingshot: false, tap: false } });
     for (const s of ['pdsls', 'slingshot', 'slingshot-dns', 'tap']) {
       expect(compose.services).not.toHaveProperty(s);
-      expect(env.SNOWGLOBE_SERVICES.split(' ')).not.toContain(s);
+      expect(env.SG_SERVICES.split(' ')).not.toContain(s);
     }
     for (const n of ['pdsls.mine.test', 'slingshot.mine.test']) {
       expect(files['nginx/globe.conf']).not.toContain(n);
@@ -157,10 +157,10 @@ describe('snowglobe render', () => {
 
   it('lists in globe.env every service it runs, the one-shots apart', () => {
     const { compose, env } = render(FOUR);
-    const listed = [...env.SNOWGLOBE_SERVICES.split(' '), ...env.SNOWGLOBE_ONESHOTS.split(' ')];
+    const listed = [...env.SG_SERVICES.split(' '), ...env.SG_ONESHOTS.split(' ')];
     expect(listed.sort()).toEqual(Object.keys(compose.services).sort());
-    expect(env.SNOWGLOBE_PDS).toBe('alpha regular prod beta');
-    expect(env.DEVNET_DOMAIN).toBe('mine.test');
+    expect(env.SG_PDS).toBe('alpha regular prod beta');
+    expect(env.SG_DOMAIN).toBe('mine.test');
   });
 
   it('tells snowglobe account which PDS has bare handles, which take invites, and which names are taken', () => {
@@ -170,17 +170,17 @@ describe('snowglobe render', () => {
       grouphosts: [{ name: 'gh', kind: 'opensocial', image: 'ghcr.io/example/grouphost:1' }],
       apps: [{ name: 'atmo', local: { port: 5173, handles: 'ev' } }],
     });
-    expect(env.SNOWGLOBE_BARE_PDS).toBe('alpha');
-    expect(env.SNOWGLOBE_INVITE_PDS).toBe('alpha beta');
-    expect(env.SNOWGLOBE_TAKEN.split(' ')).toEqual(expect.arrayContaining(['plc', 'lex-authority', 'alpha', 'regular', 'beta', 'gh', 'ev']));
-    expect(render({ ...THREE, pds: [PDS('regular')] }).env.SNOWGLOBE_BARE_PDS).toBe('');
+    expect(env.SG_BARE_PDS).toBe('alpha');
+    expect(env.SG_INVITE_PDS).toBe('alpha beta');
+    expect(env.SG_TAKEN.split(' ')).toEqual(expect.arrayContaining(['plc', 'lex-authority', 'alpha', 'regular', 'beta', 'gh', 'ev']));
+    expect(render({ ...THREE, pds: [PDS('regular')] }).env.SG_BARE_PDS).toBe('');
   });
 
   it('takes a domain from the command line in place of the file\'s', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
     const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'snowglobe.default.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);
-    expect(envOf(readFileSync(join(dir, 'globe.env'), 'utf8')).DEVNET_DOMAIN).toBe('other.test');
+    expect(envOf(readFileSync(join(dir, 'globe.env'), 'utf8')).SG_DOMAIN).toBe('other.test');
     expect(readFileSync(join(dir, 'leaf-names'), 'utf8')).toContain('alpha.other.test');
   });
 
@@ -209,8 +209,8 @@ describe('snowglobe render: group hosts', () => {
     const { files, compose, env } = render(THREE);
     for (const [name, text] of Object.entries(files)) expect(text, name).not.toMatch(/grouphost/);
     expect(Object.keys(compose.services).filter((s) => s.startsWith('grouphost-'))).toEqual([]);
-    expect(env.SNOWGLOBE_GROUPHOSTS).toBe('');
-    expect(env.SNOWGLOBE_BUILDS).toBe('');
+    expect(env.SG_GROUPHOSTS).toBe('');
+    expect(env.SG_BUILDS).toBe('');
   });
 
   it('runs one service per group host, at <name>.<domain> with its groups\' handles under it', () => {
@@ -229,8 +229,8 @@ describe('snowglobe render: group hosts', () => {
         HOST_PLC_URL: 'http://plc:2582',
         PDS_DID_PLC_URL: 'http://plc:2582',
         PDS_INVITE_REQUIRED: 'false',
-        DEVNET_RESOLVE_DOMAIN: 'mine.test',
-        PDS_LEXICON_AUTHORITY_DID: '${DEVNET_LEXICON_AUTHORITY_DID:-}',
+        SG_RESOLVE_DOMAIN: 'mine.test',
+        PDS_LEXICON_AUTHORITY_DID: '${SG_LEXICON_AUTHORITY_DID:-}',
       });
       // The same devnet secrets as every PDS here, none left unset.
       for (const k of ['PDS_ADMIN_PASSWORD', 'PDS_JWT_SECRET', 'PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX'])
@@ -252,10 +252,10 @@ describe('snowglobe render: group hosts', () => {
     const page = JSON.parse(files['page.json']);
     expect(page.services.filter((r: string[]) => r[0] === 'Group host').map((r: string[]) => r[1])).toEqual(['gh', 'gh2']);
     expect(page.accounts).toEqual(expect.arrayContaining([['/groups/gh', 'group, gh'], ['/groups/gh2', 'group, gh2']]));
-    expect(env.SNOWGLOBE_GROUPHOSTS).toBe('gh gh2');
+    expect(env.SG_GROUPHOSTS).toBe('gh gh2');
     // Only the one built from a folder is built by up; both are waited on.
-    expect(env.SNOWGLOBE_BUILDS).toBe('grouphost-gh');
-    expect(env.SNOWGLOBE_SERVICES.split(' ')).toEqual(expect.arrayContaining(['grouphost-gh', 'grouphost-gh2']));
+    expect(env.SG_BUILDS).toBe('grouphost-gh');
+    expect(env.SG_SERVICES.split(' ')).toEqual(expect.arrayContaining(['grouphost-gh', 'grouphost-gh2']));
   });
 
   it('will not render a group host with no image and no build folder', () => {
@@ -263,25 +263,25 @@ describe('snowglobe render: group hosts', () => {
     expect(() => renderGlobe(globe, base)).toThrow(/gh/);
   });
 
-  it('builds a group host the file gives no source from SNOWGLOBE_OPENSOCIAL_BUILD, and says how when it is unset', () => {
+  it('builds a group host the file gives no source from SG_OPENSOCIAL_BUILD, and says how when it is unset', () => {
     const { globe } = checkGlobe({ ...THREE, grouphosts: [{ name: 'gh', kind: 'opensocial' }, GH.grouphosts[1]] });
-    const filled = withGroupHostSources(globe, { SNOWGLOBE_OPENSOCIAL_BUILD: 'grouphost-build' }, join(__dirname, 'snowglobe'));
+    const filled = withGroupHostSources(globe, { SG_OPENSOCIAL_BUILD: 'grouphost-build' }, join(__dirname, 'snowglobe'));
     expect(filled.grouphosts.map((g: { build: string | null }) => g.build)).toEqual([BUILD, null]);
-    expect(() => withGroupHostSources(globe, {})).toThrow(/grouphosts\[0\] \(gh\).*SNOWGLOBE_OPENSOCIAL_BUILD/);
-    expect(() => withGroupHostSources(globe, { SNOWGLOBE_OPENSOCIAL_BUILD: __dirname })).toThrow(/Dockerfile/);
+    expect(() => withGroupHostSources(globe, {})).toThrow(/grouphosts\[0\] \(gh\).*SG_OPENSOCIAL_BUILD/);
+    expect(() => withGroupHostSources(globe, { SG_OPENSOCIAL_BUILD: __dirname })).toThrow(/Dockerfile/);
     // The file's own image or folder wins over the variable.
     const own = checkGlobe(GH).globe;
-    expect(withGroupHostSources(own, { SNOWGLOBE_OPENSOCIAL_BUILD: '/elsewhere' }).grouphosts).toEqual(own.grouphosts);
+    expect(withGroupHostSources(own, { SG_OPENSOCIAL_BUILD: '/elsewhere' }).grouphosts).toEqual(own.grouphosts);
   });
 
   it('render fails before writing anything when a group host has no source', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
     writeFileSync(join(dir, 'snowglobe.yml'), 'globe: mine\npds: [{name: alpha, image: spaces-alpha}]\ngrouphosts: [{name: gh, kind: opensocial}]\n');
     const env = { ...process.env };
-    delete env.SNOWGLOBE_OPENSOCIAL_BUILD;
+    delete env.SG_OPENSOCIAL_BUILD;
     const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(dir, 'snowglobe.yml'), '--out', join(dir, 'out')], { encoding: 'utf8', env });
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain('SNOWGLOBE_OPENSOCIAL_BUILD');
+    expect(r.stderr).toContain('SG_OPENSOCIAL_BUILD');
     expect(existsSync(join(dir, 'out'))).toBe(false);
   });
 
@@ -291,7 +291,7 @@ describe('snowglobe render: group hosts', () => {
     writeFileSync(join(dir, 'snowglobe.yml'), 'globe: mine\npds: [{name: alpha, image: spaces-alpha}]\ngrouphosts: [{name: gh, kind: opensocial}, {name: gh2, kind: opensocial, image: "ghcr.io/example/grouphost:1"}]\n');
     const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(dir, 'snowglobe.yml'), '--out', join(dir, 'out')], {
       encoding: 'utf8',
-      env: { ...process.env, SNOWGLOBE_OPENSOCIAL_BUILD: BUILD },
+      env: { ...process.env, SG_OPENSOCIAL_BUILD: BUILD },
     });
     expect(r.status, r.stderr).toBe(0);
     const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8' });
@@ -300,18 +300,18 @@ describe('snowglobe render: group hosts', () => {
 });
 
 describe('https/app-names.cjs', () => {
-  // DEVNET_APP_PROXY_HOST stands in for nginx, so the lookup answers here.
+  // SG_APP_PROXY_HOST stands in for nginx, so the lookup answers here.
   const lookup = (name: string, env: object) =>
     spawnSync('node', ['--require', join(ROOT, 'https/app-names.cjs'), '-e', `require('dns').lookup(${JSON.stringify(name)}, { family: 4 }, (e, a) => console.log(e ? e.code : a))`], {
       encoding: 'utf8',
-      env: { ...process.env, DEVNET_APP_PROXY_HOST: 'localhost', ...env },
+      env: { ...process.env, SG_APP_PROXY_HOST: 'localhost', ...env },
     }).stdout.trim();
 
-  it('sends the domain\'s names to nginx only when DEVNET_RESOLVE_DOMAIN names it', () => {
-    expect(lookup('club.gh.mine.test', { DEVNET_RESOLVE_DOMAIN: 'mine.test' })).toBe('127.0.0.1');
-    expect(lookup('mine.test', { DEVNET_RESOLVE_DOMAIN: 'mine.test' })).toBe('127.0.0.1');
+  it('sends the domain\'s names to nginx only when SG_RESOLVE_DOMAIN names it', () => {
+    expect(lookup('club.gh.mine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).toBe('127.0.0.1');
+    expect(lookup('mine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).toBe('127.0.0.1');
     expect(lookup('club.gh.mine.test', {})).not.toBe('127.0.0.1');
-    expect(lookup('notmine.test', { DEVNET_RESOLVE_DOMAIN: 'mine.test' })).not.toBe('127.0.0.1');
+    expect(lookup('notmine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).not.toBe('127.0.0.1');
     expect(lookup('app.devnet.internal', {})).toBe('127.0.0.1');
   });
 });

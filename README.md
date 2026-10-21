@@ -1,4 +1,4 @@
-# atproto-devnet
+# snowglobe
 
 A self-contained [AT Protocol](https://atproto.com) network for local development and CI. It runs
 on Docker Compose, so it works wherever Docker Compose does, and nothing in it touches Bluesky's
@@ -37,7 +37,7 @@ The overlays add more services:
 Run the devnet with its own Postgres and MailDev for self-contained testing:
 
 ```bash
-git clone https://github.com/OpenMeet-Team/atproto-devnet.git
+git clone https://github.com/OpenMeet-Team/snowglobe.git atproto-devnet
 cd atproto-devnet
 cp .env.example .env
 npm install
@@ -57,6 +57,15 @@ The suite checks health, account seeding, record CRUD, Jetstream events, the raw
 ## Upgrading from earlier versions
 
 Changes to the default stack that existing setups will notice:
+
+- **The repo is `OpenMeet-Team/snowglobe`, and every setting is `SG_*`.** It was
+  `OpenMeet-Team/atproto-devnet` until 2026-10-20; GitHub sends the old address here. Projects that
+  use it still look for it beside them at `../atproto-devnet`, so clone it under that name. The
+  settings that were `DEVNET_*` and `SNOWGLOBE_*` are `SG_*` with the same ending (`DEVNET_BIND` is
+  `SG_BIND`, `SNOWGLOBE_FILE` is `SG_FILE`). The old names still work for now, from the environment
+  or `.env`: `bin/snowglobe.mjs` warns once and reads them as the new ones, and the plain stack's
+  compose files and scripts fall back to them. Files written before (`data/devnet.env`,
+  `data/accounts.env`, the rendered globe) are read either way.
 
 - **The https devnet's default domain is `local.snowglobe.at`, not `devnet.test`.** A PDS refuses
   an OAuth client under `.test`, so at `devnet.test` nobody could sign in through a group host or
@@ -83,11 +92,11 @@ Changes to the default stack that existing setups will notice:
   whenever `data/accounts.json` existed, leaving credentials for accounts that were gone. It now
   checks that the first recorded account exists on the running PDS and reseeds if it doesn't, so
   `data/accounts.env` gets new DIDs and a new invite code.
-- **The PDS runs as root.** Release images already did. This lets `DEVNET_PDS_IMAGE` take monorepo
+- **The PDS runs as root.** Release images already did. This lets `SG_PDS_IMAGE` take monorepo
   images, which default to `node`.
 - **The https devnet's nginx config is a template now: rerun `bin/snowglobe.mjs up` after pulling.**
   `https/nginx.conf` became `https/nginx.conf.template`, which the nginx image fills in with
-  `DEVNET_DOMAIN` when it starts. An nginx container made before the pull still mounts the old file,
+  `SG_DOMAIN` when it starts. An nginx container made before the pull still mounts the old file,
   and once the file is gone that container cannot start again (Docker leaves an empty directory in
   its place). `snowglobe up` recreates it on the new mount. Checking out an older version needs the
   same rerun, the other way round. An overlay that mounts its own config over
@@ -95,7 +104,7 @@ Changes to the default stack that existing setups will notice:
   instead, and one that replaces nginx's command must keep the image's entrypoint, which writes the
   template out.
 - **The https devnet is rendered from a `snowglobe.yml` now, and a running one starts over.**
-  `snowglobe up` writes `data/globe/` with `bin/snowglobe.mjs render` (from `SNOWGLOBE_FILE`, else
+  `snowglobe up` writes `data/globe/` with `bin/snowglobe.mjs render` (from `SG_FILE`, else
   `snowglobe.default.yml`: the same alpha, regular and prod) and runs that one compose file;
   `docker-compose.https.yml` is gone. Each PDS is its own service on the compose network, named
   `pds-<name>`, so the alpha is `pds-alpha`, not `pds`, and its data volume is `pds-alpha-data`, not
@@ -109,7 +118,7 @@ Changes to the default stack that existing setups will notice:
   (the file can also be its argument, and `up` now seeds the file's `accounts`, `lexicons.publish`
   and `apps`), `https-down.sh` is `down`, which takes
   `-v` and nothing else, and `https-run` is `run`. `run` now maps every name the rendered globe
-  answers to, each PDS in the file included, not a fixed three, to `DEVNET_BIND`. `data/devnet.env`
+  answers to, each PDS in the file included, not a fixed three, to `SG_BIND`. `data/devnet.env`
   takes the Jetstream, maildev and proxy ports from `.env` too, as compose does.
 - **snowglobe is `bin/snowglobe.mjs` now.** Its code moved from `scripts/` to `lib/`, one file per
   command under `lib/commands/`. `scripts/snowglobe` still runs it, so a script that calls the old
@@ -123,7 +132,7 @@ atproto-devnet is designed to be **composed into** your project's Docker environ
 
 Your project needs to provide two things that atproto-devnet expects from the network:
 
-1. **PostgreSQL** — PLC stores DIDs here (database name configurable via `DEVNET_DB_NAME`)
+1. **PostgreSQL** — PLC stores DIDs here (database name configurable via `SG_DB_NAME`)
 2. **SMTP server** — PDS sends email verification through this (e.g., MailDev)
 
 If your project already runs these, reuse them. If not, provide them in your overlay (see Open Social example below).
@@ -186,9 +195,9 @@ services:
   # Connect PLC to OpenMeet's existing postgres
   plc:
     environment:
-      DEVNET_DB_HOST: postgres
-      DEVNET_DB_USER: ${DATABASE_USERNAME}
-      DEVNET_DB_PASSWORD: ${DATABASE_PASSWORD}
+      SG_DB_HOST: postgres
+      SG_DB_USER: ${DATABASE_USERNAME}
+      SG_DB_PASSWORD: ${DATABASE_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -257,17 +266,17 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${DEVNET_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DEVNET_DB_NAME:-plc}
+      POSTGRES_USER: ${SG_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${SG_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${SG_DB_NAME:-plc}
     volumes:
       - ${OPENSOCIAL_DIR}/scripts/init-opensocial-db.sh:/docker-entrypoint-initdb.d/10-opensocial.sh:ro
     ports:
-      - "${DEVNET_POSTGRES_PORT:-5433}:5432"
+      - "${SG_POSTGRES_PORT:-5433}:5432"
     networks:
       - atproto-devnet
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DEVNET_DB_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${SG_DB_USER:-postgres}"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -276,8 +285,8 @@ services:
   maildev:
     image: maildev/maildev:latest
     ports:
-      - "${DEVNET_MAILDEV_WEB_PORT:-1081}:1080"
-      - "${DEVNET_MAILDEV_SMTP_PORT:-1026}:1025"
+      - "${SG_MAILDEV_WEB_PORT:-1081}:1080"
+      - "${SG_MAILDEV_SMTP_PORT:-1026}:1025"
     networks:
       - atproto-devnet
 
@@ -508,7 +517,7 @@ unset ACCOUNTS_FILE
 { grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
   echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
   echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' data/devnet.env)"
-  echo "E2E_HANDLE_DOMAIN=$(sed -n 's/^DEVNET_DOMAIN=//p' data/devnet.env)"
+  echo "E2E_HANDLE_DOMAIN=$(sed -n 's/^SG_DOMAIN=//p' data/devnet.env)"
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 
@@ -529,7 +538,7 @@ The test refuses any host that is not this machine. Under `snowglobe run` the de
 
 ## Seeded test accounts
 
-When `DEVNET_SEED_ACCOUNTS=true` (the default), the init container creates two test accounts and writes their credentials to `data/accounts.json` and `data/accounts.env`:
+When `SG_SEED_ACCOUNTS=true` (the default), the init container creates two test accounts and writes their credentials to `data/accounts.json` and `data/accounts.env`:
 
 | Account | Handle | Password |
 |---------|--------|----------|
@@ -542,19 +551,19 @@ Create additional accounts at any time:
 ./scripts/create-account.sh carol.devnet.test
 ```
 
-It talks to `http://localhost:3000`. On the spaces stacks, set `DEVNET_PDS_URL=http://localhost:3010`.
+It talks to `http://localhost:3000`. On the spaces stacks, set `SG_PDS_URL=http://localhost:3010`.
 It needs `curl` and `jq`, and it prints the new password. On the https devnet, use
 [`bin/snowglobe.mjs account`](#tools-for-an-app) instead, which needs only Node and prints no
 password.
 
 ## Choosing a PDS version
 
-`DEVNET_PDS_IMAGE` picks the PDS image, so you can run your app or the test suite against another
+`SG_PDS_IMAGE` picks the PDS image, so you can run your app or the test suite against another
 release, an unreleased upstream commit, or the spaces alpha:
 
 ```bash
 npm run down      # fresh volumes: a newer PDS migrates its database, and an older one can't read it
-DEVNET_PDS_IMAGE=ghcr.io/bluesky-social/pds:0.4.5037 npm run up && npm test
+SG_PDS_IMAGE=ghcr.io/bluesky-social/pds:0.4.5037 npm run up && npm test
 ```
 
 - **Releases:** `ghcr.io/bluesky-social/pds:<version>`, e.g. `0.4.5037`, `beta`, `latest`. The
@@ -588,8 +597,8 @@ Booting takes two passes, because the authority's DID only exists once the PDS i
 ```bash
 F="-f docker-compose.yml -f docker-compose.test.yml -f docker-compose.spaces.yml"
 docker compose $F up -d --wait
-./scripts/lexicon-authority.sh            # prints DEVNET_LEXICON_AUTHORITY_DID=did:plc:...
-DEVNET_LEXICON_AUTHORITY_DID=did:plc:... docker compose $F up -d --wait   # whole stack, not just pds
+./scripts/lexicon-authority.sh            # prints SG_LEXICON_AUTHORITY_DID=did:plc:...
+SG_LEXICON_AUTHORITY_DID=did:plc:... docker compose $F up -d --wait   # whole stack, not just pds
 # then putRecord your lexicons into the authority account
 ```
 
@@ -603,8 +612,8 @@ How this differs from the default stack:
   document's endpoint has to reach the PDS both from inside its container (to resolve lexicons) and
   from the host. `PDS_HOSTNAME=localhost` makes the endpoint `http://localhost:<PDS_PORT>`, so the
   container and host ports must match. `PDS_DEV_MODE` turns off the SSRF protection that would
-  refuse a localhost fetch. Override the port with `DEVNET_SPACES_PDS_PORT`.
-- **Digest-pinned image.** Set `DEVNET_PDS_IMAGE` to try another spaces build.
+  refuse a localhost fetch. Override the port with `SG_SPACES_PDS_PORT`.
+- **Digest-pinned image.** Set `SG_PDS_IMAGE` to try another spaces build.
 
 Observed on this image (revision `79d6307e`): writes inside a space (`createSpace`, member entries,
 records in a space) don't appear on the PDS firehose or on Jetstream; only public repo records do.
@@ -622,11 +631,11 @@ docker compose $F up -d --wait      # then the two-pass authority step from the 
 
 | Service | URL | Image setting | Default | Handles |
 | --- | --- | --- | --- | --- |
-| `pds` | `http://localhost:3010` | `DEVNET_PDS_IMAGE` | spaces alpha `79d6307e` | `.devnet.test` |
-| `pds-regular` | `http://localhost:3020` | `DEVNET_PDS_REGULAR_IMAGE` | `pds:0.4.5037` | `.regular.devnet.test` |
-| `pds-prod` | `http://localhost:3030` | `DEVNET_PDS_PROD_IMAGE` | `pds:0.4.5009` (by digest) | `.prod.devnet.test` |
+| `pds` | `http://localhost:3010` | `SG_PDS_IMAGE` | spaces alpha `79d6307e` | `.devnet.test` |
+| `pds-regular` | `http://localhost:3020` | `SG_PDS_REGULAR_IMAGE` | `pds:0.4.5037` | `.regular.devnet.test` |
+| `pds-prod` | `http://localhost:3030` | `SG_PDS_PROD_IMAGE` | `pds:0.4.5009` (by digest) | `.prod.devnet.test` |
 
-Set `DEVNET_PDS_PROD_IMAGE` to whatever your production PDS runs.
+Set `SG_PDS_PROD_IMAGE` to whatever your production PDS runs.
 
 Each PDS writes `http://localhost:<port>` into its accounts' DID documents. For one PDS to reach
 another's accounts, that URL has to work inside every PDS container as well as on the host, so the
@@ -638,7 +647,7 @@ follow only the alpha; add the local relay below to get one stream from all thre
 A PDS forwards any XRPC method it doesn't implement (`com.atproto.space.*` on a non-spaces build,
 for one) to its AppView with a service-auth token. On a stock build that shows up as `502
 UpstreamFailure`, because every devnet PDS points its AppView at `https://appview.invalid` (see
-`DEVNET_APPVIEW_URL`).
+`SG_APPVIEW_URL`).
 
 ## A local relay
 
@@ -667,7 +676,7 @@ then fails with `unsafe network address`, so the published image can never crawl
 adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
 image. The setting covers both places the relay refuses those addresses: the host check, and the
 firehose dialer for `wss://` hosts, which [the https devnet](#the-https-devnet) needs because its
-PDS names resolve to nginx's private address. Pick another commit with `DEVNET_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
+PDS names resolve to nginx's private address. Pick another commit with `SG_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
 image, and the patch has to apply.
 
 ## The https devnet
@@ -681,7 +690,7 @@ network, so an app built for the real network runs against it with no devnet cod
 
 It runs on Linux, and on Windows under WSL 2; both are tested with `node scripts/smoke.mjs`
 ([Test suite](#test-suite)). macOS is not supported yet: nobody working on it has a Mac to test on.
-If you have one, please try it and [open an issue](https://github.com/OpenMeet-Team/atproto-devnet/issues)
+If you have one, please try it and [open an issue](https://github.com/OpenMeet-Team/snowglobe/issues)
 with what broke, or that it worked; we'll add Mac support over time.
 
 With the default file:
@@ -713,8 +722,8 @@ rest of this README) uses it. The name is ours, and its public DNS points every 
 `127.0.0.1`, so a lookup that misses the devnet's own mapping lands on your machine, not on someone
 else's server. Pick another domain freely, but not one under `.test`, `.local`, `.localhost`,
 `.invalid` or `.example`: the stack comes up there, but a PDS refuses an OAuth client at such a name,
-so nobody can sign in through a group host or PDSls. `DEVNET_DOMAIN` replaces it. Only the https devnet reads it; the plain stack
-keeps `DEVNET_PDS_HOSTNAME` and `DEVNET_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
+so nobody can sign in through a group host or PDSls. `SG_DOMAIN` replaces it. Only the https devnet reads it; the plain stack
+keeps `SG_PDS_HOSTNAME` and `SG_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
 the same stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
 `regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
 In `.env`, write the domain itself (quotes, `export` and a trailing comment are fine); the scripts
@@ -741,10 +750,10 @@ bin/snowglobe.mjs run curl -sS --cacert data/https/ca.crt \
 It checks a handle both ways, which means it fetches `https://<handle>/.well-known/atproto-did`
 from inside the compose network, and a handle's name exists nowhere but in nginx. So it runs in
 the network namespace of `slingshot-dns`, a dnsmasq
-that answers nginx's address for any name under `DEVNET_DOMAIN` and nothing else, and its only
+that answers nginx's address for any name under `SG_DOMAIN` and nothing else, and its only
 root is the devnet CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
 handle: `snowglobe account` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
-To build another Slingshot, set `DEVNET_SLINGSHOT_COMMIT` to a full microcosm-rs commit; it picks
+To build another Slingshot, set `SG_SLINGSHOT_COMMIT` to a full microcosm-rs commit; it picks
 the source and names the image.
 
 ### The network's page
@@ -831,11 +840,11 @@ get each PDS. The one kind, `opensocial`, is
 atproto-group-host, which is not public yet and publishes no image,
 so `up` builds it from a checkout with the repo's own Dockerfile, on every run (Docker's cache keeps
 an unchanged one quick). The checkout is the group host's `build` folder in the file, else
-`SNOWGLOBE_OPENSOCIAL_BUILD` (a path from where you run the command), so a file shared between
+`SG_OPENSOCIAL_BUILD` (a path from where you run the command), so a file shared between
 machines can leave it out:
 
 ```bash
-SNOWGLOBE_OPENSOCIAL_BUILD=../atproto-group-host bin/snowglobe.mjs up ../myapp/snowglobe.yml
+SG_OPENSOCIAL_BUILD=../atproto-group-host bin/snowglobe.mjs up ../myapp/snowglobe.yml
 ```
 
 `image:` in place of `build` runs a built image instead. With neither, and the variable unset,
@@ -863,12 +872,12 @@ The commands, each `bin/snowglobe.mjs <command>`:
 | `check [<file>]` | checks a file |
 | `render [<file>]` | writes the globe it describes into `data/globe/` (`up` does this itself) |
 | `certs [--check]` | makes the CA and the leaf nginx serves (`up` does this itself) |
-| `up [<file>]` | brings the globe up as `DEVNET_PROJECT` and seeds it ([Up and down](#up-and-down)) |
+| `up [<file>]` | brings the globe up as `SG_PROJECT` and seeds it ([Up and down](#up-and-down)) |
 | `down [-v]` | stops it; `-v` drops its volumes too |
 | `run [--] <cmd>` | runs a command that reaches the globe at the real network's names (Linux) |
 | `account`, `invite`, `lexicons`, `app` | make an app's own accounts, invite codes, lexicons and routes ([Tools for an app](#tools-for-an-app)) |
 
-With no `<file>`, `up` reads `SNOWGLOBE_FILE` if it is set; past that, each command reads
+With no `<file>`, `up` reads `SG_FILE` if it is set; past that, each command reads
 `./snowglobe.yml` in the folder it runs in if there is one, else `snowglobe.default.yml` here:
 alpha, regular and prod, with `alice` and `bob`. Exit 2 means
 the command was called wrong, 1 that the globe refused, 3 that `up` or `down` refused the shared
@@ -876,11 +885,11 @@ devnet.
 
 ### Up and down
 
-Every run names its compose project with `DEVNET_PROJECT`; there is no default. The scripts refuse
-the shared project `devnet-spaces` unless `DEVNET_RESET_OK=1`, and exit before calling docker.
+Every run names its compose project with `SG_PROJECT`; there is no default. The scripts refuse
+the shared project `devnet-spaces` unless `SG_RESET_OK=1`, and exit before calling docker.
 
 ```bash
-export DEVNET_PROJECT=devnet-mine
+export SG_PROJECT=devnet-mine
 bin/snowglobe.mjs up      # certificates, two-pass authority boot, data/devnet.env
 bin/snowglobe.mjs down    # stop it; -v also drops its volumes (every account and DID)
 ```
@@ -888,8 +897,8 @@ bin/snowglobe.mjs down    # stop it; -v also drops its volumes (every account an
 Both run the one compose file `snowglobe up` last rendered, from the repo root:
 
 ```bash
-bin/snowglobe.mjs up ../myapp/snowglobe.yml   # another globe than the default (or SNOWGLOBE_FILE)
-docker compose -p "$DEVNET_PROJECT" --project-directory . -f data/globe/compose.yml ps
+bin/snowglobe.mjs up ../myapp/snowglobe.yml   # another globe than the default (or SG_FILE)
+docker compose -p "$SG_PROJECT" --project-directory . -f data/globe/compose.yml ps
 ```
 
 `snowglobe up` is safe to rerun; a rerun leaves the running services as they are, and only the
@@ -899,17 +908,17 @@ a long time before it redials a PDS that went away and came back. It refuses a P
 claimed with `snowglobe app`, before it writes anything. It makes the leaf certificate if there is
 none, brings the stack up, makes the lexicon authority (`lex-authority.local.snowglobe.at` on the file's
 `lexicons.authority` PDS, the alpha by default),
-brings the stack up again with `DEVNET_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
-`data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `DEVNET_INVITE_CODE`
+brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
+`data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
 into `data/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
 stacks. Nothing else is seeded.
 
-Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`DEVNET_PLC_PORT`), Jetstream
-(`DEVNET_JETSTREAM_PORT`, `DEVNET_JETSTREAM_METRICS_PORT`) and maildev (`DEVNET_MAILDEV_WEB_PORT`,
-`DEVNET_MAILDEV_SMTP_PORT`). Set those to run a second https devnet beside another; pass the same
+Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`SG_PLC_PORT`), Jetstream
+(`SG_JETSTREAM_PORT`, `SG_JETSTREAM_METRICS_PORT`) and maildev (`SG_MAILDEV_WEB_PORT`,
+`SG_MAILDEV_SMTP_PORT`). Set those to run a second https devnet beside another; pass the same
 values on every run. The PDS, relay, TAP and Postgres ports are not published: reach a PDS by its
 https name. nginx needs port 443 itself, so a second https devnet also takes another loopback
-address, `DEVNET_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
+address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
 environment or `.env`; the scripts read it as compose does, `snowglobe run` maps the names to it, and
 `data/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the devnet's
 logins are throwaway, so it is never published beyond this machine.
@@ -928,11 +937,11 @@ a new DID.
 - `data/devnet.env`: the devnet's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
   (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
   leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
-  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN`,
+  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `SG_PROJECT`, `SG_DOMAIN`,
   `PAGE_URL` (`https://local.snowglobe.at/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
-  `DEVNET_CA_FILE`.
+  `SG_CA_FILE`.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
-- `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
+- `data/accounts.env` (mode 600): logins. `SG_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the tools below add.
 - `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's and
   group host's server and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
@@ -953,7 +962,7 @@ bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the rea
 
 - the globe's names (its page, every PDS, its services and `plc.directory`, as the rendered globe
   lists them), every handle in `data/https/names` and every app in `data/https/apps` (as
-  `<name>.devnet.internal`) resolve to `DEVNET_BIND` (`127.0.0.1` by default).
+  `<name>.devnet.internal`) resolve to `SG_BIND` (`127.0.0.1` by default).
   [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
   with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
   `HTTPS_RUN_EXTRA_NAMES` adds names.
@@ -981,7 +990,7 @@ bin/snowglobe.mjs account bookreader BOOKCLUB_READER regular      # bookreader.r
 Without `<pds>` it uses the PDS with `bare_handles`, else the first. It prints the DID alone, and a
 rerun finds the account instead of making another. The login goes to `ACCOUNTS_FILE` (default
 `data/accounts.env`, mode 600) as `<PREFIX>_HANDLE`, `_DID`, `_PASSWORD` and `_PDS`, and the
-handle goes to `data/https/names`. A PDS with `invites: required` is sent `DEVNET_INVITE_CODE` if it
+handle goes to `data/https/names`. A PDS with `invites: required` is sent `SG_INVITE_CODE` if it
 is set, else a single-use code minted for the account; the others are sent none. On the PDS with
 bare handles, a name the globe uses itself (a PDS's, a service's, an app's handle ending) is
 refused, because the handle would be that name.
@@ -1020,7 +1029,7 @@ bin/snowglobe.mjs app bookclub 5600     # https://bookclub.devnet.internal -> po
 
 The app must listen where Docker's host gateway lands (`host.docker.internal` inside the
 containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `data/https/apps` (a
-rerun with the same name changes the port), and nginx in `DEVNET_PROJECT`'s stack is reloaded.
+rerun with the same name changes the port), and nginx in `SG_PROJECT`'s stack is reloaded.
 `bin/snowglobe.mjs app --remove bookclub` drops the route the same way, and the app comes off the
 network page. A
 `.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
@@ -1084,7 +1093,7 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
   only once it has sent an event.
 - **TAP resync is not supported.** TAP follows the relay's stream, but it fetches a repo to resync
   through an SSRF-safe transport that refuses nginx's address, so a resync fails here.
-- **Jetstream is unchanged**, at `ws://127.0.0.1:<DEVNET_JETSTREAM_PORT>`, reading the relay over the
+- **Jetstream is unchanged**, at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the
   compose network.
 
 ### The CA
@@ -1105,7 +1114,7 @@ with `HTTPS_EXTRA_NAMES="x.mine.local.snowglobe.at"` on every run, then restart 
 under `local.snowglobe.at` is already covered. To start over, delete `data/https/ca.*` and trust the new
 `ca.crt` wherever the old one was trusted.
 
-The CA can only vouch for servers under `local.snowglobe.at` (the `DEVNET_DOMAIN` it was made for),
+The CA can only vouch for servers under `local.snowglobe.at` (the `SG_DOMAIN` it was made for),
 `devnet.internal` and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
 when you're done with it. On Windows: `certutil -user -delstore Root "<its name>"`, the name being the
@@ -1126,7 +1135,7 @@ setting you make once, in the browser you already use. Launch flags (further dow
 #### Through the devnet's proxy (Chrome, Edge, Firefox)
 
 The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
-port, `127.0.0.1:1080` (`DEVNET_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
+port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
 reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at`, `*.local.snowglobe.at` and
 `*.devnet.internal` to the proxy and everything else direct, so the rest of your browsing is
 untouched. The browser hands the proxy the name, and the proxy connects every devnet name to nginx,
@@ -1150,7 +1159,7 @@ address and any port but 443.
    Without this step the proxy still works, but each devnet name gets a certificate warning you click
    through once, and an app's own calls from the page to a PDS fail where no one can click.
 2. **Forward the proxy's port.** In VS Code's Ports view, forward port 1080 of the dev container
-   (`DEVNET_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
+   (`SG_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
    fetched from. The proxy asks no one to sign in, so whoever can reach the forwarded port reaches
    the whole devnet: every PDS, the PLC, the network page, and every app of yours routed with
    `snowglobe app`, each behind only its own sign-in. Keep the forwarded port on your computer's
@@ -1243,48 +1252,48 @@ All settings have sensible defaults. Override via `.env` or environment variable
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEVNET_DB_USER` | `postgres` | PostgreSQL username |
-| `DEVNET_DB_PASSWORD` | `postgres` | PostgreSQL password |
-| `DEVNET_DB_HOST` | `postgres` | PostgreSQL hostname |
-| `DEVNET_DB_PORT` | `5432` | PostgreSQL port |
-| `DEVNET_DB_NAME` | `plc` | Database name for PLC |
-| `DEVNET_SMTP_URL` | `smtp://maildev:1025` | SMTP server for PDS email. Under `npm run up`, the test overlay sets the PDS's SMTP URL to `smtp://maildev:1025` directly, so this has no effect there |
+| `SG_DB_USER` | `postgres` | PostgreSQL username |
+| `SG_DB_PASSWORD` | `postgres` | PostgreSQL password |
+| `SG_DB_HOST` | `postgres` | PostgreSQL hostname |
+| `SG_DB_PORT` | `5432` | PostgreSQL port |
+| `SG_DB_NAME` | `plc` | Database name for PLC |
+| `SG_SMTP_URL` | `smtp://maildev:1025` | SMTP server for PDS email. Under `npm run up`, the test overlay sets the PDS's SMTP URL to `smtp://maildev:1025` directly, so this has no effect there |
 
 ### PDS settings
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEVNET_DOMAIN` | `local.snowglobe.at` | The https devnet's domain, which every name there sits under ([The https devnet](#the-https-devnet)). The plain stack does not read it |
-| `DEVNET_PDS_HOSTNAME` | `devnet.test` | PDS service hostname (the https devnet names its PDSes itself) |
-| `DEVNET_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
-| `DEVNET_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
-| `DEVNET_APPVIEW_URL` / `DEVNET_APPVIEW_DID` | `https://appview.invalid` / `did:example:invalid` | Where the PDS forwards app.bsky.* reads and methods it doesn't implement. Unresolvable, so nothing reaches Bluesky |
-| `DEVNET_REPORT_SERVICE_URL` / `DEVNET_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
-| `DEVNET_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts (the https devnet uses `.` + `DEVNET_DOMAIN`) |
-| `DEVNET_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
-| `DEVNET_PDS_REGULAR_IMAGE` / `DEVNET_PDS_PROD_IMAGE` | `ghcr.io/bluesky-social/pds:0.4.5037` / a pinned production digest | The two extra PDS builds ([Several PDS builds side by side](#several-pds-builds-side-by-side)) |
-| `DEVNET_LEXICON_AUTHORITY_DID` | empty | The spaces PDS's lexicon authority ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons)) |
-| `DEVNET_RELAY_INDIGO_COMMIT` | `b2619d8...` | The indigo commit the relay image builds from |
-| `DEVNET_RELAY_ADMIN_PASSWORD` | `devnet-relay-admin` | The relay's admin password |
+| `SG_DOMAIN` | `local.snowglobe.at` | The https devnet's domain, which every name there sits under ([The https devnet](#the-https-devnet)). The plain stack does not read it |
+| `SG_PDS_HOSTNAME` | `devnet.test` | PDS service hostname (the https devnet names its PDSes itself) |
+| `SG_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
+| `SG_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
+| `SG_APPVIEW_URL` / `SG_APPVIEW_DID` | `https://appview.invalid` / `did:example:invalid` | Where the PDS forwards app.bsky.* reads and methods it doesn't implement. Unresolvable, so nothing reaches Bluesky |
+| `SG_REPORT_SERVICE_URL` / `SG_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
+| `SG_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts (the https devnet uses `.` + `SG_DOMAIN`) |
+| `SG_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
+| `SG_PDS_REGULAR_IMAGE` / `SG_PDS_PROD_IMAGE` | `ghcr.io/bluesky-social/pds:0.4.5037` / a pinned production digest | The two extra PDS builds ([Several PDS builds side by side](#several-pds-builds-side-by-side)) |
+| `SG_LEXICON_AUTHORITY_DID` | empty | The spaces PDS's lexicon authority ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons)) |
+| `SG_RELAY_INDIGO_COMMIT` | `b2619d8...` | The indigo commit the relay image builds from |
+| `SG_RELAY_ADMIN_PASSWORD` | `devnet-relay-admin` | The relay's admin password |
 
 ### Host port mapping
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEVNET_PDS_PORT` | `3000` | PDS |
-| `DEVNET_PLC_PORT` | `2582` | PLC |
-| `DEVNET_JETSTREAM_PORT` | `6008` | Jetstream WebSocket |
-| `DEVNET_JETSTREAM_METRICS_PORT` | `6009` | Jetstream metrics |
-| `DEVNET_TAP_PORT` | `2480` | TAP |
-| `DEVNET_SPACES_PDS_PORT` | `3010` | The spaces PDS. `DEVNET_PDS_PORT` applies to the default PDS only, and `pds-regular` and `pds-prod` always use 3020 and 3030 |
-| `DEVNET_RELAY_PORT` | `2470` | Relay |
-| `DEVNET_POSTGRES_PORT` | `5433` | Postgres (`npm run up` only) |
-| `DEVNET_MAILDEV_WEB_PORT` / `DEVNET_MAILDEV_SMTP_PORT` | `1081` / `1026` | MailDev (`npm run up` only) |
+| `SG_PDS_PORT` | `3000` | PDS |
+| `SG_PLC_PORT` | `2582` | PLC |
+| `SG_JETSTREAM_PORT` | `6008` | Jetstream WebSocket |
+| `SG_JETSTREAM_METRICS_PORT` | `6009` | Jetstream metrics |
+| `SG_TAP_PORT` | `2480` | TAP |
+| `SG_SPACES_PDS_PORT` | `3010` | The spaces PDS. `SG_PDS_PORT` applies to the default PDS only, and `pds-regular` and `pds-prod` always use 3020 and 3030 |
+| `SG_RELAY_PORT` | `2470` | Relay |
+| `SG_POSTGRES_PORT` | `5433` | Postgres (`npm run up` only) |
+| `SG_MAILDEV_WEB_PORT` / `SG_MAILDEV_SMTP_PORT` | `1081` / `1026` | MailDev (`npm run up` only) |
 
-`create-account.sh` and the test suite reach the PDS at `DEVNET_PDS_URL` (default
+`create-account.sh` and the test suite reach the PDS at `SG_PDS_URL` (default
 `http://localhost:3000`). `lexicon-authority.sh` defaults it to the spaces PDS on 3010. The tests
-also read `DEVNET_PLC_URL`, `DEVNET_JETSTREAM_WS_URL`, `DEVNET_JETSTREAM_METRICS_URL` and
-`DEVNET_TAP_URL`, each defaulting to localhost on the ports above.
+also read `SG_PLC_URL`, `SG_JETSTREAM_WS_URL`, `SG_JETSTREAM_METRICS_URL` and
+`SG_TAP_URL`, each defaulting to localhost on the ports above.
 
 ## npm scripts
 

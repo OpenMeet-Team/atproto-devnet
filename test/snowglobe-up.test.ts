@@ -39,8 +39,8 @@ describe('what up writes', () => {
     });
     const vars = Object.fromEntries(text.split('\n').filter((l: string) => l && !l.startsWith('#')).map((l: string) => l.split(/=(.*)/s).slice(0, 2)));
     expect(vars).toEqual({
-      DEVNET_PROJECT: 'p',
-      DEVNET_DOMAIN: 'four.test',
+      SG_PROJECT: 'p',
+      SG_DOMAIN: 'four.test',
       PAGE_URL: 'https://four.test/',
       ALPHA_PDS_URL: 'https://alpha.four.test',
       BETA_PDS_URL: 'https://beta.four.test',
@@ -51,8 +51,8 @@ describe('what up writes', () => {
       PROXY_PAC_URL: 'http://127.0.0.1:1090/proxy.pac',
       LEX_AUTHORITY_DID: 'did:plc:abc',
       LEX_AUTHORITY_HANDLE: 'lex-authority.four.test',
-      DEVNET_CA_FILE: '/x/ca.crt',
-      DEVNET_BIND: '127.0.0.2',
+      SG_CA_FILE: '/x/ca.crt',
+      SG_BIND: '127.0.0.2',
     });
   });
 });
@@ -94,17 +94,17 @@ function globeRoot() {
 }
 // An address no globe is on, so nothing here can reach one.
 function sg(r: string, args: string[], env: Record<string, string> = {}, path = `${join(r, 'shim')}:${process.env.PATH}`) {
-  const base = { PATH: path, HOME: r, DEVNET_BIND: '127.77.0.9' };
+  const base = { PATH: path, HOME: r, SG_BIND: '127.77.0.9' };
   return spawnSync(join(r, 'shim/node'), [join(r, 'bin/snowglobe.mjs'), ...args], { cwd: r, env: { ...base, ...env }, encoding: 'utf8', timeout: 60000 });
 }
 const dockerLog = (r: string) => (existsSync(join(r, 'docker.log')) ? readFileSync(join(r, 'docker.log'), 'utf8') : '');
 
 describe('snowglobe up and down', () => {
-  it('need DEVNET_PROJECT, and refuse the shared devnet before any docker command', () => {
+  it('need SG_PROJECT, and refuse the shared devnet before any docker command', () => {
     const r = globeRoot();
     for (const cmd of [['up'], ['down', '-v']]) {
       expect(sg(r, cmd).status, cmd[0]).toBe(2);
-      const shared = sg(r, cmd, { DEVNET_PROJECT: 'devnet-spaces' });
+      const shared = sg(r, cmd, { SG_PROJECT: 'devnet-spaces' });
       expect(shared.status, cmd[0]).toBe(3);
       expect(shared.stderr).toContain('devnet-spaces');
     }
@@ -113,40 +113,40 @@ describe('snowglobe up and down', () => {
 
   it('down stops the project on the rendered globe, with its volumes on -v', () => {
     const r = globeRoot();
-    expect(sg(r, ['down', '-v'], { DEVNET_PROJECT: 'mine', SHIM_EXIT: '0' }).status).toBe(0);
-    expect(sg(r, ['down'], { DEVNET_PROJECT: 'devnet-spaces', DEVNET_RESET_OK: '1', SHIM_EXIT: '0' }).status).toBe(0);
+    expect(sg(r, ['down', '-v'], { SG_PROJECT: 'mine', SHIM_EXIT: '0' }).status).toBe(0);
+    expect(sg(r, ['down'], { SG_PROJECT: 'devnet-spaces', SG_RESET_OK: '1', SHIM_EXIT: '0' }).status).toBe(0);
     expect(dockerLog(r)).toBe(
       `compose -p mine --project-directory ${r} -f ${join(r, 'data/globe/compose.yml')} down --remove-orphans -v\n` +
         `compose -p devnet-spaces --project-directory ${r} -f ${join(r, 'data/globe/compose.yml')} down --remove-orphans\n`,
     );
-    expect(sg(r, ['down', '--force'], { DEVNET_PROJECT: 'mine' }).status).toBe(2);
+    expect(sg(r, ['down', '--force'], { SG_PROJECT: 'mine' }).status).toBe(2);
   });
 
   it('up refuses a PDS named for an app\'s ending, and leaves the render as it was', () => {
     const r = globeRoot();
     writeFileSync(join(r, 'data/https/apps'), 'atmo 5173 beta\n');
     const before = readFileSync(join(r, 'data/globe/globe.env'), 'utf8');
-    const res = sg(r, ['up', FOUR], { DEVNET_PROJECT: 'mine' });
+    const res = sg(r, ['up', FOUR], { SG_PROJECT: 'mine' });
     expect(res.status).toBe(1);
     expect(res.stderr).toContain('atmo');
     expect(readFileSync(join(r, 'data/globe/globe.env'), 'utf8')).toBe(before);
     expect(dockerLog(r)).toBe('');
   });
 
-  it('up refuses a DEVNET_BIND that is not loopback before any docker command', () => {
+  it('up refuses a SG_BIND that is not loopback before any docker command', () => {
     const r = globeRoot();
-    expect(sg(r, ['up', FOUR], { DEVNET_PROJECT: 'mine', DEVNET_BIND: '0.0.0.0' }).status).toBe(1);
+    expect(sg(r, ['up', FOUR], { SG_PROJECT: 'mine', SG_BIND: '0.0.0.0' }).status).toBe(1);
     expect(dockerLog(r)).toBe('');
   });
 });
 
 describe('snowglobe run', () => {
-  it.skipIf(!bwrapWorks)('maps every PDS, handle and app name to DEVNET_BIND, for the command alone', () => {
+  it.skipIf(!bwrapWorks)('maps every PDS, handle and app name to SG_BIND, for the command alone', () => {
     const r = globeRoot();
     writeFileSync(join(r, 'data/https/apps'), 'probe 5480\n');
     writeFileSync(join(r, 'data/https/names'), 'carol.beta.four.test\n');
     const names = ['four.test', 'alpha.four.test', 'beta.four.test', 'regular.four.test', 'prod.four.test', 'plc.directory', 'carol.beta.four.test', 'probe.devnet.internal', 'x.example'];
-    const res = sg(r, ['run', '--', 'getent', 'hosts', ...names], { DEVNET_BIND: '127.0.0.9', HTTPS_RUN_EXTRA_NAMES: 'x.example' });
+    const res = sg(r, ['run', '--', 'getent', 'hosts', ...names], { SG_BIND: '127.0.0.9', HTTPS_RUN_EXTRA_NAMES: 'x.example' });
     expect(res.status, res.stderr).toBe(0);
     expect(res.stdout.trim().split('\n').map((l) => l.split(/\s+/))).toEqual(names.map((n) => ['127.0.0.9', n]));
     // Outside run, none of the globe's own names resolves.

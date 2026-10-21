@@ -1,6 +1,6 @@
 # nginx for the https devnet (the globe's compose.yml, bin/snowglobe.mjs render). One leaf
 # certificate names every host below; data/https/ca.crt is the CA that signed it (bin/snowglobe.mjs certs).
-# A template: at start the image writes it to conf.d/default.conf with the DEVNET_DOMAIN
+# A template: at start the image writes it to conf.d/default.conf with the SG_DOMAIN
 # setting filled in, so this is the http block's whole server list. The comments below
 # name its default, local.snowglobe.at.
 
@@ -47,7 +47,7 @@ include /etc/nginx/globe/*.conf;
 # app's browser code, which cannot use plain http or the host's ports, reaches it too.
 server {
     listen 443 ssl;
-    server_name plc.${DEVNET_DOMAIN};
+    server_name plc.${SG_DOMAIN};
     location / {
         set $plc http://plc:2582;
         proxy_pass $plc;
@@ -59,7 +59,7 @@ server {
 # services, which bin/snowglobe.mjs up and snowglobe app write.
 server {
     listen 443 ssl;
-    server_name ${DEVNET_DOMAIN};
+    server_name ${SG_DOMAIN};
     server_tokens off;
     root /srv/page;
     include /etc/nginx/page/devnet.conf;

@@ -46,7 +46,7 @@ if [ "${SEED_ACCOUNTS}" = "true" ]; then
   # Initialize output files
   echo "{}" > "${DATA_DIR}/accounts.json"
   : > "${DATA_DIR}/accounts.env"
-  echo "DEVNET_INVITE_CODE=${INVITE_CODE}" >> "${DATA_DIR}/accounts.env"
+  echo "SG_INVITE_CODE=${INVITE_CODE}" >> "${DATA_DIR}/accounts.env"
 
   create_account() {
     local handle="$1"
@@ -95,13 +95,13 @@ if [ "${SEED_ACCOUNTS}" = "true" ]; then
 
   create_account \
     "alice${HANDLE_DOMAIN}" \
-    "alice@${DEVNET_DOMAIN:-devnet.test}" \
+    "alice@${SG_DOMAIN:-${DEVNET_DOMAIN:-devnet.test}}" \
     "alice-devnet-pass" \
     "ALICE"
 
   create_account \
     "bob${HANDLE_DOMAIN}" \
-    "bob@${DEVNET_DOMAIN:-devnet.test}" \
+    "bob@${SG_DOMAIN:-${DEVNET_DOMAIN:-devnet.test}}" \
     "bob-devnet-pass" \
     "BOB"
 
@@ -109,7 +109,7 @@ if [ "${SEED_ACCOUNTS}" = "true" ]; then
   fi
 else
   log "Skipping account seeding (SEED_ACCOUNTS=${SEED_ACCOUNTS})"
-  echo "DEVNET_INVITE_CODE=${INVITE_CODE}" > "${DATA_DIR}/accounts.env"
+  echo "SG_INVITE_CODE=${INVITE_CODE}" > "${DATA_DIR}/accounts.env"
 fi
 
 # Make output files world-readable/writable so host user can read them

@@ -20,8 +20,8 @@ if [ -f "${ROOT_DIR}/.env" ]; then
   set +a
 fi
 
-PDS_URL="${DEVNET_PDS_URL:-http://localhost:${DEVNET_PDS_PORT:-3000}}"
-PDS_ADMIN_PASSWORD="${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}"
+PDS_URL="${SG_PDS_URL:-${DEVNET_PDS_URL:-http://localhost:${SG_PDS_PORT:-${DEVNET_PDS_PORT:-3000}}}}"
+PDS_ADMIN_PASSWORD="${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}"
 
 HANDLE="${1:?Usage: create-account.sh <handle> [email] [password]}"
 EMAIL="${2:-${HANDLE}@devnet.test}"
@@ -29,7 +29,7 @@ PASSWORD="${3:-$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c
 
 # Get or create invite code
 if [ -f "${DATA_DIR}/accounts.env" ]; then
-  INVITE_CODE=$(grep '^DEVNET_INVITE_CODE=' "${DATA_DIR}/accounts.env" | cut -d= -f2)
+  INVITE_CODE=$(grep -E '^(SG|DEVNET)_INVITE_CODE=' "${DATA_DIR}/accounts.env" | cut -d= -f2)
 fi
 
 if [ -z "${INVITE_CODE:-}" ]; then

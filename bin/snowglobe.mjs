@@ -8,7 +8,7 @@
 //   invite    mints an invite code on one of its PDSes
 //   lexicons  publishes lexicons into its lexicon authority
 //   app       routes https://<name>.devnet.internal to a port on this machine
-//   up        brings the globe up as compose project DEVNET_PROJECT
+//   up        brings the globe up as compose project SG_PROJECT
 //   down      stops it
 //   run       runs a command that reaches the globe at the real network's names
 //
@@ -18,7 +18,7 @@
 // command's code.
 
 import { readArgs } from '../lib/args.mjs';
-import { Refused, UsageError } from '../lib/env.mjs';
+import { Refused, UsageError, adoptOldNames } from '../lib/env.mjs';
 
 // Loaded when it runs, so check and render do without the certificate library.
 const COMMANDS = {
@@ -43,6 +43,8 @@ if (!parsed) {
   console.error(`Usage: ${lines.join('\n       ')}`);
   process.exit(2);
 }
+// DEVNET_* and SNOWGLOBE_* settings, the old names, become SG_* before any command reads them.
+adoptOldNames();
 try {
   process.exit((await mod.run(parsed)) ?? 0);
 } catch (e) {

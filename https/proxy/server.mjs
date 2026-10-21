@@ -20,7 +20,7 @@
 // The PAC names the proxy by the Host its request came in on, so it is right whatever port the
 // browser's machine forwards. Settings:
 //
-//   PROXY_DOMAIN    the devnet's domain (DEVNET_DOMAIN)
+//   PROXY_DOMAIN    the devnet's domain (SG_DOMAIN)
 //   PROXY_UPSTREAM  host:port every allowed name goes to (default nginx:443)
 //   PROXY_BIND      host:port to listen on (default 0.0.0.0:1080)
 import http from 'node:http'

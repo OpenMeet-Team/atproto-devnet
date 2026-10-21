@@ -1,5 +1,5 @@
 # The DNS a service in the compose network needs to check a handle: any name under
-# DEVNET_DOMAIN answers nginx's address. Docker's own DNS answers the service names first
+# SG_DOMAIN answers nginx's address. Docker's own DNS answers the service names first
 # and asks this only for names it does not know; this refuses every name outside the domain,
 # so nothing on the public internet resolves.
 # On the machine the lab does this one name at a time (bin/snowglobe.mjs run); inside the

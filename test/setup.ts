@@ -5,7 +5,7 @@ import { resolve } from 'path';
 const ROOT = resolve(import.meta.dirname, '..');
 
 export interface DevnetAccounts {
-  DEVNET_INVITE_CODE: string;
+  SG_INVITE_CODE: string;
   ALICE_HANDLE: string;
   ALICE_DID: string;
   ALICE_PASSWORD: string;
@@ -58,12 +58,12 @@ function loadEnvPorts(): Record<string, string> {
 const envPorts = loadEnvPorts();
 
 /** Base URLs for devnet services (host-side ports from .env) */
-export const PDS_URL = process.env.DEVNET_PDS_URL || `http://localhost:${envPorts.DEVNET_PDS_PORT || '3000'}`;
-export const PLC_URL = process.env.DEVNET_PLC_URL || `http://localhost:${envPorts.DEVNET_PLC_PORT || '2582'}`;
-export const JETSTREAM_WS_URL = process.env.DEVNET_JETSTREAM_WS_URL || `ws://localhost:${envPorts.DEVNET_JETSTREAM_PORT || '6008'}`;
-export const JETSTREAM_METRICS_URL = process.env.DEVNET_JETSTREAM_METRICS_URL || `http://localhost:${envPorts.DEVNET_JETSTREAM_METRICS_PORT || '6009'}`;
-export const TAP_URL = process.env.DEVNET_TAP_URL || `http://localhost:${envPorts.DEVNET_TAP_PORT || '2480'}`;
-export const TAP_WS_URL = process.env.DEVNET_TAP_WS_URL || `ws://localhost:${envPorts.DEVNET_TAP_PORT || '2480'}`;
+export const PDS_URL = process.env.SG_PDS_URL || `http://localhost:${envPorts.SG_PDS_PORT || '3000'}`;
+export const PLC_URL = process.env.SG_PLC_URL || `http://localhost:${envPorts.SG_PLC_PORT || '2582'}`;
+export const JETSTREAM_WS_URL = process.env.SG_JETSTREAM_WS_URL || `ws://localhost:${envPorts.SG_JETSTREAM_PORT || '6008'}`;
+export const JETSTREAM_METRICS_URL = process.env.SG_JETSTREAM_METRICS_URL || `http://localhost:${envPorts.SG_JETSTREAM_METRICS_PORT || '6009'}`;
+export const TAP_URL = process.env.SG_TAP_URL || `http://localhost:${envPorts.SG_TAP_PORT || '2480'}`;
+export const TAP_WS_URL = process.env.SG_TAP_WS_URL || `ws://localhost:${envPorts.SG_TAP_PORT || '2480'}`;
 
 /**
  * Wait for a condition to become true, polling at interval.

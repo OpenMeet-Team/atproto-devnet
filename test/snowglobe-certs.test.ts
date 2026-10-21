@@ -28,13 +28,13 @@ function globeRoot(names = NAMES) {
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
   mkdirSync(join(r, 'data/globe'), { recursive: true });
-  writeFileSync(join(r, 'data/globe/globe.env'), `DEVNET_DOMAIN=${D}\n`);
+  writeFileSync(join(r, 'data/globe/globe.env'), `SG_DOMAIN=${D}\n`);
   writeFileSync(join(r, 'data/globe/leaf-names'), names.join('\n') + '\n');
   return r;
 }
 const certs = (r: string, args: string[] = [], env: Record<string, string> = {}) => {
   const e: Record<string, string | undefined> = { ...process.env, ...env };
-  delete e.DEVNET_DOMAIN;
+  delete e.SG_DOMAIN;
   delete e.HTTPS_EXTRA_NAMES;
   Object.assign(e, env);
   return spawnSync('node', [join(r, 'bin/snowglobe.mjs'), 'certs', ...args], { encoding: 'utf8', cwd: r, env: e });

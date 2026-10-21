@@ -1,7 +1,7 @@
 // snowglobe app (lib/commands/app.mjs, lib/apps.mjs): app routes through the globe's nginx and the
 // network page. No Docker needed; run them alone with `npx vitest run snowglobe-apps`. The
 // renderers are checked against test/snowglobe/apps/<globe>/; after a deliberate change, rewrite
-// them with SNOWGLOBE_WRITE_RENDERED=1 npx vitest run snowglobe-apps, and read the diff. The CLI
+// them with SG_WRITE_RENDERED=1 npx vitest run snowglobe-apps, and read the diff. The CLI
 // runs on a copy of bin/ and lib/ in a temporary root, with no globe running, so nginx is not touched.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
@@ -38,7 +38,7 @@ describe('the app renderers', () => {
       };
       for (const [f, text] of Object.entries(out)) {
         const path = join(ROOT, 'test/snowglobe/apps', name, f);
-        if (process.env.SNOWGLOBE_WRITE_RENDERED) {
+        if (process.env.SG_WRITE_RENDERED) {
           mkdirSync(dirname(path), { recursive: true });
           writeFileSync(path, text);
         }
@@ -86,7 +86,7 @@ function globeRoot() {
 }
 function cleanEnv() {
   const e: Record<string, string | undefined> = { ...process.env };
-  for (const k of ['DEVNET_DOMAIN', 'DEVNET_PROJECT', 'DEVNET_BIND', 'HTTPS_EXTRA_NAMES']) delete e[k];
+  for (const k of ['SG_DOMAIN', 'SG_PROJECT', 'SG_BIND', 'HTTPS_EXTRA_NAMES']) delete e[k];
   return e;
 }
 const app = (r: string, ...args: string[]) =>

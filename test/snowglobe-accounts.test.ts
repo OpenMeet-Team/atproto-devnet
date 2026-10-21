@@ -83,13 +83,13 @@ beforeAll(async () => {
   writeFileSync(
     join(root, 'data/globe/globe.env'),
     [
-      `DEVNET_DOMAIN=${D}`,
-      `SNOWGLOBE_PDS=${PDS.join(' ')}`,
-      'SNOWGLOBE_SEED_PDS=alpha',
-      'SNOWGLOBE_BARE_PDS=alpha',
-      'SNOWGLOBE_INVITE_PDS=alpha beta',
-      'SNOWGLOBE_AUTHORITY_PDS=alpha',
-      `SNOWGLOBE_TAKEN=plc relay lex-authority ${PDS.join(' ')}`,
+      `SG_DOMAIN=${D}`,
+      `SG_PDS=${PDS.join(' ')}`,
+      'SG_SEED_PDS=alpha',
+      'SG_BARE_PDS=alpha',
+      'SG_INVITE_PDS=alpha beta',
+      'SG_AUTHORITY_PDS=alpha',
+      `SG_TAKEN=plc relay lex-authority ${PDS.join(' ')}`,
       '',
     ].join('\n'),
   );
@@ -127,7 +127,7 @@ function sg(args: string[], env: Record<string, string> = {}): Promise<{ status:
   return new Promise((done) => {
     const p = spawn(join(bin, 'node'), [join(root, 'bin/snowglobe.mjs'), ...args], {
       cwd: root,
-      env: { PATH: bin, HOME: root, DEVNET_BIND: BIND, ...env },
+      env: { PATH: bin, HOME: root, SG_BIND: BIND, ...env },
     });
     let stdout = '';
     let stderr = '';
@@ -179,10 +179,10 @@ describe.skipIf(!canBind443)('snowglobe account', () => {
     expect(globe.accounts.get(`member.beta.${D}`)?.pds).toBe('beta');
   });
 
-  it('takes DEVNET_INVITE_CODE when it is set', async () => {
+  it('takes SG_INVITE_CODE when it is set', async () => {
     expect((await sg(['invite', 'SPARE', join(root, 'spare.env'), '--pds', 'alpha'])).status).toBe(0);
     const code = envOf(join(root, 'spare.env')).SPARE;
-    const r = await sg(['account', 'given', 'APP_GIVEN'], { DEVNET_INVITE_CODE: code });
+    const r = await sg(['account', 'given', 'APP_GIVEN'], { SG_INVITE_CODE: code });
     expect(r.status, r.stderr).toBe(0);
     expect(globe.seen.at(-1)!.body.inviteCode).toBe(code);
   });
@@ -211,7 +211,7 @@ describe.skipIf(!canBind443)('snowglobe account', () => {
   });
 
   it('says why a PDS refused, and saves nothing', async () => {
-    const r = await sg(['account', 'nope', 'APP_NOPE'], { DEVNET_INVITE_CODE: 'not-a-code' });
+    const r = await sg(['account', 'nope', 'APP_NOPE'], { SG_INVITE_CODE: 'not-a-code' });
     expect(r.status).toBe(1);
     expect(r.stderr).toContain('InvalidInviteCode');
     expect(envOf(accountsFile())).not.toHaveProperty('APP_NOPE_DID');

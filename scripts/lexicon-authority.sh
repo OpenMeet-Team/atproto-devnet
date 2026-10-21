@@ -27,16 +27,16 @@ if [ -f "${ROOT_DIR}/.env" ]; then
   set +a
 fi
 
-PDS_URL="${DEVNET_PDS_URL:-http://localhost:${DEVNET_SPACES_PDS_PORT:-3010}}"
-HANDLE="${DEVNET_LEX_AUTHORITY_HANDLE:-lex-authority${DEVNET_HANDLE_DOMAIN:-.devnet.test}}"
-PASSWORD="${DEVNET_LEX_AUTHORITY_PASSWORD:-lex-authority-devnet-pass}"
+PDS_URL="${SG_PDS_URL:-${DEVNET_PDS_URL:-http://localhost:${SG_SPACES_PDS_PORT:-${DEVNET_SPACES_PDS_PORT:-3010}}}}"
+HANDLE="${SG_LEX_AUTHORITY_HANDLE:-${DEVNET_LEX_AUTHORITY_HANDLE:-lex-authority${SG_HANDLE_DOMAIN:-${DEVNET_HANDLE_DOMAIN:-.devnet.test}}}}"
+PASSWORD="${SG_LEX_AUTHORITY_PASSWORD:-${DEVNET_LEX_AUTHORITY_PASSWORD:-lex-authority-devnet-pass}}"
 
 DID=$(curl -s -X POST "${PDS_URL}/xrpc/com.atproto.server.createSession" \
   -H "Content-Type: application/json" \
   -d "{\"identifier\": \"${HANDLE}\", \"password\": \"${PASSWORD}\"}" | jq -r '.did // empty')
 
 if [ -z "${DID}" ]; then
-  INVITE_CODE=$(grep '^DEVNET_INVITE_CODE=' "${DATA_DIR}/accounts.env" 2>/dev/null | cut -d= -f2 || true)
+  INVITE_CODE=$(grep -E '^(SG|DEVNET)_INVITE_CODE=' "${DATA_DIR}/accounts.env" 2>/dev/null | cut -d= -f2 || true)
   if [ -z "${INVITE_CODE}" ]; then
     echo "No invite code in ${DATA_DIR}/accounts.env; has init run?" >&2
     exit 1
@@ -59,7 +59,7 @@ else
   echo "Found ${HANDLE} → ${DID}" >&2
 fi
 
-echo "DEVNET_LEXICON_AUTHORITY_DID=${DID}"
+echo "SG_LEXICON_AUTHORITY_DID=${DID}"
 echo >&2
 echo "Bring the stack up again with it, using the same -f files and project as the first pass:" >&2
-echo "  DEVNET_LEXICON_AUTHORITY_DID=${DID} docker compose <files> up -d --wait" >&2
+echo "  SG_LEXICON_AUTHORITY_DID=${DID} docker compose <files> up -d --wait" >&2

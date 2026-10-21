@@ -8,15 +8,15 @@ services:
     # Docker restart leaves postgres down and PLC crash-looping on DNS.
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DEVNET_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DEVNET_DB_NAME:-plc}
+      POSTGRES_USER: ${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}
+      POSTGRES_PASSWORD: ${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}
+      POSTGRES_DB: ${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
     ports:
-      - "${DEVNET_POSTGRES_PORT:-5433}:5432"
+      - "${SG_POSTGRES_PORT:-${DEVNET_POSTGRES_PORT:-5433}}:5432"
     networks:
       - atproto-devnet
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DEVNET_DB_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -25,8 +25,8 @@ services:
     image: maildev/maildev:latest
     restart: unless-stopped
     ports:
-      - "${DEVNET_MAILDEV_WEB_PORT:-1081}:1080"
-      - "${DEVNET_MAILDEV_SMTP_PORT:-1026}:1025"
+      - "${SG_MAILDEV_WEB_PORT:-${DEVNET_MAILDEV_WEB_PORT:-1081}}:1080"
+      - "${SG_MAILDEV_SMTP_PORT:-${DEVNET_MAILDEV_SMTP_PORT:-1026}}:1025"
     networks:
       - atproto-devnet
 

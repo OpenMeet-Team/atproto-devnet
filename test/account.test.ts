@@ -5,7 +5,7 @@ import { AtpAgent } from '@atproto/api';
 describe('account seeding', () => {
   it('accounts.env exists with seeded credentials', () => {
     const accounts = loadAccounts();
-    expect(accounts.DEVNET_INVITE_CODE).toBeDefined();
+    expect(accounts.SG_INVITE_CODE).toBeDefined();
     expect(accounts.ALICE_DID).toMatch(/^did:plc:/);
     expect(accounts.ALICE_HANDLE).toContain('alice');
     expect(accounts.ALICE_PASSWORD).toBeDefined();

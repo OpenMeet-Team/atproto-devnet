@@ -23,7 +23,7 @@
 //   PROBE_DID          the account to resolve and name in the PAR (default: the lexicon
 //                      authority, LEX_AUTHORITY_DID in data/devnet.env)
 //   PROBE_PDS          the PDS that DID must name (default https://alpha.<domain>, the
-//                      domain being DEVNET_DOMAIN in data/devnet.env, else local.snowglobe.at)
+//                      domain being SG_DOMAIN in data/devnet.env, else local.snowglobe.at)
 //   PROBE_APP          the app name (default probe: https://probe.devnet.internal/)
 //   PROBE_CLIENT_PORT  where the client's documents are served (default 5480)
 //   PROBE_CLIENT_HOST  the address to serve on (default: the docker0 address, which is
@@ -52,7 +52,7 @@ const devnetEnv = () => {
 		return '';
 	}
 };
-const DOMAIN = (devnetEnv().match(/^DEVNET_DOMAIN=(.+)$/m)?.[1] ?? DEFAULT_DOMAIN).trim();
+const DOMAIN = (devnetEnv().match(/^(?:SG|DEVNET)_DOMAIN=(.+)$/m)?.[1] ?? DEFAULT_DOMAIN).trim();
 const PDS = process.env.PROBE_PDS ?? `https://alpha.${DOMAIN}`;
 const APP = process.env.PROBE_APP ?? 'probe';
 const SITE = `https://${APP}.devnet.internal`;

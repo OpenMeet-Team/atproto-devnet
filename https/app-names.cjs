@@ -5,15 +5,16 @@
 // the address lookup changes: the request still carries the app's name, and TLS still
 // checks the certificate for it against the devnet CA. Every other name resolves as usual.
 //
-// DEVNET_RESOLVE_DOMAIN adds a domain whose names, itself included, go to nginx too. A group
+// SG_RESOLVE_DOMAIN adds a domain whose names, itself included, go to nginx too. A group
 // host sets it to the globe's domain: it resolves its members' handles, which Docker's DNS does
 // not know.
 'use strict';
 const dns = require('dns');
 
 const SUFFIX = '.devnet.internal';
-const DOMAIN = (process.env.DEVNET_RESOLVE_DOMAIN || '').toLowerCase();
-const PROXY = process.env.DEVNET_APP_PROXY_HOST || 'nginx';
+// DEVNET_ was these settings' prefix until 2026-10-20; a container made before then still has it.
+const DOMAIN = (process.env.SG_RESOLVE_DOMAIN || process.env.DEVNET_RESOLVE_DOMAIN || '').toLowerCase();
+const PROXY = process.env.SG_APP_PROXY_HOST || process.env.DEVNET_APP_PROXY_HOST || 'nginx';
 const isApp = (name) => {
   if (typeof name !== 'string') return false;
   const n = name.toLowerCase().replace(/\.$/, '');

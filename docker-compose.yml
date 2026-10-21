@@ -18,24 +18,24 @@ services:
     # it at runtime from the same credential vars used everywhere else.
     entrypoint: >
       sh -c "
-        export DB_CREDS_JSON=$$(printf '{\"username\":\"%s\",\"password\":\"%s\",\"host\":\"%s\",\"port\":\"%s\",\"database\":\"%s\"}' \"$$DEVNET_DB_USER\" \"$$DEVNET_DB_PASSWORD\" \"$$DEVNET_DB_HOST\" \"$$DEVNET_DB_PORT\" \"$$DEVNET_DB_NAME\")
+        export DB_CREDS_JSON=$$(printf '{\"username\":\"%s\",\"password\":\"%s\",\"host\":\"%s\",\"port\":\"%s\",\"database\":\"%s\"}' \"$$SG_DB_USER\" \"$$SG_DB_PASSWORD\" \"$$SG_DB_HOST\" \"$$SG_DB_PORT\" \"$$SG_DB_NAME\")
         export DB_MIGRATE_CREDS_JSON=$$DB_CREDS_JSON
         exec node /app/packages/server/service/index.js
       "
     environment:
       PORT: 2582
-      DEVNET_DB_USER: ${DEVNET_DB_USER:-postgres}
-      DEVNET_DB_PASSWORD: ${DEVNET_DB_PASSWORD:-postgres}
-      DEVNET_DB_HOST: ${DEVNET_DB_HOST:-postgres}
-      DEVNET_DB_PORT: ${DEVNET_DB_PORT:-5432}
-      DEVNET_DB_NAME: ${DEVNET_DB_NAME:-plc}
-      DATABASE_URL: "postgres://${DEVNET_DB_USER:-postgres}:${DEVNET_DB_PASSWORD:-postgres}@${DEVNET_DB_HOST:-postgres}:${DEVNET_DB_PORT:-5432}/${DEVNET_DB_NAME:-plc}"
+      SG_DB_USER: ${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}
+      SG_DB_PASSWORD: ${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}
+      SG_DB_HOST: ${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}
+      SG_DB_PORT: ${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}
+      SG_DB_NAME: ${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
+      DATABASE_URL: "postgres://${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}:${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}@${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}:${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}/${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}"
       ENABLE_MIGRATIONS: "true"
       LOG_ENABLED: "true"
       LOG_LEVEL: info
       NODE_ENV: development
     ports:
-      - "${DEVNET_PLC_PORT:-2582}:2582"
+      - "${SG_PLC_PORT:-${DEVNET_PLC_PORT:-2582}}:2582"
     networks:
       - atproto-devnet
     healthcheck:
@@ -48,7 +48,7 @@ services:
   pds:
     # Any PDS build: a release (ghcr.io/bluesky-social/pds:<version>) or an
     # upstream commit (ghcr.io/bluesky-social/atproto:pds-<commit sha>).
-    image: ${DEVNET_PDS_IMAGE:-ghcr.io/bluesky-social/pds:0.4}
+    image: ${SG_PDS_IMAGE:-${DEVNET_PDS_IMAGE:-ghcr.io/bluesky-social/pds:0.4}}
     # Release images run as root; monorepo images run as `node`, which cannot
     # open the root-owned pds-data volume.
     user: root
@@ -58,7 +58,7 @@ services:
         condition: service_healthy
     environment:
       PDS_PORT: 3000
-      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-devnet.test}
+      PDS_HOSTNAME: ${SG_PDS_HOSTNAME:-${DEVNET_PDS_HOSTNAME:-devnet.test}}
       PDS_DATA_DIRECTORY: /pds/data
       PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
       PDS_DID_PLC_URL: http://plc:2582
@@ -68,28 +68,28 @@ services:
       # nothing on this network reaches Bluesky's production AppView. Point it at a
       # real AppView only if your app needs reads proxied through the PDS; Bluesky's
       # AppView never sees devnet accounts, since no relay outside devnet crawls them.
-      PDS_BSKY_APP_VIEW_URL: ${DEVNET_APPVIEW_URL:-https://appview.invalid}
-      PDS_BSKY_APP_VIEW_DID: ${DEVNET_APPVIEW_DID:-did:example:invalid}
-      PDS_REPORT_SERVICE_URL: ${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}
-      PDS_REPORT_SERVICE_DID: ${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}
+      PDS_BSKY_APP_VIEW_URL: ${SG_APPVIEW_URL:-${DEVNET_APPVIEW_URL:-https://appview.invalid}}
+      PDS_BSKY_APP_VIEW_DID: ${SG_APPVIEW_DID:-${DEVNET_APPVIEW_DID:-did:example:invalid}}
+      PDS_REPORT_SERVICE_URL: ${SG_REPORT_SERVICE_URL:-${DEVNET_REPORT_SERVICE_URL:-https://moderator.invalid}}
+      PDS_REPORT_SERVICE_DID: ${SG_REPORT_SERVICE_DID:-${DEVNET_REPORT_SERVICE_DID:-did:example:invalid}}
       PDS_CRAWLERS: ""
       # PDS builds after upstream 1ff43e6e5 (2026-09-10) resolve DIDs through the
       # SSRF-protected fetch, which refuses the local PLC's http:// URL.
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "true"
-      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-      PDS_EMAIL_SMTP_URL: ${DEVNET_SMTP_URL:-smtp://maildev:1025}
+      PDS_EMAIL_SMTP_URL: ${SG_SMTP_URL:-${DEVNET_SMTP_URL:-smtp://maildev:1025}}
       PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
-      PDS_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
-      PDS_SERVICE_HANDLE_DOMAINS: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
+      PDS_HANDLE_DOMAINS: ${SG_HANDLE_DOMAIN:-${DEVNET_HANDLE_DOMAIN:-.devnet.test}}
+      PDS_SERVICE_HANDLE_DOMAINS: ${SG_HANDLE_DOMAIN:-${DEVNET_HANDLE_DOMAIN:-.devnet.test}}
       LOG_ENABLED: "true"
       NODE_ENV: development
     volumes:
       - pds-data:/pds/data
     ports:
-      - "${DEVNET_PDS_PORT:-3000}:3000"
+      - "${SG_PDS_PORT:-${DEVNET_PDS_PORT:-3000}}:3000"
     networks:
       - atproto-devnet
     healthcheck:
@@ -112,8 +112,8 @@ services:
     volumes:
       - jetstream-data:/data
     ports:
-      - "${DEVNET_JETSTREAM_PORT:-6008}:6008"
-      - "${DEVNET_JETSTREAM_METRICS_PORT:-6009}:6009"
+      - "${SG_JETSTREAM_PORT:-${DEVNET_JETSTREAM_PORT:-6008}}:6008"
+      - "${SG_JETSTREAM_METRICS_PORT:-${DEVNET_JETSTREAM_METRICS_PORT:-6009}}:6009"
     networks:
       - atproto-devnet
     healthcheck:
@@ -138,7 +138,7 @@ services:
     volumes:
       - tap-data:/data
     ports:
-      - "${DEVNET_TAP_PORT:-2480}:2480"
+      - "${SG_TAP_PORT:-${DEVNET_TAP_PORT:-2480}}:2480"
     networks:
       - atproto-devnet
     healthcheck:
@@ -159,10 +159,10 @@ services:
       - ./scripts:/scripts:ro
       - ./data:/devnet-data
     environment:
-      PDS_HOSTNAME: ${DEVNET_PDS_HOSTNAME:-devnet.test}
-      PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
-      HANDLE_DOMAIN: ${DEVNET_HANDLE_DOMAIN:-.devnet.test}
-      SEED_ACCOUNTS: ${DEVNET_SEED_ACCOUNTS:-true}
+      PDS_HOSTNAME: ${SG_PDS_HOSTNAME:-${DEVNET_PDS_HOSTNAME:-devnet.test}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
+      HANDLE_DOMAIN: ${SG_HANDLE_DOMAIN:-${DEVNET_HANDLE_DOMAIN:-.devnet.test}}
+      SEED_ACCOUNTS: ${SG_SEED_ACCOUNTS:-${DEVNET_SEED_ACCOUNTS:-true}}
     entrypoint: /bin/sh
     command: ["/scripts/init.sh"]
     networks:

@@ -1,5 +1,5 @@
 {
-  "name": "atproto-devnet",
+  "name": "snowglobe",
   "version": "0.1.0",
   "description": "Standalone, testable ATProto development network for local development and CI",
   "private": true,
@@ -11,9 +11,9 @@
   "author": "OpenMeet Team",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OpenMeet-Team/atproto-devnet.git"
+    "url": "https://github.com/OpenMeet-Team/snowglobe.git"
   },
-  "homepage": "https://github.com/OpenMeet-Team/atproto-devnet",
+  "homepage": "https://github.com/OpenMeet-Team/snowglobe",
   "keywords": [
     "atproto",
     "bluesky",

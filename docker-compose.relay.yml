@@ -17,26 +17,26 @@
 # A relay only adds localhost hosts through its admin API, so a PDS cannot register
 # itself with requestCrawl. relay-init adds each PDS once the relay is up.
 
-x-relay-admin-password: &relay-admin-password ${DEVNET_RELAY_ADMIN_PASSWORD:-devnet-relay-admin}
+x-relay-admin-password: &relay-admin-password ${SG_RELAY_ADMIN_PASSWORD:-${DEVNET_RELAY_ADMIN_PASSWORD:-devnet-relay-admin}}
 
 services:
   pds:
     ports: !override
-      - "${DEVNET_SPACES_PDS_PORT:-3010}:${DEVNET_SPACES_PDS_PORT:-3010}"
+      - "${SG_SPACES_PDS_PORT:-${DEVNET_SPACES_PDS_PORT:-3010}}:${SG_SPACES_PDS_PORT:-${DEVNET_SPACES_PDS_PORT:-3010}}"
       - "3020:3020"
       - "3030:3030"
-      - "${DEVNET_RELAY_PORT:-2470}:2470"
-      - "${DEVNET_TAP_PORT:-2480}:2480"
+      - "${SG_RELAY_PORT:-${DEVNET_RELAY_PORT:-2470}}:2470"
+      - "${SG_TAP_PORT:-${DEVNET_TAP_PORT:-2480}}:2480"
 
   relay:
     # Upstream's relay with one patch, so it can crawl PDSes on localhost; see
-    # relay/Dockerfile. DEVNET_RELAY_INDIGO_COMMIT picks the indigo commit (it needs
+    # relay/Dockerfile. SG_RELAY_INDIGO_COMMIT picks the indigo commit (it needs
     # a published relay-<commit> image, and the patch has to apply).
     build:
       context: ./relay
       args:
-        INDIGO_COMMIT: ${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
-    image: atproto-devnet-relay:${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
+        INDIGO_COMMIT: ${SG_RELAY_INDIGO_COMMIT:-${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}}
+    image: atproto-devnet-relay:${SG_RELAY_INDIGO_COMMIT:-${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}}
     restart: unless-stopped
     network_mode: service:pds
     depends_on:
@@ -72,7 +72,7 @@ services:
         condition: service_healthy
     environment:
       RELAY_ADMIN_PASSWORD: *relay-admin-password
-      RELAY_HOSTS: localhost:${DEVNET_SPACES_PDS_PORT:-3010} localhost:3020 localhost:3030
+      RELAY_HOSTS: localhost:${SG_SPACES_PDS_PORT:-${DEVNET_SPACES_PDS_PORT:-3010}} localhost:3020 localhost:3030
     entrypoint: /bin/sh
     command:
       - -c
