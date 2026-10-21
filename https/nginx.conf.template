@@ -2,7 +2,7 @@
 # certificate names every host below; data/https/ca.crt is the CA that signed it (bin/snowglobe.mjs certs).
 # A template: at start the image writes it to conf.d/default.conf with the DEVNET_DOMAIN
 # setting filled in, so this is the http block's whole server list. The comments below
-# name its default, devnet.test.
+# name its default, local.snowglobe.at.
 
 # Docker's embedded DNS, re-asked every 10 s, so a recreated container's new
 # address is picked up without reloading nginx.
@@ -82,7 +82,8 @@ server {
 # once, when nginx loads it, through the container's hosts file (extra_hosts), which
 # Docker's DNS does not serve. Neither file has to exist. An app that claimed a handle
 # ending (bin/snowglobe.mjs app <name> <port> <ending>) also gets a server there for
-# *.<ending>.devnet.test, which wins over a PDS's *.devnet.test as the longer wildcard.
+# *.<ending>.local.snowglobe.at, which wins over a PDS's *.local.snowglobe.at as the
+# longer wildcard.
 include /etc/nginx/devnet/*.conf;
 
 map $host $devnet_app {

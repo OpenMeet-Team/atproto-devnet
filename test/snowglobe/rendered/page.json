@@ -1,6 +1,6 @@
 {
   "globe": "devnet",
-  "domain": "devnet.test",
+  "domain": "local.snowglobe.at",
   "about": "An atproto network on this machine: its own account servers, directory, relay and feed. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under snowglobe run reach it at the real network's names.",
   "accountsNote": "Every account on the network, on each of its 3 account servers.",
   "feed": "/subscribe",
@@ -9,19 +9,19 @@
       "Account server",
       "alpha",
       "alpha",
-      "Handles under devnet.test, by invite (spaces-alpha)"
+      "Handles under local.snowglobe.at, by invite (spaces-alpha)"
     ],
     [
       "Account server",
       "regular",
       "regular",
-      "Handles under regular.devnet.test (pds:0.4.5037)"
+      "Handles under regular.local.snowglobe.at (pds:0.4.5037)"
     ],
     [
       "Account server",
       "prod",
       "prod",
-      "Handles under prod.devnet.test (pds@sha256:1fa8bbceabb6…)"
+      "Handles under prod.local.snowglobe.at (pds@sha256:1fa8bbceabb6…)"
     ],
     [
       "Directory",
@@ -83,7 +83,7 @@
   "apps": [
     {
       "name": "pdsls",
-      "url": "https://pdsls.devnet.test"
+      "url": "https://pdsls.local.snowglobe.at"
     }
   ]
 }

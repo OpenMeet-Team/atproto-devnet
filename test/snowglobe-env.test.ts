@@ -50,11 +50,11 @@ describe('envCompose', () => {
 });
 
 describe('resolveDomain', () => {
-  it('takes the environment, then .env, then the rendered globe, then devnet.test', () => {
+  it('takes the environment, then .env, then the rendered globe, then the default', () => {
     expect(resolveDomain({ root: root('DEVNET_DOMAIN=env.test\n'), env: { DEVNET_DOMAIN: 'x.test' }, rendering: true }).domain).toBe('x.test');
     expect(resolveDomain({ root: root('DEVNET_DOMAIN=env.test\n'), env: {} }).domain).toBe('env.test');
     expect(resolveDomain({ root: root(undefined, 'globe.test'), env: {} }).domain).toBe('globe.test');
-    expect(resolveDomain({ root: root(), env: {} }).domain).toBe('devnet.test');
+    expect(resolveDomain({ root: root(), env: {} }).domain).toBe('local.snowglobe.at');
   });
 
   it('lets an empty setting in the environment win over .env, and fall through to the globe', () => {

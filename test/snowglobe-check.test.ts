@@ -90,7 +90,7 @@ describe('the rules behind the check', () => {
   it('fills in the defaults', () => {
     const { globe, errors } = checkGlobe(ok());
     expect(errors).toEqual([]);
-    expect(globe.domain).toBe('devnet.test');
+    expect(globe.domain).toBe('local.snowglobe.at');
     expect(globe.pds[0].image).toContain('@sha256:');
     expect(globe.pds[0].invites).toBe('open');
     expect(globe.services.relay).toBe(false); // one PDS: Jetstream follows it directly
@@ -151,7 +151,7 @@ describe('the rules behind the check', () => {
 
   it('names the handle each account gets, and refuses one listed twice', () => {
     const { globe } = checkGlobe({ globe: 'mine', pds: [BARE_A, PDS_B], accounts: ['alice@alpha', 'bob@beta'] });
-    expect(globe.accounts.map((a: { handle: string }) => a.handle)).toEqual(['alice.devnet.test', 'bob.beta.devnet.test']);
+    expect(globe.accounts.map((a: { handle: string }) => a.handle)).toEqual(['alice.local.snowglobe.at', 'bob.beta.local.snowglobe.at']);
     expect(whereOf({ globe: 'mine', pds: [BARE_A, PDS_B], accounts: ['bob@beta', 'bob@beta', 'bob@alpha'] })).toEqual(['accounts[1]']);
   });
 

@@ -32,6 +32,7 @@ for (const name of readdirSync(SRC)) if (!SKIP.has(name)) cpSync(join(SRC, name)
 symlinkSync(join(SRC, 'node_modules'), join(root, 'node_modules'));
 
 const { setting } = await import(join(root, 'lib/env.mjs'));
+const { DEFAULT_DOMAIN } = await import(join(root, 'lib/config.mjs'));
 const env = {
   ...process.env,
   DEVNET_PROJECT: PROJECT,
@@ -44,7 +45,7 @@ const env = {
   DEVNET_BIND: setting('DEVNET_BIND', { root }) || '127.0.0.3',
 };
 for (const k of ['SNOWGLOBE_FILE', 'ACCOUNTS_FILE', 'DEVNET_PUBLIC', 'DEVNET_RESET_OK']) delete env[k];
-const wantDomain = setting('DEVNET_DOMAIN', { root }) || 'devnet.test';
+const wantDomain = setting('DEVNET_DOMAIN', { root }) || DEFAULT_DOMAIN;
 
 const sg = (args, opts = {}) =>
   spawnSync(process.execPath, [join(root, 'bin/snowglobe.mjs'), ...args], { cwd: root, env, encoding: 'utf8', timeout: 900_000, ...opts });

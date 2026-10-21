@@ -58,6 +58,15 @@ The suite checks health, account seeding, record CRUD, Jetstream events, the raw
 
 Changes to the default stack that existing setups will notice:
 
+- **The https devnet's default domain is `local.snowglobe.at`, not `devnet.test`.** A PDS refuses
+  an OAuth client under `.test`, so at `devnet.test` nobody could sign in through a group host or
+  PDSls. A globe run from the default file, or from a `snowglobe.yml` that names no domain, moves on
+  its next `up`, which stops at the certificates: the CA was made for `devnet.test` and can't vouch
+  for the new names. To keep the old name and its accounts, add `domain: devnet.test` to its
+  `snowglobe.yml`. To move, run `bin/snowglobe.mjs down -v` (it drops every account), delete
+  `data/https/ca.*`, run `up`, and trust the new `ca.crt`. The browser proxy's PAC follows the domain
+  by itself; Chrome launch flags have to name the new one. The plain http stack keeps `devnet.test`.
+
 - **The PDS no longer forwards to Bluesky's AppView.** `app.bsky.*` reads and any method the PDS
   doesn't implement now go to `https://appview.invalid` and fail with `502 UpstreamFailure`.
   Bluesky's AppView never indexed devnet accounts, so for those accounts nothing useful is lost.
@@ -327,7 +336,7 @@ done
 ./bin/snowglobe.mjs lexicons ../opensocial-proposal/lexicons
 ```
 
-**An account.** `alice.devnet.test` and `bob.devnet.test` are already there (see
+**An account.** `alice.local.snowglobe.at` and `bob.local.snowglobe.at` are already there (see
 [Seeded test accounts](#seeded-test-accounts)). To use another, make it with
 `bin/snowglobe.mjs account` before you start atmo, because `snowglobe run` maps only the handles it knows
 when the command starts.
@@ -338,8 +347,8 @@ when one exists, so keep only one of the two:
 
 ```
 OAUTH_PUBLIC_URL=
-GROUP_PDS_SERVICE=https://alpha.devnet.test
-GROUP_HANDLE_DOMAIN=devnet.test
+GROUP_PDS_SERVICE=https://alpha.local.snowglobe.at
+GROUP_HANDLE_DOMAIN=local.snowglobe.at
 ```
 
 - `OAUTH_PUBLIC_URL=` is empty on purpose. `wrangler.jsonc` sets it to `https://atmo.rsvp`. Empty
@@ -347,7 +356,7 @@ GROUP_HANDLE_DOMAIN=devnet.test
   public origin.
 - `GROUP_PDS_SERVICE` and `GROUP_HANDLE_DOMAIN` name where atmo would create group accounts: the
   alpha, the devnet PDS that serves spaces. Write the domain with no leading dot. atmo adds the dot
-  itself, and `.devnet.test` gives handles like `name..devnet.test`, which the PDS refuses.
+  itself, and `.local.snowglobe.at` gives handles like `name..local.snowglobe.at`, which the PDS refuses.
 
 Then create atmo's tables in its local D1 database. Without them, atmo logs
 `no such table: groups` when it serves its OAuth client metadata.
@@ -365,14 +374,14 @@ pnpm exec wrangler d1 migrations apply DB --local
 **Use it from a browser.** Set up a browser on your computer as in
 [From a browser on your own computer](#from-a-browser-on-your-own-computer). Forward port 5454 to
 5454 as well, since the loopback client's redirect URI names that port. Open
-`http://127.0.0.1:5454` in that browser and sign in as `alice.devnet.test`, by handle or by DID,
-with her password from `data/accounts.env`. atmo sends you to `https://alpha.devnet.test` to sign in
+`http://127.0.0.1:5454` in that browser and sign in as `alice.local.snowglobe.at`, by handle or by DID,
+with her password from `data/accounts.env`. atmo sends you to `https://alpha.local.snowglobe.at` to sign in
 and approve, then back to atmo, signed in.
 
 | URL | What answers |
 | --- | --- |
 | `http://127.0.0.1:5454` | atmo |
-| `https://alpha.devnet.test` | the alpha PDS: its sign-in and consent pages, and its xrpc |
+| `https://alpha.local.snowglobe.at` | the alpha PDS: its sign-in and consent pages, and its xrpc |
 | `https://<handle>/.well-known/atproto-did` | the handle's PDS, with the handle's DID |
 | `https://plc.directory/<did>` | the devnet's PLC, with the DID document |
 
@@ -381,11 +390,11 @@ and approve, then back to atmo, signed in.
 
 ```bash
 dn() { ./bin/snowglobe.mjs run curl -s --cacert data/https/ca.crt "$@"; }
-dn https://alpha.devnet.test/xrpc/_health                # {"version":"0.5.32"}
-dn https://alice.devnet.test/.well-known/atproto-did     # alice's DID
+dn https://alpha.local.snowglobe.at/xrpc/_health                # {"version":"0.5.32"}
+dn https://alice.local.snowglobe.at/.well-known/atproto-did     # alice's DID
 did=$(sed -n 's/^ALICE_DID=//p' data/accounts.env)
-dn https://plc.directory/$did                            # her DID document, alsoKnownAs at://alice.devnet.test
-dn "https://alpha.devnet.test/xrpc/com.atproto.repo.listRecords?repo=$did&collection=community.lexicon.calendar.event"
+dn https://plc.directory/$did                            # her DID document, alsoKnownAs at://alice.local.snowglobe.at
+dn "https://alpha.local.snowglobe.at/xrpc/com.atproto.repo.listRecords?repo=$did&collection=community.lexicon.calendar.event"
 ```
 
 The last line lists the events atmo has written to alice's repo.
@@ -413,7 +422,7 @@ Run atmo where nginx can reach it, still under `snowglobe run`:
 
 ```bash
 __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
-HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
+HTTPS_RUN_EXTRA_NAMES=mygroup.local.snowglobe.at \
   ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
 ```
 
@@ -425,7 +434,7 @@ HTTPS_RUN_EXTRA_NAMES=mygroup.devnet.test \
   create, since `snowglobe run` reads its names only at start.
 
 Open `https://atmo.devnet.internal` in the browser set up above, or from the network's page at
-`https://devnet.test/`, which links every routed app. The proxy's PAC, or the launch flags' `*.devnet.internal` rule, covers
+`https://local.snowglobe.at/`, which links every routed app. The proxy's PAC, or the launch flags' `*.devnet.internal` rule, covers
 the name, and only the proxy's port (or 443) needs forwarding. Sign in, then create the group under groups. The form
 mints the group's account on the alpha, then has you sign in as the group to link it. The groups
 e2e below creates a group the same way on every run, through atmo's own create.
@@ -462,14 +471,14 @@ and Firefox through the proxy, with no request leaving the devnet.
    ```
    OAUTH_PUBLIC_URL=https://atmo.devnet.internal
    PUBLIC_ATPROTO_SEALED=true
-   PUBLIC_ATPROTO_PLC_URL=https://plc.devnet.test
-   PUBLIC_ATPROTO_SLINGSHOT_URL=https://slingshot.devnet.test
-   PUBLIC_ATPROTO_JETSTREAM_URLS=wss://jetstream.devnet.test
-   PUBLIC_ATPROTO_RELAY_URLS=https://relay.devnet.test
-   PUBLIC_ATPROTO_SIGNUP_PDS=https://alpha.devnet.test
-   PUBLIC_ATPROTO_BLOB_URL_TEMPLATE=https://alpha.devnet.test/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}
+   PUBLIC_ATPROTO_PLC_URL=https://plc.local.snowglobe.at
+   PUBLIC_ATPROTO_SLINGSHOT_URL=https://slingshot.local.snowglobe.at
+   PUBLIC_ATPROTO_JETSTREAM_URLS=wss://jetstream.local.snowglobe.at
+   PUBLIC_ATPROTO_RELAY_URLS=https://relay.local.snowglobe.at
+   PUBLIC_ATPROTO_SIGNUP_PDS=https://alpha.local.snowglobe.at
+   PUBLIC_ATPROTO_BLOB_URL_TEMPLATE=https://alpha.local.snowglobe.at/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}
    PUBLIC_NETWORK_NOTICE=Local devnet: not Bluesky, test data only.
-   PUBLIC_NETWORK_NOTICE_URL=https://devnet.test/
+   PUBLIC_NETWORK_NOTICE_URL=https://local.snowglobe.at/
    ```
 
    The image template reaches the alpha's own blobs only; a globe's image service finds any
@@ -481,8 +490,8 @@ and Firefox through the proxy, with no request leaving the devnet.
      ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
    ```
 
-Open `https://devnet.test/` and follow its atmo link. Signing in sends you to
-`https://alpha.devnet.test` for the password and the consent page, and back to atmo.
+Open `https://local.snowglobe.at/` and follow its atmo link. Signing in sends you to
+`https://alpha.local.snowglobe.at` for the password and the consent page, and back to atmo.
 
 **The groups e2e.** It makes its fixtures with the same tools. From the devnet checkout, after the
 lexicons above:
@@ -679,19 +688,19 @@ With the default file:
 
 | Name | Served by |
 | --- | --- |
-| `alpha.devnet.test`, `*.devnet.test` | `pds-alpha`, the spaces alpha (`79d6307e`), and its handles; invites required |
-| `regular.devnet.test`, `*.regular.devnet.test` | `pds-regular`, a current release, and its handles |
-| `prod.devnet.test`, `*.prod.devnet.test` | `pds-prod`, the build you run in prod, and its handles |
+| `alpha.local.snowglobe.at`, `*.local.snowglobe.at` | `pds-alpha`, the spaces alpha (`79d6307e`), and its handles; invites required |
+| `regular.local.snowglobe.at`, `*.regular.local.snowglobe.at` | `pds-regular`, a current release, and its handles |
+| `prod.local.snowglobe.at`, `*.prod.local.snowglobe.at` | `pds-prod`, the build you run in prod, and its handles |
 | `plc.directory` | this stack's own PLC |
-| `slingshot.devnet.test` | `slingshot`, which answers a handle's DID and PDS (below) |
-| `plc.devnet.test`, `relay.devnet.test`, `jetstream.devnet.test` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
-| `pdsls.devnet.test` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
-| `devnet.test` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
+| `slingshot.local.snowglobe.at` | `slingshot`, which answers a handle's DID and PDS (below) |
+| `plc.local.snowglobe.at`, `relay.local.snowglobe.at`, `jetstream.local.snowglobe.at` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
+| `pdsls.local.snowglobe.at` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
+| `local.snowglobe.at` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
 | `<name>.devnet.internal` | an app on this machine, at the port `bin/snowglobe.mjs app` recorded for `<name>` |
-| `*.<ending>.devnet.test` | the app that claimed `<ending>` with `bin/snowglobe.mjs app`, for the handles it hands out |
+| `*.<ending>.local.snowglobe.at` | the app that claimed `<ending>` with `bin/snowglobe.mjs app`, for the handles it hands out |
 
-Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.devnet.test`; the one with
-`bare_handles` takes `*.devnet.test`, and every other its own `*.<name>.devnet.test`. nginx answers
+Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.local.snowglobe.at`; the one with
+`bare_handles` takes `*.local.snowglobe.at`, and every other its own `*.<name>.local.snowglobe.at`. nginx answers
 all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's public URL, OAuth
 issuer and DID document endpoint is `https://<its name>`, and the relay crawls every PDS as a
 `wss://` host. Inside the compose network nginx also answers to every PDS's name, so the PDSes,
@@ -699,8 +708,12 @@ the relay and TAP reach each other over TLS; no service shares another's network
 commands run under `bin/snowglobe.mjs run`, so every other program still reaches the real
 `plc.directory`.
 
-`devnet.test` is the default file's domain, and every name in the table above (and in the rest of
-this README) uses it. `DEVNET_DOMAIN` replaces it. Only the https devnet reads it; the plain stack
+`local.snowglobe.at` is the default file's domain, and every name in the table above (and in the
+rest of this README) uses it. The name is ours, and its public DNS points every name under it at
+`127.0.0.1`, so a lookup that misses the devnet's own mapping lands on your machine, not on someone
+else's server. Pick another domain freely, but not one under `.test`, `.local`, `.localhost`,
+`.invalid` or `.example`: the stack comes up there, but a PDS refuses an OAuth client at such a name,
+so nobody can sign in through a group host or PDSls. `DEVNET_DOMAIN` replaces it. Only the https devnet reads it; the plain stack
 keeps `DEVNET_PDS_HOSTNAME` and `DEVNET_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
 the same stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
 `regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
@@ -721,8 +734,8 @@ this one answers for it:
 
 ```sh
 bin/snowglobe.mjs run curl -sS --cacert data/https/ca.crt \
-  'https://slingshot.devnet.test/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.devnet.test'
-# {"did":"did:plc:...","handle":"alice.devnet.test","pds":"https://alpha.devnet.test","signing_key":"zQ3..."}
+  'https://slingshot.local.snowglobe.at/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.local.snowglobe.at'
+# {"did":"did:plc:...","handle":"alice.local.snowglobe.at","pds":"https://alpha.local.snowglobe.at","signing_key":"zQ3..."}
 ```
 
 It checks a handle both ways, which means it fetches `https://<handle>/.well-known/atproto-did`
@@ -736,23 +749,23 @@ the source and names the image.
 
 ### The network's page
 
-`https://devnet.test/` is the network's own page (`page/index.html`): every service and its
+`https://local.snowglobe.at/` is the network's own page (`page/index.html`): every service and its
 health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
 from Jetstream, the last week's and then live. nginx serves it with this stack's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
-asks nothing but `devnet.test`. `snowglobe render` and `snowglobe app` write what it lists into
+asks nothing but `local.snowglobe.at`. `snowglobe render` and `snowglobe app` write what it lists into
 `data/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
-computer](#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://devnet.test/globe.json`.
+computer](#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://local.snowglobe.at/globe.json`.
 
 ### PDSls: browsing the network's records
 
-`https://pdsls.devnet.test/` is [PDSls](https://github.com/notjuliet/pdsls), the record browser at
-pds.ls, for this network: `https://pdsls.devnet.test/at://alice.devnet.test` shows her repo, its
+`https://pdsls.local.snowglobe.at/` is [PDSls](https://github.com/notjuliet/pdsls), the record browser at
+pds.ls, for this network: `https://pdsls.local.snowglobe.at/at://alice.local.snowglobe.at` shows her repo, its
 collections and records, as `https://pds.ls/at://...` does on the real network. Apps that link to
 pds.ls point their links here on a devnet or a globe. `pdsls/` builds it from a pinned upstream commit
 with `pdsls/network.patch`, which lets the page that loads it give it a network's addresses (unset,
 it is the public network's, unchanged), and `pdsls/server.mjs` serves it with this network's: the PLC
-at `plc.devnet.test`, Jetstream and the relay as the stream page's defaults, and the lexicon authority
-for every NSID. It looks up handles and `did:web` documents for names under `devnet.test` only, and
+at `plc.local.snowglobe.at`, Jetstream and the relay as the stream page's defaults, and the lexicon authority
+for every NSID. It looks up handles and `did:web` documents for names under `local.snowglobe.at` only, and
 turns off what has no stand-in here: DNS lookups, Bluesky search and avatars, backlinks, Spacedust,
 the public font host, link previews. Signing in uses a client at its own address, so editing records
 works against the devnet's PDSes.
@@ -770,7 +783,7 @@ committed ([What it writes](#what-it-writes)).
 
 ```yaml
 globe: bookclub                  # lowercase letters and digits; the globe's own name
-domain: devnet.test              # every name below is under it (devnet.test if left out)
+domain: local.snowglobe.at       # every name below is under it (local.snowglobe.at if left out)
 
 pds:                             # at least one; each is pds-<name> at https://<name>.<domain>
   - name: alpha
@@ -884,7 +897,7 @@ one-shot `init` and `relay-init` run again. A rerun on a changed file stops what
 runs, and when it adds a PDS beside a running relay it restarts the relay, which otherwise can wait
 a long time before it redials a PDS that went away and came back. It refuses a PDS named for a handle ending an app
 claimed with `snowglobe app`, before it writes anything. It makes the leaf certificate if there is
-none, brings the stack up, makes the lexicon authority (`lex-authority.devnet.test` on the file's
+none, brings the stack up, makes the lexicon authority (`lex-authority.local.snowglobe.at` on the file's
 `lexicons.authority` PDS, the alpha by default),
 brings the stack up again with `DEVNET_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
 `data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `DEVNET_INVITE_CODE`
@@ -916,7 +929,7 @@ a new DID.
   (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
   leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
   `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `DEVNET_PROJECT`, `DEVNET_DOMAIN`,
-  `PAGE_URL` (`https://devnet.test/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
+  `PAGE_URL` (`https://local.snowglobe.at/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
   `DEVNET_CA_FILE`.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
 - `data/accounts.env` (mode 600): logins. `DEVNET_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
@@ -961,8 +974,8 @@ to the file named.
 **An account**, on any PDS in the globe: `bin/snowglobe.mjs account <name> <PREFIX> [<pds>]`.
 
 ```bash
-bin/snowglobe.mjs account bookclubowner BOOKCLUB_OWNER            # bookclubowner.devnet.test on the alpha
-bin/snowglobe.mjs account bookreader BOOKCLUB_READER regular      # bookreader.regular.devnet.test
+bin/snowglobe.mjs account bookclubowner BOOKCLUB_OWNER            # bookclubowner.local.snowglobe.at on the alpha
+bin/snowglobe.mjs account bookreader BOOKCLUB_READER regular      # bookreader.regular.local.snowglobe.at
 ```
 
 Without `<pds>` it uses the PDS with `bare_handles`, else the first. It prints the DID alone, and a
@@ -1020,12 +1033,12 @@ metadata and keys from there over TLS. A client_id under `.test` is refused by t
 claims one:
 
 ```bash
-bin/snowglobe.mjs app grouphost 7070 gh  # also https://<handle>.gh.devnet.test -> port 7070
+bin/snowglobe.mjs app grouphost 7070 gh  # also https://<handle>.gh.local.snowglobe.at -> port 7070
 ```
 
-nginx then sends every name under `gh.devnet.test` to the app, Host and all, so the app answers
+nginx then sends every name under `gh.local.snowglobe.at` to the app, Host and all, so the app answers
 `/.well-known/atproto-did` for its handles and they resolve from anywhere on the devnet. The leaf
-gains `*.gh.devnet.test` from the same CA, so nothing has to be trusted again. `alpha`, `regular` and
+gains `*.gh.local.snowglobe.at` from the same CA, so nothing has to be trusted again. `alpha`, `regular` and
 `prod` belong to the PDSes, and an ending belongs to one app. A rerun without the ending drops it.
 Under `snowglobe run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any handle.
 
@@ -1041,16 +1054,16 @@ ATCUTE_DIR=<dir> PROBE_DID=<did> bin/snowglobe.mjs run node scripts/https-probe.
 ```
 
 ```
-RESOLVED did:plc:... on https://alpha.devnet.test through plc.directory, ... off
+RESOLVED did:plc:... on https://alpha.local.snowglobe.at through plc.directory, ... off
 PAR ACCEPTED for confidential client https://probe.devnet.internal/probe-<run>/oauth-client-metadata.json
 REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must not be a local hostname
 ```
 
 ### How it differs from the http stacks
 
-- **Each PDS at its https name.** `PDS_HOSTNAME` is `alpha.devnet.test`, `regular.devnet.test` or
-  `prod.devnet.test`, and the alpha's handle domain is set to `.devnet.test` explicitly (its default
-  would be `.alpha.devnet.test`). The alpha runs with `PDS_DEV_MODE=false`, as it would on the
+- **Each PDS at its https name.** `PDS_HOSTNAME` is `alpha.local.snowglobe.at`, `regular.local.snowglobe.at` or
+  `prod.local.snowglobe.at`, and the alpha's handle domain is set to `.local.snowglobe.at` explicitly (its default
+  would be `.alpha.local.snowglobe.at`). The alpha runs with `PDS_DEV_MODE=false`, as it would on the
   real network; the two releases keep dev mode on. All three keep `PDS_DISABLE_SSRF_PROTECTION`, because everything
   they fetch here sits on an RFC 1918 address.
 - **The PDSes reach each other over TLS.** Inside the compose network, nginx also answers to the
@@ -1060,7 +1073,7 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
   certificate for it.
 - **nginx routes by name.** Each PDS's block takes its name and its handle wildcard, and passes Host
   through, so the PDS answers `/.well-known/atproto-did` for a handle. Of two matching wildcards nginx
-  takes the longer, so `*.regular.devnet.test` wins over `*.devnet.test`. A name nginx does not list
+  takes the longer, so `*.regular.local.snowglobe.at` wins over `*.local.snowglobe.at`. A name nginx does not list
   gets no certificate at all.
 - **The relay dials wss.** `relay-init` registers the three bare names, which the relay treats as
   https hosts. Their addresses are nginx's, a private one, so the relay is built with
@@ -1081,18 +1094,18 @@ when there is no leaf, or when the leaf lacks a name. Rerunning it keeps the CA 
 leaf only when it lacks a name, so a browser or OS that trusts `ca.crt` keeps trusting the devnet.
 A CA made by the old `scripts/https-ca.sh` is kept the same way. `bin/snowglobe.mjs certs --check`
 only says whether the leaf lacks a name (exit 1) or not (exit 0). The leaf names what the render lists in
-`data/globe/leaf-names`: `devnet.test` itself, each PDS and its handles (`*.devnet.test` for the one
-with bare handles, `*.<name>.devnet.test` for each other), each group host and its groups' handles,
+`data/globe/leaf-names`: `local.snowglobe.at` itself, each PDS and its handles (`*.local.snowglobe.at` for the one
+with bare handles, `*.<name>.local.snowglobe.at` for each other), each group host and its groups' handles,
 `plc.`, `relay.`, `jetstream.`,
-`slingshot.` and `pdsls.devnet.test`, `plc.directory` and `*.devnet.internal`; and
-`*.<ending>.devnet.test` for each handle ending an app claimed. A TLS wildcard covers one label, so
+`slingshot.` and `pdsls.local.snowglobe.at`, `plc.directory` and `*.devnet.internal`; and
+`*.<ending>.local.snowglobe.at` for each handle ending an app claimed. A TLS wildcard covers one label, so
 each handle domain needs its own. `snowglobe app` reissues the leaf
 when it claims an ending, and `snowglobe up` when the leaf lacks any of these names. Add deeper names
-with `HTTPS_EXTRA_NAMES="x.mine.devnet.test"` on every run, then restart nginx. A name one label
-under `devnet.test` is already covered. To start over, delete `data/https/ca.*` and trust the new
+with `HTTPS_EXTRA_NAMES="x.mine.local.snowglobe.at"` on every run, then restart nginx. A name one label
+under `local.snowglobe.at` is already covered. To start over, delete `data/https/ca.*` and trust the new
 `ca.crt` wherever the old one was trusted.
 
-The CA can only vouch for servers under `devnet.test` (the `DEVNET_DOMAIN` it was made for),
+The CA can only vouch for servers under `local.snowglobe.at` (the `DEVNET_DOMAIN` it was made for),
 `devnet.internal` and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
 when you're done with it. On Windows: `certutil -user -delstore Root "<its name>"`, the name being the
@@ -1114,7 +1127,7 @@ setting you make once, in the browser you already use. Launch flags (further dow
 
 The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
 port, `127.0.0.1:1080` (`DEVNET_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
-reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `devnet.test`, `*.devnet.test` and
+reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at`, `*.local.snowglobe.at` and
 `*.devnet.internal` to the proxy and everything else direct, so the rest of your browsing is
 untouched. The browser hands the proxy the name, and the proxy connects every devnet name to nginx,
 so a handle made a second ago works with nothing to update. It refuses any other name, any IP
@@ -1153,7 +1166,7 @@ address and any port but 443.
      configuration URL" with the same URL. Both browsers pick up a change to the Windows setting on
      the next page load; no restart.
 
-**Then** open `https://devnet.test/`, the network's page. Its apps link to themselves, for instance
+**Then** open `https://local.snowglobe.at/`, the network's page. Its apps link to themselves, for instance
 `https://atmo.devnet.internal` once atmo is routed (below).
 
 **When you are done**, turn the setting off, or leave it: it sends only devnet names anywhere, and
@@ -1161,7 +1174,7 @@ those fail anyway while the devnet is down. What a browser does when it cannot f
 was not measured.
 
 `proxy.pac` leaves `plc.directory` alone, so the setting never moves the real directory for your
-everyday browsing; apps on the devnet use `https://plc.devnet.test`. For an app that insists on
+everyday browsing; apps on the devnet use `https://plc.local.snowglobe.at`. For an app that insists on
 `plc.directory` in the browser, a profile used only for the devnet can take
 `http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this devnet's PLC.
 
@@ -1185,10 +1198,10 @@ of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headle
 
    ```
    rem cmd.exe; in PowerShell, write $env:TEMP for %TEMP%
-   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP devnet.test 127.0.0.1, MAP *.devnet.test 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
+   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP local.snowglobe.at 127.0.0.1, MAP *.local.snowglobe.at 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
    ```
 
-   The wildcard rule covers the PDS names and the handles; the bare `devnet.test`, the network's
+   The wildcard rule covers the PDS names and the handles; the bare `local.snowglobe.at`, the network's
    page, needs its own. Hosts-file entries work too, one name at a time; they need admin, and they
    point `plc.directory` at the devnet for every program on the computer until you remove the line.
 3. **Trust the CA**, as in step 1 of the proxy's steps.
@@ -1241,7 +1254,7 @@ All settings have sensible defaults. Override via `.env` or environment variable
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEVNET_DOMAIN` | `devnet.test` | The https devnet's domain, which every name there sits under ([The https devnet](#the-https-devnet)). The plain stack does not read it |
+| `DEVNET_DOMAIN` | `local.snowglobe.at` | The https devnet's domain, which every name there sits under ([The https devnet](#the-https-devnet)). The plain stack does not read it |
 | `DEVNET_PDS_HOSTNAME` | `devnet.test` | PDS service hostname (the https devnet names its PDSes itself) |
 | `DEVNET_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
 | `DEVNET_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |

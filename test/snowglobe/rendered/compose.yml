@@ -1,5 +1,5 @@
 # Written by bin/snowglobe.mjs render from snowglobe.default.yml; render again instead of editing.
-# The https globe "devnet" at devnet.test: alpha, regular, prod.
+# The https globe "devnet" at local.snowglobe.at: alpha, regular, prod.
 # Run it with bin/snowglobe.mjs up, which renders this file first.
 
 services:
@@ -76,7 +76,7 @@ services:
         condition: service_healthy
     environment:
       PDS_PORT: "3000"
-      PDS_HOSTNAME: alpha.devnet.test
+      PDS_HOSTNAME: alpha.local.snowglobe.at
       PDS_DATA_DIRECTORY: /pds/data
       PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
       PDS_DID_PLC_URL: http://plc:2582
@@ -91,12 +91,12 @@ services:
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
-      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
-      PDS_HANDLE_DOMAINS: .devnet.test
-      PDS_SERVICE_HANDLE_DOMAINS: .devnet.test
+      PDS_EMAIL_FROM_ADDRESS: noreply@local.snowglobe.at
+      PDS_HANDLE_DOMAINS: .local.snowglobe.at
+      PDS_SERVICE_HANDLE_DOMAINS: .local.snowglobe.at
       LOG_ENABLED: "true"
       NODE_ENV: development
-      PDS_SERVICE_DID: did:web:alpha.devnet.test
+      PDS_SERVICE_DID: did:web:alpha.local.snowglobe.at
       PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
@@ -126,7 +126,7 @@ services:
         condition: service_healthy
     environment:
       PDS_PORT: "3000"
-      PDS_HOSTNAME: regular.devnet.test
+      PDS_HOSTNAME: regular.local.snowglobe.at
       PDS_DATA_DIRECTORY: /pds/data
       PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
       PDS_DID_PLC_URL: http://plc:2582
@@ -141,12 +141,12 @@ services:
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
-      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
-      PDS_HANDLE_DOMAINS: .regular.devnet.test
-      PDS_SERVICE_HANDLE_DOMAINS: .regular.devnet.test
+      PDS_EMAIL_FROM_ADDRESS: noreply@local.snowglobe.at
+      PDS_HANDLE_DOMAINS: .regular.local.snowglobe.at
+      PDS_SERVICE_HANDLE_DOMAINS: .regular.local.snowglobe.at
       LOG_ENABLED: "true"
       NODE_ENV: development
-      PDS_SERVICE_DID: did:web:regular.devnet.test
+      PDS_SERVICE_DID: did:web:regular.local.snowglobe.at
       PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
@@ -176,7 +176,7 @@ services:
         condition: service_healthy
     environment:
       PDS_PORT: "3000"
-      PDS_HOSTNAME: prod.devnet.test
+      PDS_HOSTNAME: prod.local.snowglobe.at
       PDS_DATA_DIRECTORY: /pds/data
       PDS_BLOBSTORE_DISK_LOCATION: /pds/data/blocks
       PDS_DID_PLC_URL: http://plc:2582
@@ -191,12 +191,12 @@ services:
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
-      PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
-      PDS_HANDLE_DOMAINS: .prod.devnet.test
-      PDS_SERVICE_HANDLE_DOMAINS: .prod.devnet.test
+      PDS_EMAIL_FROM_ADDRESS: noreply@local.snowglobe.at
+      PDS_HANDLE_DOMAINS: .prod.local.snowglobe.at
+      PDS_SERVICE_HANDLE_DOMAINS: .prod.local.snowglobe.at
       LOG_ENABLED: "true"
       NODE_ENV: development
-      PDS_SERVICE_DID: did:web:prod.devnet.test
+      PDS_SERVICE_DID: did:web:prod.local.snowglobe.at
       PDS_LEXICON_AUTHORITY_DID: ${DEVNET_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
@@ -263,7 +263,7 @@ services:
         condition: service_healthy
     environment:
       RELAY_ADMIN_PASSWORD: ${DEVNET_RELAY_ADMIN_PASSWORD:-devnet-relay-admin}
-      RELAY_HOSTS: alpha.devnet.test regular.devnet.test prod.devnet.test
+      RELAY_HOSTS: alpha.local.snowglobe.at regular.local.snowglobe.at prod.local.snowglobe.at
     entrypoint: /bin/sh
     command:
       - -c
@@ -341,11 +341,11 @@ services:
       - ./scripts:/scripts:ro
       - ./data:/devnet-data
     environment:
-      PDS_HOSTNAME: alpha.devnet.test
+      PDS_HOSTNAME: alpha.local.snowglobe.at
       PDS_ADMIN_PASSWORD: ${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}
-      HANDLE_DOMAIN: .devnet.test
+      HANDLE_DOMAIN: .local.snowglobe.at
       SEED_ACCOUNTS: ${DEVNET_SEED_ACCOUNTS:-true}
-      DEVNET_DOMAIN: devnet.test
+      DEVNET_DOMAIN: local.snowglobe.at
     entrypoint: /bin/sh
     command:
       - -c
@@ -370,7 +370,7 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
     environment:
-      DEVNET_DOMAIN: devnet.test
+      DEVNET_DOMAIN: local.snowglobe.at
       NGINX_ENVSUBST_FILTER: ^DEVNET_
     volumes:
       - ./https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -383,9 +383,9 @@ services:
     networks:
       atproto-devnet:
         aliases:
-          - alpha.devnet.test
-          - regular.devnet.test
-          - prod.devnet.test
+          - alpha.local.snowglobe.at
+          - regular.local.snowglobe.at
+          - prod.local.snowglobe.at
     healthcheck:
       test:
         - CMD
@@ -400,7 +400,7 @@ services:
     image: atproto-devnet-dns:https-1
     restart: unless-stopped
     environment:
-      DEVNET_DOMAIN: devnet.test
+      DEVNET_DOMAIN: local.snowglobe.at
     dns:
       - 127.0.0.1
     depends_on:
@@ -451,7 +451,7 @@ services:
       nginx:
         condition: service_healthy
     environment:
-      PROXY_DOMAIN: devnet.test
+      PROXY_DOMAIN: local.snowglobe.at
       PROXY_UPSTREAM: nginx:443
     ports:
       - 127.0.0.1:${DEVNET_PROXY_PORT:-1080}:1080
@@ -476,11 +476,11 @@ services:
       nginx:
         condition: service_healthy
     environment:
-      PDSLS_PUBLIC_URL: https://pdsls.devnet.test
-      PDSLS_DOMAIN: devnet.test
-      PDSLS_PLC_URL: https://plc.devnet.test
-      PDSLS_JETSTREAM_URL: wss://jetstream.devnet.test/subscribe
-      PDSLS_FIREHOSE_URL: wss://relay.devnet.test
+      PDSLS_PUBLIC_URL: https://pdsls.local.snowglobe.at
+      PDSLS_DOMAIN: local.snowglobe.at
+      PDSLS_PLC_URL: https://plc.local.snowglobe.at
+      PDSLS_JETSTREAM_URL: wss://jetstream.local.snowglobe.at/subscribe
+      PDSLS_FIREHOSE_URL: wss://relay.local.snowglobe.at
       PDSLS_LEXICON_AUTHORITY: ${DEVNET_LEXICON_AUTHORITY_DID:-}
       PDSLS_UPSTREAM: nginx:443
       NODE_EXTRA_CA_CERTS: /https/ca.crt

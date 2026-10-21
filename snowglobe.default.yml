@@ -3,14 +3,14 @@
 # your app's repo as snowglobe.yml to change what your globe runs.
 
 globe: devnet
-domain: devnet.test            # every name below is under it
+domain: local.snowglobe.at     # every name below is under it
 
 pds:
-  - name: alpha                # https://alpha.devnet.test
+  - name: alpha                # https://alpha.local.snowglobe.at
     image: spaces-alpha        # the permissioned-spaces alpha, pinned by digest
-    bare_handles: true         # its handles are <name>.devnet.test
+    bare_handles: true         # its handles are <name>.local.snowglobe.at
     invites: required
-  - name: regular              # a current release; handles <name>.regular.devnet.test
+  - name: regular              # a current release; handles <name>.regular.local.snowglobe.at
     image: ghcr.io/bluesky-social/pds:0.4.5037
   - name: prod                 # OpenMeet's production build (the 0.4.5009 release)
     image: ghcr.io/bluesky-social/pds@sha256:1fa8bbceabb65d8e1710749b1ea92c1c20a7489ca38da4a0a5f64c0c10a70c29
@@ -24,7 +24,7 @@ services:
   pdsls: true
 
 lexicons:
-  authority: alpha             # lex-authority.devnet.test, which every PDS resolves NSIDs from
+  authority: alpha             # lex-authority.local.snowglobe.at, which every PDS resolves NSIDs from
 
 accounts:
   - alice@alpha

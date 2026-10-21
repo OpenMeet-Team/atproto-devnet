@@ -12,7 +12,7 @@
 //   anything else                         a file of the app, else the app itself (it routes in the page)
 //
 // Settings:
-//   PDSLS_PUBLIC_URL        where browsers reach this, e.g. https://pdsls.devnet.test
+//   PDSLS_PUBLIC_URL        where browsers reach this, e.g. https://pdsls.local.snowglobe.at
 //   PDSLS_DOMAIN            the network's domain; lookups outside it are refused
 //   PDSLS_PLC_URL           the network's PLC directory
 //   PDSLS_JETSTREAM_URL     the stream page's default Jetstream (wss://.../subscribe)
