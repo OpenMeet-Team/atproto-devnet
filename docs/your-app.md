@@ -1,5 +1,20 @@
 # Your app on a globe
 
+An app uses a globe the way it would use the real network. Three things connect them:
+
+1. A `snowglobe.yml` in the app's repo, next to the lexicons it publishes, says what globe the app
+   needs: its PDSes, the accounts the app signs in with, its lexicons and a route to the app
+   ([The file and the commands](globe.md#the-file-and-the-commands)). From the snowglobe checkout,
+   `bin/snowglobe.mjs up ../myapp/snowglobe.yml` brings that globe up and makes all of it.
+2. `snowglobe run` starts the app, or its tests, so that they reach the globe at the real network's
+   names and trust the globe's CA (below).
+3. `data/devnet.env` holds the globe's addresses, nothing secret, for the app's own settings:
+   `set -a; . <snowglobe>/data/devnet.env; set +a` ([What it writes](globe.md#what-it-writes)).
+   The logins are in `data/accounts.env`.
+
+The tools further down make what the file does not: more accounts, invite codes, lexicons and
+routes.
+
 ## Running a command against it: `snowglobe run`
 
 ```bash
@@ -15,13 +30,13 @@ bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the rea
   [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
   with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
   `HTTPS_RUN_EXTRA_NAMES` adds names.
-- Node trusts the devnet CA on top of its own roots (`NODE_EXTRA_CA_CERTS=data/https/ca.crt`).
+- Node trusts the globe's CA on top of its own roots (`NODE_EXTRA_CA_CERTS=data/https/ca.crt`).
   Miniflare's source passes the same file to workerd, so a Worker's `fetch` should trust it too.
 
 The names are read when the command starts. Handles are listed one by one (there is no wildcard
 DNS), so restart a command under `snowglobe run` to pick up a handle or app made after it started.
 Node's certificate checks stay on: `snowglobe run` only adds a CA for them to trust. It needs Linux
-and bubblewrap; on a Mac it says so and exits, and an app there reaches the devnet through its
+and bubblewrap; on a Mac it says so and exits, and an app there reaches the globe through its
 proxy instead (`PROXY_PAC_URL` in `data/devnet.env`).
 
 ## Tools for an app
@@ -55,7 +70,7 @@ It mints the code through the PDS's admin API (`INVITE_USES`, default 100) and w
 `<VAR>=<code>` to the file (default `data/accounts.env`, mode 600), replacing an earlier line. The
 PDS is the one with `invites: required`; name it with `--pds` when the globe has more than one.
 
-**Lexicons.** With `PDS_LEXICON_AUTHORITY_DID` set, every devnet PDS resolves **every** NSID from
+**Lexicons.** With `PDS_LEXICON_AUTHORITY_DID` set, every PDS in the globe resolves **every** NSID from
 the authority account, never from DNS, so an app's record types, permission sets and space types
 have to be published there as `com.atproto.lexicon.schema` records, keyed by NSID. An app publishes
 its own:
@@ -80,8 +95,8 @@ The app must listen where Docker's host gateway lands (`host.docker.internal` in
 containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `data/https/apps` (a
 rerun with the same name changes the port), and nginx in `SG_PROJECT`'s stack is reloaded.
 `bin/snowglobe.mjs app --remove bookclub` drops the route the same way, and the app comes off the
-network page. A
-`.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
+network page. `bin/snowglobe.mjs app --render` only writes nginx's routes and the network page from
+`data/https/apps`, as `snowglobe up` does before it starts the globe. A `.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
 OAuth client can use `https://bookclub.devnet.internal/...` as its client_id: the PDS fetches its
 metadata and keys from there over TLS. A client_id under `.test` is refused by the PDS
 (`invalid_client_id: The client_id's TLD must not be a local hostname`), which is why apps live under

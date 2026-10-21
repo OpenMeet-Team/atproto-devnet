@@ -24,8 +24,7 @@ The overlays add more services:
 
 - the spaces PDS on port 3010 ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons));
 - `pds-regular` on 3020 and `pds-prod` on 3030 ([Several PDS builds side by side](#several-pds-builds-side-by-side));
-- `relay` on 2470 and a one-shot `relay-init` ([A local relay](#a-local-relay));
-- `nginx` on 127.0.0.1:443 ([The https devnet](globe.md#the-https-devnet)).
+- `relay` on 2470 and a one-shot `relay-init` ([A local relay](#a-local-relay)).
 
 ## Quick start (standalone)
 
@@ -65,12 +64,12 @@ npm run up
 ```
 
 The tests read the same `.env`, so `npm test` follows the move. Every setting is in
-[Host port mapping](configuration.md#host-port-mapping).
+[Host port mapping](#host-port-mapping).
 
 ### The network's page
 
 This stack has no web page. The page that lists the network's services, accounts and live activity
-comes with [the https devnet](globe.md#the-https-devnet), at `https://local.snowglobe.at/`
+comes with [the https devnet](globe.md), at `https://local.snowglobe.at/`
 ([The network's page](globe.md#the-networks-page)).
 
 ## Seeded test accounts
@@ -424,6 +423,56 @@ A worked example is
 [`sandbox/opensocial`](https://github.com/tompscanlan/atproto/tree/sandbox/opensocial-lexicons/sandbox/opensocial).
 It has a script that publishes a set of unpublished lexicons and a probe that signs in with OAuth
 `space:` scopes naming them, and both run against either dev-env or this repo's spaces overlay.
+
+## Configuration
+
+Override these in `.env` or in the environment.
+
+### Infrastructure (consumer provides)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SG_DB_USER` | `postgres` | PostgreSQL username |
+| `SG_DB_PASSWORD` | `postgres` | PostgreSQL password |
+| `SG_DB_HOST` | `postgres` | PostgreSQL hostname |
+| `SG_DB_PORT` | `5432` | PostgreSQL port |
+| `SG_DB_NAME` | `plc` | Database name for PLC |
+| `SG_SMTP_URL` | `smtp://maildev:1025` | SMTP server for PDS email. Under `npm run up`, the test overlay sets the PDS's SMTP URL to `smtp://maildev:1025` directly, so this has no effect there |
+
+### PDS settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SG_PDS_HOSTNAME` | `devnet.test` | PDS service hostname (a globe names its PDSes itself) |
+| `SG_PDS_IMAGE` | `ghcr.io/bluesky-social/pds:0.4` | PDS image (see [Choosing a PDS version](#choosing-a-pds-version)) |
+| `SG_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | PDS admin password |
+| `SG_APPVIEW_URL` / `SG_APPVIEW_DID` | `https://appview.invalid` / `did:example:invalid` | Where the PDS forwards app.bsky.* reads and methods it doesn't implement. Unresolvable, so nothing reaches Bluesky |
+| `SG_REPORT_SERVICE_URL` / `SG_REPORT_SERVICE_DID` | `https://moderator.invalid` / `did:example:invalid` | Where reports go |
+| `SG_HANDLE_DOMAIN` | `.devnet.test` | Handle suffix for accounts (a globe uses `.` + its domain) |
+| `SG_SEED_ACCOUNTS` | `true` | Create alice/bob on startup |
+| `SG_PDS_REGULAR_IMAGE` / `SG_PDS_PROD_IMAGE` | `ghcr.io/bluesky-social/pds:0.4.5037` / a pinned production digest | The two extra PDS builds ([Several PDS builds side by side](#several-pds-builds-side-by-side)) |
+| `SG_LEXICON_AUTHORITY_DID` | empty | The spaces PDS's lexicon authority ([Spaces PDS and unpublished lexicons](#spaces-pds-and-unpublished-lexicons)) |
+| `SG_RELAY_INDIGO_COMMIT` | `b2619d8...` | The indigo commit the relay image builds from |
+| `SG_RELAY_ADMIN_PASSWORD` | `devnet-relay-admin` | The relay's admin password |
+
+### Host port mapping
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SG_PDS_PORT` | `3000` | PDS |
+| `SG_PLC_PORT` | `2582` | PLC |
+| `SG_JETSTREAM_PORT` | `6008` | Jetstream WebSocket |
+| `SG_JETSTREAM_METRICS_PORT` | `6009` | Jetstream metrics |
+| `SG_TAP_PORT` | `2480` | Tap |
+| `SG_SPACES_PDS_PORT` | `3010` | The spaces PDS. `SG_PDS_PORT` applies to the default PDS only, and `pds-regular` and `pds-prod` always use 3020 and 3030 |
+| `SG_RELAY_PORT` | `2470` | Relay |
+| `SG_POSTGRES_PORT` | `5433` | Postgres (`npm run up` only) |
+| `SG_MAILDEV_WEB_PORT` / `SG_MAILDEV_SMTP_PORT` | `1081` / `1026` | MailDev (`npm run up` only) |
+
+`create-account.sh` and the test suite reach the PDS at `SG_PDS_URL` (default
+`http://localhost:3000`). `lexicon-authority.sh` defaults it to the spaces PDS on 3010. The tests
+also read `SG_PLC_URL`, `SG_JETSTREAM_WS_URL`, `SG_JETSTREAM_METRICS_URL` and
+`SG_TAP_URL`, each defaulting to localhost on the ports above.
 
 ## npm scripts
 

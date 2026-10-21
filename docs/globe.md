@@ -1,11 +1,12 @@
-# The https devnet
+# The globe
 
-The stacks above serve every PDS at `http://localhost:<port>`, so an app has to be told it is on a
-devnet before it will sign in there: allow plain http, and ask the devnet PLC instead of
-`plc.directory`. The https devnet goes the other way. It is the globe a `snowglobe.yml` describes
-(`snowglobe.default.yml` unless you name another; [the file](#the-file-and-the-commands)), which `bin/snowglobe.mjs up`
-renders into one compose file (`bin/snowglobe.mjs render`) and brings up. It looks like the real
-network, so an app built for the real network runs against it with no devnet code.
+A globe is the network a `snowglobe.yml` describes ([The file and the commands](#the-file-and-the-commands)).
+`bin/snowglobe.mjs up` renders the file into one compose file (`bin/snowglobe.mjs render`) and
+brings it up; with no file named, it uses `snowglobe.default.yml`. Every PDS sits at an https name,
+as on the real network, so an app built for the real network runs against it with no test-only
+code. The [quick stack](quick-stack.md) is the other way round: it serves every PDS at
+`http://localhost:<port>`, so an app has to allow plain http and ask its PLC instead of
+`plc.directory`.
 
 It runs on Linux, and on Windows under WSL 2; both are tested with `node scripts/smoke.mjs`
 ([Test suite](testing.md#test-suite)). macOS is not supported yet: nobody working on it has a Mac to test on.
@@ -18,9 +19,9 @@ With the default file:
 | --- | --- |
 | `alpha.local.snowglobe.at`, `*.local.snowglobe.at` | `pds-alpha`, the spaces alpha (`79d6307e`), and its handles; invites required |
 | `regular.local.snowglobe.at`, `*.regular.local.snowglobe.at` | `pds-regular`, a current release, and its handles |
-| `prod.local.snowglobe.at`, `*.prod.local.snowglobe.at` | `pds-prod`, the build you run in prod, and its handles |
-| `plc.directory` | this stack's own PLC |
-| `slingshot.local.snowglobe.at` | `slingshot`, which answers a handle's DID and PDS (below) |
+| `prod.local.snowglobe.at`, `*.prod.local.snowglobe.at` | `pds-prod`, an older release (0.4.5009, pinned by digest), and its handles |
+| `plc.directory` | the globe's own PLC |
+| `slingshot.local.snowglobe.at` | `slingshot`, which answers a handle's DID and PDS ([Slingshot](how-it-works.md#slingshot-handles-and-dids-inside-the-network)) |
 | `plc.local.snowglobe.at`, `relay.local.snowglobe.at`, `jetstream.local.snowglobe.at` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
 | `pdsls.local.snowglobe.at` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
 | `local.snowglobe.at` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
@@ -37,11 +38,11 @@ commands run under `bin/snowglobe.mjs run`, so every other program still reaches
 `plc.directory`.
 
 `local.snowglobe.at` is the default file's domain, and every name in the table above (and in the
-rest of this README) uses it. The name is ours, and its public DNS points every name under it at
-`127.0.0.1`, so a lookup that misses the devnet's own mapping lands on your machine, not on someone
+rest of these docs) uses it. The name is ours, and its public DNS points every name under it at
+`127.0.0.1`, so a lookup that misses the globe's own mapping lands on your machine, not on someone
 else's server. Pick another domain freely, but not one under `.test`, `.local`, `.localhost`,
 `.invalid` or `.example`: the stack comes up there, but a PDS refuses an OAuth client at such a name,
-so nobody can sign in through a group host or PDSls. `SG_DOMAIN` replaces it. Only the https devnet reads it; the plain stack
+so nobody can sign in through a group host or PDSls. `SG_DOMAIN` replaces it. Only the globe reads it; the quick stack
 keeps `SG_PDS_HOSTNAME` and `SG_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
 the same stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
 `regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
@@ -50,14 +51,14 @@ refuse a `${...}` there, which compose would expand and they would not. A checko
 because its CA can vouch only for the domain it was made for ([The CA](browser.md#the-ca)); for a second
 domain, use a second checkout.
 
-The devnet knows no app. It has no app's accounts, invite codes, lexicons or ports. It gives an app
-tools to make its own (below), and using them is optional.
+The globe knows no app. It has no app's accounts, invite codes, lexicons or ports. It gives an app
+tools to make its own ([Your app on a globe](your-app.md)), and using them is optional.
 
 ## The network's page
 
 `https://local.snowglobe.at/` is the network's own page (`page/index.html`): every service and its
 health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
-from Jetstream, the last week's and then live. nginx serves it with this stack's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
+from Jetstream, the last week's and then live. nginx serves it with this globe's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
 asks nothing but `local.snowglobe.at`. `snowglobe render` and `snowglobe app` write what it lists into
 `data/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
 computer](browser.md#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://local.snowglobe.at/globe.json`.
@@ -67,14 +68,14 @@ computer](browser.md#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs
 `https://pdsls.local.snowglobe.at/` is [PDSls](https://github.com/notjuliet/pdsls), the record browser at
 pds.ls, for this network: `https://pdsls.local.snowglobe.at/at://alice.local.snowglobe.at` shows her repo, its
 collections and records, as `https://pds.ls/at://...` does on the real network. Apps that link to
-pds.ls point their links here on a devnet or a globe. `pdsls/` builds it from a pinned upstream commit
+pds.ls point their links here on a globe. `pdsls/` builds it from a pinned upstream commit
 with `pdsls/network.patch`, which lets the page that loads it give it a network's addresses (unset,
 it is the public network's, unchanged), and `pdsls/server.mjs` serves it with this network's: the PLC
 at `plc.local.snowglobe.at`, Jetstream and the relay as the stream page's defaults, and the lexicon authority
 for every NSID. It looks up handles and `did:web` documents for names under `local.snowglobe.at` only, and
 turns off what has no stand-in here: DNS lookups, Bluesky search and avatars, backlinks, Spacedust,
 the public font host, link previews. Signing in uses a client at its own address, so editing records
-works against the devnet's PDSes.
+works against the globe's PDSes.
 
 A record's Schema tab shows its lexicon when the authority holds it and pdsls's parser accepts it.
 Measured 2026-10-19: the opensocial proposal's lexicons (a `space` definition, a `space-ref` format)
@@ -126,9 +127,10 @@ apps:
 
 `bin/snowglobe.mjs check` says what is wrong with a file, one line per problem, and touches
 nothing. A name used twice, a PDS named like a service, an app's handle ending that is a PDS's
-name, a handle longer than DNS allows: each fails here, before anything starts. `hosted` and an
-app's `hosted` are read and checked, for a globe hosted on the cluster; a local globe does not use
-them.
+name, a handle longer than DNS allows: each fails here, before anything starts. `hosted`, an
+app's `hosted` and `services.cdn` (an image service) are read and checked for a globe hosted on a
+server; a local globe does not use them. A hosted globe, such as lighthouse, also runs one PDS and
+one group host today, whatever its file lists.
 
 **Group hosts** are optional. Each one runs beside the PDSes as a service of its own at
 `https://<name>.<domain>`, with every group's handle under `<name>.<domain>`; nginx, the
@@ -152,7 +154,7 @@ handle.
 
 `up` seeds what the file asks for, every run, and a rerun changes nothing that is already there:
 
-- **accounts**: each one is made with `snowglobe account` (below). Its login goes to
+- **accounts**: each one is made with `snowglobe account` ([Tools for an app](your-app.md#tools-for-an-app)). Its login goes to
   `data/accounts.env` as `<NAME>_*` on the PDS with bare handles (else the first), where init's
   `alice` and `bob` are, so `alice@alpha` is init's own alice; on any other PDS as
   `<NAME>_<PDS>_*`, so `reader@regular` is `READER_REGULAR_*`. Passwords are generated and never
@@ -167,7 +169,7 @@ The commands, each `bin/snowglobe.mjs <command>`:
 | Command | What it does |
 | --- | --- |
 | `check [<file>]` | checks a file |
-| `render [<file>]` | writes the globe it describes into `data/globe/` (`up` does this itself) |
+| `render [<file>] [--out <dir>] [--domain <domain>]` | writes the globe it describes into `data/globe/`, or `<dir>` (`up` does this itself); `--domain` replaces the file's domain, for a copy beside another globe |
 | `certs [--check]` | makes the CA and the leaf nginx serves (`up` does this itself) |
 | `up [<file>]` | brings the globe up as `SG_PROJECT` and seeds it ([Up and down](#up-and-down)) |
 | `down [-v]` | stops it; `-v` drops its volumes too |
@@ -212,12 +214,12 @@ stacks. Nothing else is seeded.
 
 Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`SG_PLC_PORT`), Jetstream
 (`SG_JETSTREAM_PORT`, `SG_JETSTREAM_METRICS_PORT`) and maildev (`SG_MAILDEV_WEB_PORT`,
-`SG_MAILDEV_SMTP_PORT`). Set those to run a second https devnet beside another; pass the same
+`SG_MAILDEV_SMTP_PORT`). Set those to run a second globe beside another; pass the same
 values on every run. The PDS, relay, Tap and Postgres ports are not published: reach a PDS by its
-https name. nginx needs port 443 itself, so a second https devnet also takes another loopback
+https name. nginx needs port 443 itself, so a second globe also takes another loopback
 address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
 environment or `.env`; the scripts read it as compose does, `snowglobe run` maps the names to it, and
-`data/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the devnet's
+`data/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the globe's
 logins are throwaway, so it is never published beyond this machine.
 
 `snowglobe down` runs `docker compose down` (with `-v` when given) and never deletes `data/`. The PLC's
@@ -231,7 +233,7 @@ a new DID.
 
 `data/` is git-ignored:
 
-- `data/devnet.env`: the devnet's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
+- `data/devnet.env`: the globe's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
   (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
   leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
   `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `SG_PROJECT`, `SG_DOMAIN`,
@@ -239,7 +241,7 @@ a new DID.
   `SG_CA_FILE`.
   An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
 - `data/accounts.env` (mode 600): logins. `SG_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
-  `LEX_AUTHORITY_*`, and whatever the tools below add.
+  `LEX_AUTHORITY_*`, and whatever the [tools for an app](your-app.md#tools-for-an-app) add.
 - `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's and
   group host's server and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
   `snowglobe up` writes it again on every run; `bin/snowglobe.mjs render` writes it alone.

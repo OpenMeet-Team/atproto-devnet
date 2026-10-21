@@ -4,6 +4,13 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **The docs moved.** The README is short now, and the guides are under `docs/`, starting with
+  [The globe](docs/globe.md). The quick stack (`npm run up`) is deprecated.
+- **A globe made before 2026-10-20 fails on its next `up`.** Snowglobe builds the `slingshot-dns`,
+  `proxy` and `pdsls` images itself, and Docker keeps an old copy when their source changes. With
+  the old copies, `up` stops with `cannot join network namespace` while `slingshot-dns` restarts.
+  Rebuild them once from the checkout, after an `up` has rendered the globe:
+  `docker compose -p "$SG_PROJECT" --project-directory . -f data/globe/compose.yml build slingshot-dns proxy pdsls`.
 - **The repo is `OpenMeet-Team/snowglobe`, and every setting is `SG_*`.** It was
   `OpenMeet-Team/atproto-devnet` until 2026-10-20; GitHub sends the old address here. Projects that
   use it still look for it beside them at `../atproto-devnet`, so clone it under that name. The
@@ -52,7 +59,7 @@ Changes to the default stack that existing setups will notice:
   resolves a new DID fails with `Forbidden protocol "http:"`. The PDS now sets
   `PDS_DISABLE_SSRF_PROTECTION=true`, so it can also fetch private addresses, such as an OAuth client's
   metadata on your machine. The default stack still uses http. The
-  [https devnet](docs/globe.md#the-https-devnet) keeps SSRF protection off too, for another reason: every address
+  [https devnet](docs/globe.md) keeps SSRF protection off too, for another reason: every address
   a PDS fetches from there (nginx, the PLC, your machine) is a private one, and the protected fetch
   refuses private addresses.
 - **init reseeds when `data/` is stale.** `data/` outlives `npm run down`. init used to skip seeding

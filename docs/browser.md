@@ -1,22 +1,22 @@
 # From a browser on your own computer
 
 nginx runs in the dev container, so a browser on your own computer needs two things: a way to send
-the devnet's names to it, and trust in the devnet's CA. The proxy below does the first with a
+the globe's names to it, and trust in the globe's CA. The proxy below does the first with a
 setting you make once, in the browser you already use. Launch flags (further down) are the older way.
 
-## Through the devnet's proxy (Chrome, Edge, Firefox)
+## Through the globe's proxy (Chrome, Edge, Firefox)
 
 The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
 port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
 reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at`, `*.local.snowglobe.at` and
 `*.devnet.internal` to the proxy and everything else direct, so the rest of your browsing is
-untouched. The browser hands the proxy the name, and the proxy connects every devnet name to nginx,
+untouched. The browser hands the proxy the name, and the proxy connects every name in the globe to nginx,
 so a handle made a second ago works with nothing to update. It refuses any other name, any IP
 address and any port but 443.
 
 **Once per computer:**
 
-1. **Trust the devnet's CA** (more in [The CA](#the-ca)). Copy `data/https/ca.crt` from the devnet
+1. **Trust the globe's CA** (more in [The CA](#the-ca)). Copy `data/https/ca.crt` from the snowglobe
    checkout to your computer, then:
    - Windows, for Chrome, Edge and Firefox: `certutil -user -addstore Root ca.crt` (no admin; Windows
      asks you to confirm). Firefox reads the Windows store: a Firefox on Windows set up this way
@@ -28,12 +28,12 @@ address and any port but 443.
      `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n atproto-devnet -i ca.crt` (from `libnss3-tools`).
      Firefox: import it as on macOS.
 
-   Without this step the proxy still works, but each devnet name gets a certificate warning you click
+   Without this step the proxy still works, but each of the globe's names gets a certificate warning you click
    through once, and an app's own calls from the page to a PDS fail where no one can click.
 2. **Forward the proxy's port.** In VS Code's Ports view, forward port 1080 of the dev container
    (`SG_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
    fetched from. The proxy asks no one to sign in, so whoever can reach the forwarded port reaches
-   the whole devnet: every PDS, the PLC, the network page, and every app of yours routed with
+   the whole globe: every PDS, the PLC, the network page, and every app of yours routed with
    `snowglobe app`, each behind only its own sign-in. Keep the forwarded port on your computer's
    loopback address and don't open it to a network.
 3. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (the forwarded port):
@@ -48,24 +48,24 @@ address and any port but 443.
      the next page load; no restart.
 
 **Then** open `https://local.snowglobe.at/`, the network's page. Its apps link to themselves, for instance
-`https://atmo.devnet.internal` once atmo is routed (below).
+`https://atmo.devnet.internal` once atmo is routed ([Example: atmo](examples/atmo.md)).
 
-**When you are done**, turn the setting off, or leave it: it sends only devnet names anywhere, and
-those fail anyway while the devnet is down. What a browser does when it cannot fetch the PAC itself
+**When you are done**, turn the setting off, or leave it: it sends only the globe's names anywhere, and
+those fail anyway while the globe is down. What a browser does when it cannot fetch the PAC itself
 was not measured.
 
 `proxy.pac` leaves `plc.directory` alone, so the setting never moves the real directory for your
-everyday browsing; apps on the devnet use `https://plc.local.snowglobe.at`. For an app that insists on
-`plc.directory` in the browser, a profile used only for the devnet can take
-`http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this devnet's PLC.
+everyday browsing; apps on the globe use `https://plc.local.snowglobe.at`. For an app that insists on
+`plc.directory` in the browser, a profile used only for the globe can take
+`http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this globe's PLC.
 
 Measured on 2026-10-19, on Windows: Chrome through the Windows "Use setup script" setting (the PAC
 then named a SOCKS5 proxy), and Firefox both through its own "Automatic proxy configuration URL" and
 through "Use system proxy settings" (an HTTP proxy), reached the page and a handle's own name. Firefox
 uses the Windows setting only when its Network Settings say "Use system proxy settings": with any other
-choice it fetches no PAC and the devnet's names do not resolve. In the dev
+choice it fetches no PAC and the globe's names do not resolve. In the dev
 container, full Chromium and Firefox set only to the PAC URL went from the page to atmo and signed in
-through the alpha's sign-in and consent pages, asking no host outside the devnet, with either kind
+through the alpha's sign-in and consent pages, asking no host outside the globe, with either kind
 of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headless shell ignores
 `--proxy-pac-url`; real Chrome and Edge are the full build.
 
@@ -84,7 +84,7 @@ of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headle
 
    The wildcard rule covers the PDS names and the handles; the bare `local.snowglobe.at`, the network's
    page, needs its own. Hosts-file entries work too, one name at a time; they need admin, and they
-   point `plc.directory` at the devnet for every program on the computer until you remove the line.
+   point `plc.directory` at the globe for every program on the computer until you remove the line.
 3. **Trust the CA**, as in step 1 of the proxy's steps.
 
 ## The CA
@@ -114,5 +114,5 @@ CN that `bin/snowglobe.mjs certs` prints ("Keeping the existing CA: ...").
 Each CA made since 2026-10-19 has a name of its own, `atproto-devnet local CA <date> <hex>`; older
 ones are all `atproto-devnet local CA`. Two CAs with one name break each other: a browser that trusts
 one checks the other's certificates against the wrong key and rejects them as a bad signature, which
-it will not let you click through. So a second checkout's devnet, with a CA of its own, gets an
+it will not let you click through. So a second checkout's globe, with a CA of its own, gets an
 ordinary unknown-issuer warning instead, until its CA is trusted too.

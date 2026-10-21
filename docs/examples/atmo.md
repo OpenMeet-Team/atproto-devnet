@@ -1,7 +1,7 @@
 # atmo (the https devnet, with no devnet code in the app)
 
 [atmo](https://github.com/flo-bit/atmo-events) is an events app. It runs on
-[the https devnet](../globe.md#the-https-devnet) as it would on the real network. Its server reaches each PDS
+[the https devnet](../globe.md) as it would on the real network. Its server reaches each PDS
 and `plc.directory` at their https names, and the app has no devnet code or test switch. The devnet
 knows nothing about atmo, so everything below is made with the devnet's tools. The steps use the
 `feat/groups-opensocial` branch of
