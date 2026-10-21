@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Snowglobe network</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<link rel="preload" href="/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
   /* The Snowglobe look, winter blue and gold: the colors and type snowglobe.at shares with this page.
      Light by default, dark when the viewer's system asks for it. */
+  /* The fonts are served with this page, not from a font service, so opening it asks nothing of
+     another site. The same files as snowglobe.at's (page/fonts/, with their licenses). */
+  @font-face { font-family: "Schibsted Grotesk"; font-weight: 400 700; font-display: swap; src: url(/fonts/schibsted-grotesk-latin.woff2) format("woff2"); }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 400 500; font-display: swap; src: url(/fonts/jetbrains-mono-latin.woff2) format("woff2"); }
   :root {
     --font: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

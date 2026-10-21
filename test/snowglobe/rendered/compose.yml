@@ -379,6 +379,7 @@ services:
       - ./data/https/nginx:/etc/nginx/devnet:ro
       - ./data/globe/nginx:/etc/nginx/globe:ro
       - ./page/index.html:/srv/page/index.html:ro
+      - ./page/fonts:/srv/page/fonts:ro
       - ./page/devnet.conf:/etc/nginx/page/devnet.conf:ro
     networks:
       atproto-devnet:
