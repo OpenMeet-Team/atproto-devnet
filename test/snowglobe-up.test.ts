@@ -129,7 +129,8 @@ describe('snowglobe up and down', () => {
 
   it('up restarts nginx when its template changed since it last started, even with the leaf current', () => {
     const r = globeRoot();
-    // 127.0.0.1: nothing answers there, so the wait fails at once; macOS has no 127.0.0.3 unless aliased, and a connect to it hangs.
+    // 127.0.0.1, not the file's 127.77.0.9: nothing answers there, so the wait fails at once; macOS has only 127.0.0.1
+    // on loopback, and a connect to any other 127.x address hangs.
     const env = { SG_PROJECT: 'mine', SHIM_EXIT: '0', SG_NGINX_WAIT: '1', SG_BIND: '127.0.0.1' };
     // No stamp yet, as after an upgrade: the leaf is current (render and certs ran), the template is not known.
     expect(existsSync(state(r, 'https/nginx-template.sha256'))).toBe(false);

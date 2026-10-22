@@ -14,7 +14,8 @@ import { ensureCerts } from '../lib/certs.mjs';
 
 const ROOT = join(__dirname, '..');
 const D = 'acct.test';
-const BIND = '127.77.0.1';
+// An address of its own, so a real snowglobe on 127.0.0.1 does not clash; macOS has only 127.0.0.1 on loopback.
+const BIND = process.platform === 'darwin' ? '127.0.0.1' : '127.77.0.1';
 const PDS = ['alpha', 'beta', 'regular'];
 
 // Linux says which ports a user may bind; macOS has no such file and lets a user bind any (since Mojave).
