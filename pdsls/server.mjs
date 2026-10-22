@@ -18,11 +18,11 @@
 //   PDSLS_JETSTREAM_URL     the stream page's default Jetstream (wss://.../subscribe)
 //   PDSLS_FIREHOSE_URL      the stream page's default relay or PDS (wss://...)
 //   PDSLS_LEXICON_AUTHORITY the DID that holds every lexicon on the network (optional)
-//   PDSLS_UPSTREAM          host:port to send every lookup to, ignoring DNS (the devnet's nginx);
+//   PDSLS_UPSTREAM          host:port to send every lookup to, ignoring DNS (the snowglobe's nginx);
 //                           unset, names resolve as usual (a globe's public names)
 //   PDSLS_DIST              the built app (default ./dist)
 //   PDSLS_BIND              host:port to listen on (default 0.0.0.0:8080)
-// A lookup verifies TLS against the system's CAs plus NODE_EXTRA_CA_CERTS (the devnet's CA).
+// A lookup verifies TLS against the system's CAs plus NODE_EXTRA_CA_CERTS (the snowglobe's CA).
 import dns from 'node:dns'
 import { readFileSync, statSync } from 'node:fs'
 import http from 'node:http'

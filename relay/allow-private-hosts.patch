@@ -48,7 +48,7 @@ index 67bc2cb..0b28733 100644
 -	if !host.NoSSL {
 +	// if this isn't a localhost / private connection, then we should enable SSRF protections.
 +	// RELAY_ALLOW_PRIVATE_HOSTS=true skips them, so a local network's relay can dial wss://
-+	// hosts whose names resolve to private addresses (a devnet's PDSes behind a TLS proxy).
++	// hosts whose names resolve to private addresses (a snowglobe's PDSes behind a TLS proxy).
 +	if !host.NoSSL && os.Getenv("RELAY_ALLOW_PRIVATE_HOSTS") != "true" {
  		netDialer := ssrf.PublicOnlyDialer()
  		d.NetDialContext = netDialer.DialContext

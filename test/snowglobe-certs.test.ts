@@ -14,7 +14,7 @@ import { Certificate } from '@peculiar/asn1-x509';
 // @ts-expect-error: a plain .mjs module, without types
 import { ensureCerts, leafLacks, leafNames } from '../lib/certs.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { devnetRequest, paths } from '../lib/env.mjs';
+import { snowglobeRequest, paths } from '../lib/env.mjs';
 
 const ROOT = join(__dirname, '..');
 const D = 'certs.test';
@@ -203,7 +203,7 @@ describe('snowglobe certs', () => {
   });
 });
 
-describe('devnetRequest', () => {
+describe('snowglobeRequest', () => {
   it("reaches a globe name on the bind address, trusting only the globe's CA", async () => {
     const r = globeRoot();
     const names = [...NAMES, `pds.${D}`];
@@ -215,10 +215,10 @@ describe('devnetRequest', () => {
     await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
     const port = (server.address() as { port: number }).port;
     try {
-      const ok = await devnetRequest(`https://pds.${D}:${port}/xrpc/_health`, { root: r, state: stateDir(r), env: {} });
+      const ok = await snowglobeRequest(`https://pds.${D}:${port}/xrpc/_health`, { root: r, state: stateDir(r), env: {} });
       expect(ok).toEqual({ status: 200, body: `hello pds.${D}:${port}` });
       // A name the leaf does not carry fails the TLS check.
-      await expect(devnetRequest(`https://other.example:${port}/`, { root: r, state: stateDir(r), env: {} })).rejects.toThrow();
+      await expect(snowglobeRequest(`https://other.example:${port}/`, { root: r, state: stateDir(r), env: {} })).rejects.toThrow();
     } finally {
       server.close();
     }

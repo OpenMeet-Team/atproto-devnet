@@ -1,6 +1,6 @@
-// Probe the https devnet the way an app built for the real network meets it: stock
+// Probe the https snowglobe the way an app built for the real network meets it: stock
 // atcute, its default PLC directory, and no plain-http escape hatch anywhere. Run it
-// under bin/snowglobe.mjs run, which maps the names and trusts the devnet CA, after
+// under bin/snowglobe.mjs run, which maps the names and trusts the snowglobe CA, after
 // routing the probe's app name to its port:
 //
 //   bin/snowglobe.mjs app probe 5480
@@ -57,7 +57,7 @@ const PDS = process.env.PROBE_PDS ?? `https://alpha.${DOMAIN}`;
 const APP = process.env.PROBE_APP ?? 'probe';
 const SITE = `https://${APP}.app.${DOMAIN}`;
 // Always a .test name, whatever the domain: check (c) is about the .test suffix.
-const TEST_SITE = `https://${APP}.devnet.test`;
+const TEST_SITE = `https://${APP}.snowglobe.test`;
 const PORT = Number(process.env.PROBE_CLIENT_PORT ?? 5480);
 const HOST =
   process.env.PROBE_CLIENT_HOST ??

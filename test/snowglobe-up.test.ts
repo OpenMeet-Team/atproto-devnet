@@ -39,7 +39,7 @@ describe('what run maps', () => {
   it('keeps the machine\'s hosts file but the lines naming one of ours', () => {
     const etc = '127.0.0.1 localhost\n10.0.0.5 plc.directory other\n# a comment\n';
     expect(hostsFile(etc, ['plc.directory', 'four.test'], '127.0.0.2')).toBe(
-      '127.0.0.1 localhost\n# a comment\n# https devnet (bin/snowglobe.mjs run)\n127.0.0.2 plc.directory\n127.0.0.2 four.test\n',
+      '127.0.0.1 localhost\n# a comment\n# snowglobe (bin/snowglobe.mjs run)\n127.0.0.2 plc.directory\n127.0.0.2 four.test\n',
     );
   });
 });

@@ -1,8 +1,8 @@
-# The default globe: today's https devnet (bin/snowglobe.mjs up), as a snowglobe.yml.
+# The default snowglobe: today's https stack (bin/snowglobe.mjs up), as a snowglobe.yml.
 # bin/snowglobe.mjs uses it when there is no snowglobe.yml where it runs. Copy it into
 # your app's repo as snowglobe.yml to change what your globe runs.
 
-globe: devnet
+globe: snowglobe
 domain: local.snowglobe.at     # every name below is under it
 
 pds:

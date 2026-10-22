@@ -1,5 +1,5 @@
 # Written by bin/snowglobe.mjs render from snowglobe.default.yml; render again instead of editing.
-# The https globe "devnet" at local.snowglobe.at: alpha, regular, prod.
+# The https globe "snowglobe" at local.snowglobe.at: alpha, regular, prod.
 # Run it with bin/snowglobe.mjs up, which renders this file first.
 
 services:
@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}
       POSTGRES_DB: ${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD-SHELL
@@ -28,7 +28,7 @@ services:
       - 127.0.0.1:${SG_MAILDEV_WEB_PORT:-1081}:1080
       - 127.0.0.1:${SG_MAILDEV_SMTP_PORT:-1026}:1025
     networks:
-      - atproto-devnet
+      - snowglobe
   plc:
     image: itaru2622/bluesky-did-method-plc:latest
     restart: unless-stopped
@@ -53,7 +53,7 @@ services:
     ports:
       - 127.0.0.1:${SG_PLC_PORT:-2582}:2582
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD
@@ -107,7 +107,7 @@ services:
       - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
       - ./https/app-names.cjs:/https/app-names.cjs:ro
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD
@@ -158,7 +158,7 @@ services:
       - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
       - ./https/app-names.cjs:/https/app-names.cjs:ro
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD
@@ -209,7 +209,7 @@ services:
       - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
       - ./https/app-names.cjs:/https/app-names.cjs:ro
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD
@@ -225,7 +225,7 @@ services:
       context: ./relay
       args:
         INDIGO_COMMIT: ${SG_RELAY_INDIGO_COMMIT:-${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}}
-    image: atproto-devnet-relay:https-${SG_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
+    image: snowglobe-relay:https-${SG_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
     restart: unless-stopped
     depends_on:
       nginx:
@@ -238,7 +238,7 @@ services:
       ENVIRONMENT: dev
     volumes:
       - relay-data:/data/relay
-      - /state/snowglobe/ca/ca.crt:/etc/ssl/certs/atproto-devnet-ca.pem:ro
+      - /state/snowglobe/ca/ca.crt:/etc/ssl/certs/snowglobe-ca.pem:ro
     healthcheck:
       test:
         - CMD
@@ -250,7 +250,7 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - atproto-devnet
+      - snowglobe
   relay-init:
     image: alpine:3.20
     depends_on:
@@ -280,7 +280,7 @@ services:
           echo
         done
     networks:
-      - atproto-devnet
+      - snowglobe
     restart: "no"
   jetstream:
     image: ghcr.io/bluesky-social/jetstream:sha-05c89f0
@@ -298,7 +298,7 @@ services:
       - 127.0.0.1:${SG_JETSTREAM_PORT:-6008}:6008
       - 127.0.0.1:${SG_JETSTREAM_METRICS_PORT:-6009}:6009
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD-SHELL
@@ -320,9 +320,9 @@ services:
       TAP_LOG_LEVEL: info
     volumes:
       - tap-data:/data
-      - /state/snowglobe/ca/ca.crt:/etc/ssl/certs/atproto-devnet-ca.pem:ro
+      - /state/snowglobe/ca/ca.crt:/etc/ssl/certs/snowglobe-ca.pem:ro
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD
@@ -342,7 +342,7 @@ services:
         condition: service_healthy
     volumes:
       - ./scripts:/scripts:ro
-      - /state/snowglobe/devnet:/devnet-data
+      - /state/snowglobe/snowglobe:/devnet-data
     environment:
       PDS_HOSTNAME: alpha.local.snowglobe.at
       PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
@@ -354,7 +354,7 @@ services:
       - -c
       - sed "s#http://pds:3000#http://pds-alpha:3000#" /scripts/init.sh > /tmp/init.sh && sh /tmp/init.sh
     networks:
-      - atproto-devnet
+      - snowglobe
     restart: "no"
   nginx:
     image: nginx:1.30-alpine
@@ -377,15 +377,15 @@ services:
       NGINX_ENVSUBST_FILTER: ^SG_
     volumes:
       - ./https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - /state/snowglobe/devnet/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
-      - /state/snowglobe/devnet/https/leaf.key:/etc/nginx/https/leaf.key:ro
-      - /state/snowglobe/devnet/https/nginx:/etc/nginx/devnet:ro
-      - /state/snowglobe/devnet/globe/nginx:/etc/nginx/globe:ro
+      - /state/snowglobe/snowglobe/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
+      - /state/snowglobe/snowglobe/https/leaf.key:/etc/nginx/https/leaf.key:ro
+      - /state/snowglobe/snowglobe/https/nginx:/etc/nginx/snowglobe:ro
+      - /state/snowglobe/snowglobe/globe/nginx:/etc/nginx/globe:ro
       - ./page/index.html:/srv/page/index.html:ro
       - ./page/fonts:/srv/page/fonts:ro
-      - ./page/devnet.conf:/etc/nginx/page/devnet.conf:ro
+      - ./page/snowglobe.conf:/etc/nginx/page/snowglobe.conf:ro
     networks:
-      atproto-devnet:
+      snowglobe:
         aliases:
           - alpha.local.snowglobe.at
           - regular.local.snowglobe.at
@@ -401,7 +401,7 @@ services:
       retries: 10
   slingshot-dns:
     build: ./https/dns
-    image: atproto-devnet-dns:c577defa0b8a
+    image: snowglobe-dns:6fb1e99ad6c9
     restart: unless-stopped
     environment:
       SG_DOMAIN: local.snowglobe.at
@@ -411,13 +411,13 @@ services:
       nginx:
         condition: service_healthy
     networks:
-      - atproto-devnet
+      - snowglobe
   slingshot:
     build:
       context: ./slingshot
       args:
         MICROCOSM_COMMIT: ${SG_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
-    image: atproto-devnet-slingshot:${SG_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
+    image: snowglobe-slingshot:${SG_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
     restart: unless-stopped
     network_mode: service:slingshot-dns
     depends_on:
@@ -449,7 +449,7 @@ services:
       retries: 10
   proxy:
     build: ./https/proxy
-    image: atproto-devnet-proxy:c0ae9a213789
+    image: snowglobe-proxy:5eefb13d6284
     restart: unless-stopped
     depends_on:
       nginx:
@@ -460,7 +460,7 @@ services:
     ports:
       - 127.0.0.1:${SG_PROXY_PORT:-1080}:1080
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD
@@ -474,7 +474,7 @@ services:
       retries: 10
   pdsls:
     build: ./pdsls
-    image: atproto-devnet-pdsls:69cc8540d84c
+    image: snowglobe-pdsls:12c414a749ef
     restart: unless-stopped
     depends_on:
       nginx:
@@ -491,7 +491,7 @@ services:
     volumes:
       - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
     networks:
-      - atproto-devnet
+      - snowglobe
     healthcheck:
       test:
         - CMD
@@ -513,4 +513,4 @@ volumes:
   tap-data:
   slingshot-data:
 networks:
-  atproto-devnet:
+  snowglobe:
