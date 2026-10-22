@@ -193,7 +193,7 @@
 </div>
 <script>
 (function () {
-  // A globe's services. A network that differs (the local snowglobe) lists its own in globe.json as
+  // A globe's services. A network that differs (the local snowglobe) lists its own in snowglobe.json as
   // "services": [label, name, health key, what it does] each, where a name with a dot is a whole host
   // name, one without hangs from the network's domain, and an empty one gets no link.
   var SERVICES = [
@@ -207,7 +207,7 @@
     ["Tap", "tap", "tap", "Syncs and backfills repos; locked by its admin password"],
     ["PDSls", "pdsls", "pdsls", "Browses this network's repos and records"]
   ];
-  // Where each kind of account is listed: [relay path, kind]. globe.json may give its own as "accounts",
+  // Where each kind of account is listed: [relay path, kind]. snowglobe.json may give its own as "accounts",
   // where a kind is "person" or "group", followed by ", <server>" on a network with several.
   var ACCOUNTS = [["/people", "person"], ["/groups", "group"]];
   var handles = {};
@@ -379,7 +379,7 @@
     connect();
   }
 
-  getJSON("/globe.json").then(function (g) {
+  getJSON("/snowglobe.json").then(function (g) {
     document.title = g.globe + " · Snowglobe network";
     document.getElementById("title").textContent = g.globe;
     document.getElementById("subtitle").textContent = "A Snowglobe network at " + g.domain;
