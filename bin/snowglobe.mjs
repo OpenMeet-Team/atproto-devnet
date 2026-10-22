@@ -4,6 +4,7 @@
 //   check     checks a snowglobe.yml
 //   render    writes the https globe it describes into its state folder
 //   certs     makes your CA, once, and the leaf nginx serves
+//   trust     puts your CA in the system and browser trust stores (--remove takes it out)
 //   account   makes an account on a PDS in the running globe
 //   invite    mints an invite code on one of its PDSes
 //   lexicons  publishes lexicons into its lexicon authority
@@ -30,6 +31,7 @@ const COMMANDS = {
   check: () => import('../lib/commands/check.mjs'),
   render: () => import('../lib/commands/render.mjs'),
   certs: () => import('../lib/commands/certs.mjs'),
+  trust: () => import('../lib/commands/trust.mjs'),
   account: () => import('../lib/commands/account.mjs'),
   invite: () => import('../lib/commands/invite.mjs'),
   lexicons: () => import('../lib/commands/lexicons.mjs'),
