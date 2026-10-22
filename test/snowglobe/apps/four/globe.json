@@ -97,11 +97,11 @@
     },
     {
       "name": "atmo",
-      "url": "https://atmo.devnet.internal"
+      "url": "https://atmo.app.four.test"
     },
     {
       "name": "probe",
-      "url": "https://probe.devnet.internal"
+      "url": "https://probe.app.four.test"
     }
   ]
 }
