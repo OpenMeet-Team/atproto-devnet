@@ -54,11 +54,11 @@ const env = {
   SG_BIND: setting('SG_BIND', { root, env: given }) || '127.0.0.3',
 };
 for (const k of ['SG_FILE', 'ACCOUNTS_FILE', 'SG_PUBLIC', 'SG_RESET_OK']) delete env[k];
-// The default globe plus one app, with the settings the steps below check. Its name is smokeapp,
+// The atmo example globe plus one app, with the settings the steps below check. Its name is smokeapp,
 // so the route the app step adds is the one the file names.
 writeFileSync(
   join(root, 'snowglobe.yml'),
-  `${readFileSync(join(root, 'snowglobe.default.yml'), 'utf8')}
+  `${readFileSync(join(root, 'docs/examples/atmo.yml'), 'utf8')}
 apps:
   - name: smokeapp
     env:

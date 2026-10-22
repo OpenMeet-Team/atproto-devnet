@@ -21,7 +21,7 @@ const base = loadBase(ROOT);
 // Where the fixtures say a snowglobe's state is, the same on every machine.
 const STATE = '/state/snowglobe/snowglobe';
 const APPS = 'atmo 5173 ev\nprobe 5480\n';
-const GLOBES = { default: join(ROOT, 'snowglobe.default.yml'), four: join(ROOT, 'test/snowglobe/four.yml') };
+const GLOBES = { default: join(ROOT, 'docs/examples/atmo.yml'), four: join(ROOT, 'test/snowglobe/four.yml') };
 
 function rendered(file: string) {
   const { globe, errors } = loadGlobe(file);

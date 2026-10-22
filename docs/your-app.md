@@ -1,4 +1,4 @@
-# Your app on a snowglobe
+# Your app in a snowglobe
 
 An app uses a snowglobe the way it would use the real network. Three things connect them:
 

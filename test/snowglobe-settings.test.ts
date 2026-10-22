@@ -69,7 +69,7 @@ describe('the value names', () => {
   });
 
   it('gives the default file\'s names the values the table gives on it', () => {
-    const { globe: d } = loadGlobe(join(ROOT, 'snowglobe.default.yml'));
+    const { globe: d } = loadGlobe(join(ROOT, 'docs/examples/atmo.yml'));
     const v = (n: string) => lookup(d, n).value;
     expect([v('pds.alpha.url'), v('pds.alpha.did'), v('accounts.alice.handle'), v('accounts.alice.pds'), v('services.relay.ws'), v('lexicons.authority.handle')]).toEqual([
       'https://alpha.local.snowglobe.at',

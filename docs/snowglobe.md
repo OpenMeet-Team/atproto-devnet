@@ -2,18 +2,17 @@
 
 A snowglobe is the network a `snowglobe.yml` describes ([The file and the commands](#the-file-and-the-commands)).
 `bin/snowglobe.mjs up` renders the file into one compose file (`bin/snowglobe.mjs render`) and
-brings it up; with no file named, it uses `snowglobe.default.yml`. Every PDS sits at an https name,
-as on the real network, so an app built for the real network runs against it with no test-only
-code. The [quick stack](quick-stack.md) is the other way round: it serves every PDS at
-`http://localhost:<port>`, so an app has to allow plain http and ask its PLC instead of
-`plc.directory`.
+brings it up; with no file named, it uses the `snowglobe.yml` in this folder or above (copy
+`snowglobe.default.yml` to start). Every PDS sits at an https name, as on the real network, so an app
+built for the real network runs against it with no test-only code. The older plain-http stack
+([v0.2.0](https://github.com/OpenMeet-Team/snowglobe/tree/v0.2.0)) was the other way round: it served every PDS at `http://localhost:<port>`.
 
 It runs on Linux, and on Windows under WSL 2; both are tested with `node scripts/smoke.mjs`
 ([Test suite](testing.md#test-suite)). macOS is not supported yet: nobody working on it has a Mac to test on.
 If you have one, please try it and [open an issue](https://github.com/OpenMeet-Team/snowglobe/issues)
 with what broke, or that it worked; we'll add Mac support over time.
 
-With the default file:
+With `docs/examples/atmo.yml`, which has three PDSes (the default file has one, `main`, at `main.local.snowglobe.at`):
 
 | Name | Served by |
 | --- | --- |
@@ -42,17 +41,16 @@ rest of these docs) uses it. The name is ours, and its public DNS points every n
 `127.0.0.1`, so a lookup that misses the snowglobe's own mapping lands on your machine, not on someone
 else's server. Pick another domain freely, but not one under `.test`, `.local`, `.localhost`,
 `.invalid` or `.example`: the stack comes up there, but a PDS refuses an OAuth client at such a name,
-so nobody can sign in through a group host or PDSls. `SG_DOMAIN` replaces it. Only the snowglobe reads it; the quick stack
-keeps `SG_PDS_HOSTNAME` and `SG_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
-the same stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
-`regular.<domain>`, `prod.<domain>`. `plc.directory` stays as it is; apps follow the domain, at `<name>.app.<domain>`.
+so nobody can sign in through a group host or PDSls. `SG_DOMAIN` replaces it. Set it in the environment or in `.env` and
+the same stack comes up under that domain: `<name>.<domain>` for each PDS, with handles at
+`<name>.<domain>` for the one with `bare_handles`. `plc.directory` stays as it is; apps follow the domain, at `<name>.app.<domain>`.
 In `.env`, write the domain itself (quotes, `export` and a trailing comment are fine); the scripts
 refuse a `${...}` there, which compose would expand and they would not. A checkout keeps one domain,
 because its CA can vouch only for the domain it was made for ([The CA](browser.md#the-ca)); for a second
 domain, use a second checkout.
 
 The snowglobe knows no app. It has no app's accounts, invite codes, lexicons or ports. It gives an app
-tools to make its own ([Your app on a snowglobe](your-app.md)), and using them is optional.
+tools to make its own ([Your app in a snowglobe](your-app.md)), and using them is optional.
 
 ## The network's page
 
@@ -186,7 +184,7 @@ snowglobe.
 A command acts on one `snowglobe.yml`: the one you name, else `SG_FILE`, else the nearest
 `snowglobe.yml` in the folder you are in or above it. `up` with none of these refuses, because
 starting something by accident is worse than asking; `up --default` runs the default file in this
-repo, `snowglobe.default.yml` (alpha, regular and prod, with `alice` and `bob`). The other commands
+repo, `snowglobe.default.yml` (one PDS, `main`, with `alice` and `bob`). The other commands
 fall back to that default.
 
 The file's `globe:` line names the snowglobe. The name gives its state folder, `<state>`, which is
@@ -202,7 +200,7 @@ The scripts refuse the shared project `devnet-spaces` unless `SG_RESET_OK=1`, an
 calling docker.
 
 ```bash
-bin/snowglobe.mjs up --default   # certificates, two-pass authority boot
+bin/snowglobe.mjs up --default   # certificates, then the services
 bin/snowglobe.mjs down           # stop it; -v also drops its volumes (every account and DID)
 ```
 
@@ -219,7 +217,7 @@ runs, and when it adds a PDS beside a running relay it restarts the relay, which
 a long time before it redials a PDS that went away and came back. It refuses a PDS named for a handle ending an app
 claimed with `snowglobe app`, before it writes anything. It makes the leaf certificate if there is
 none, brings the stack up, makes the lexicon authority (`lex-authority.local.snowglobe.at` on the file's
-`lexicons.authority` PDS, the alpha by default),
+`lexicons.authority` PDS, the bare-handle PDS by default),
 brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it. It writes no
 settings file for an app: `snowglobe env` prints them ([An app's settings](your-app.md#an-apps-settings-snowglobe-env)).
 The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`

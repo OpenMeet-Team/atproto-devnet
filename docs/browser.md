@@ -102,7 +102,8 @@ address and any port but 443.
 
    Without this step the proxy still works, but each of the snowglobe's names gets a certificate warning you click
    through once, and an app's own calls from the page to a PDS fail where no one can click.
-2. **Forward the proxy's port.** In VS Code's Ports view, forward port 1080 of the dev container
+2. **Forward the proxy's port.** (Docker on the same computer as the browser: skip this, the proxy is
+   already on `127.0.0.1:1080`.) In VS Code's Ports view, forward port 1080 of the dev container
    (`SG_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
    fetched from. The proxy asks no one to sign in, so whoever can reach the forwarded port reaches
    the whole snowglobe: every PDS, the PLC, the network page, and every app of yours routed with

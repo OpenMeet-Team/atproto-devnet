@@ -4,8 +4,15 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **The default snowglobe is one PDS now.** `snowglobe.default.yml` runs one current PDS, `main`,
+  with the PLC, Jetstream, Slingshot, PDSls and the accounts `alice` and `bob`, and holds commented
+  examples for adding more. The old default (the permissioned-spaces alpha, a current release and an
+  older one, with a relay and a lexicon authority) is `docs/examples/atmo.yml`. To keep it, copy that file to
+  `snowglobe.yml`. A snowglobe that was brought up from the old default keeps its own `snowglobe.yml`
+  or `--default` choice: bring it up from `docs/examples/atmo.yml`, not the new default, or it starts over under
+  new PDS names (unchecked: how an existing one reacts to the new file).
 - **The docs moved.** The README is short now, and the guides are under `docs/`, starting with
-  [The snowglobe](docs/snowglobe.md). The quick stack (`npm run up`) is deprecated.
+  [The snowglobe](docs/snowglobe.md). The quick stack (`npm run up`) is gone; the [v0.2.0 tag](https://github.com/OpenMeet-Team/snowglobe/tree/v0.2.0) has it.
 - **A snowglobe keeps its state in your own account, not in the checkout.** It is in
   `~/.local/share/snowglobe/<name>/` (under `XDG_DATA_HOME` if you set it, `%LOCALAPPDATA%\snowglobe`
   on Windows), where `<name>` is the `globe:` line of its `snowglobe.yml`, and the Docker Compose

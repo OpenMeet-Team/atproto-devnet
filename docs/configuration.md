@@ -38,6 +38,7 @@ The snowglobe also writes facts for its own commands into `<state>/globe/globe.e
 `SG_SERVICES` and others) and sets a few names inside its containers. They are not settings.
 `SG_PUBLIC=1` points `lexicons` at a hosted snowglobe, for the people who run one.
 
-## The quick stack
+## The plain-http stack
 
-The quick stack's settings are in [The quick stack](quick-stack.md#configuration).
+The older plain-http stack (`npm run up`) and its settings are in the
+[v0.2.0 tag](https://github.com/OpenMeet-Team/snowglobe/tree/v0.2.0).

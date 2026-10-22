@@ -8,7 +8,8 @@ knows nothing about atmo, so everything below is made with the snowglobe's tools
 [tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial),
 checked out beside the snowglobe as `atmo-events/`, and the
 [opensocial.group proposal](https://tangled.org/opensocial.group/proposal) beside both as
-`opensocial-proposal/`. Start with the default snowglobe up (`bin/snowglobe.mjs up --default`), and in
+`opensocial-proposal/`. Start by copying [`atmo.yml`](atmo.yml), the snowglobe this example builds on, to `snowglobe.yml` in the snowglobe
+checkout and bringing it up (`bin/snowglobe.mjs up`), and in
 each shell set `state=~/.local/share/snowglobe/snowglobe`, its state folder
 ([Which snowglobe, and where it lives](../snowglobe.md#which-snowglobe-and-where-it-lives)).
 
@@ -33,7 +34,7 @@ done
 ```
 
 **An account.** `alice.local.snowglobe.at` and `bob.local.snowglobe.at` are already there (see
-[Seeded test accounts](../quick-stack.md#seeded-test-accounts)). To use another, make it with
+[The snowglobe](../snowglobe.md#the-file-and-the-commands)). To use another, make it with
 `bin/snowglobe.mjs account` before you start atmo, because `snowglobe run` maps only the handles it knows
 when the command starts.
 

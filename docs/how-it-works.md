@@ -1,6 +1,6 @@
 # How it works
 
-## How a snowglobe differs from the quick stack
+## How a snowglobe differs from plain http
 
 - **Each PDS at its https name.** A PDS's `PDS_HOSTNAME` is `<name>.<domain>`, such as
   `alpha.local.snowglobe.at`. The PDS with `bare_handles` takes handles under the domain itself
@@ -56,7 +56,7 @@ the source and names the image.
 **The relay is built locally, not pulled.** Upstream's relay (`ghcr.io/bluesky-social/indigo:relay-<commit>`)
 checks every host through an SSRF-safe transport that refuses loopback and private addresses, with
 no setting to turn it off. Its admin `requestCrawl` accepts `localhost:<port>`, and the host check
-then fails with `unsafe network address`, so the published image can never crawl a PDS on a snowglobe or the quick stack.
+then fails with `unsafe network address`, so the published image can never crawl a PDS on a snowglobe.
 `relay/Dockerfile` builds the same upstream commit with `relay/allow-private-hosts.patch`, which
 adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
 image. The setting covers both places the relay refuses those addresses: the host check, and the
