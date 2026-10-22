@@ -9,7 +9,7 @@ knows nothing about atmo, so everything below is made with the snowglobe's tools
 checked out beside the snowglobe as `atmo-events/`, and the
 [opensocial.group proposal](https://tangled.org/opensocial.group/proposal) beside both as
 `opensocial-proposal/`. Start with the default snowglobe up (`bin/snowglobe.mjs up --default`), and in
-each shell set `state=~/.local/share/snowglobe/devnet`, its state folder
+each shell set `state=~/.local/share/snowglobe/snowglobe`, its state folder
 ([Which snowglobe, and where it lives](../globe.md#which-snowglobe-and-where-it-lives)).
 
 **Lexicons.** Every snowglobe PDS resolves NSIDs only from the snowglobe's lexicon authority. atmo's OAuth
@@ -202,9 +202,7 @@ unset ACCOUNTS_FILE
 ./bin/snowglobe.mjs invite E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
 # what the test reads: URLs, DIDs, the handle domain and where the secrets are; no secret
 { grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
-  echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' "$state/devnet.env")"
-  echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' "$state/devnet.env")"
-  echo "E2E_HANDLE_DOMAIN=$(sed -n 's/^SG_DOMAIN=//p' "$state/devnet.env")"
+  ./bin/snowglobe.mjs env --dotenv --app atmo | grep -E '^E2E_(PDS|PLC_URL|HANDLE_DOMAIN)='   # mapped in the atmo app's env: in snowglobe.yml
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 

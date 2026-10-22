@@ -12,7 +12,7 @@ Changes to the default stack that existing setups will notice:
   project has that name too unless `SG_PROJECT` is set. There is one CA per user, in `ca/` beside the
   snowglobes' folders. A command finds the `snowglobe.yml` in the folder you are in or the nearest
   one above; `up` with none refuses, and `up --default` runs the default file, whose name is
-  `devnet`. Nothing is moved for you. A checkout that still holds a snowglobe in its `data/` makes
+  `snowglobe` (it was `devnet` for a while; see the rename below). Nothing is moved for you. A checkout that still holds a snowglobe in its `data/` makes
   `up` stop, change nothing, and print the commands that move the files; to keep the running
   containers and volumes, run `up` again with `SG_PROJECT` set to the old project's name, as it
   prints. Either way you trust a new CA once, with `snowglobe trust`.
@@ -24,6 +24,21 @@ Changes to the default stack that existing setups will notice:
   under `snowglobe run`, which reads its names when it starts. `app` is now a reserved name: `up`
   refuses a saved route whose handle ending is `app`. The browser proxy's PAC follows by itself;
   Chrome launch flags drop the `MAP *.devnet.internal` rule.
+- **An app's settings come from `snowglobe env`, and `data/devnet.env` is gone.** `up` no longer
+  writes it, and removes an old one. Map the addresses an app needs under the app in `snowglobe.yml`
+  (`env:`), then `eval "$(snowglobe env)"`, `snowglobe env --dotenv > .env.local`, or
+  `snowglobe run`. Anything that sourced `devnet.env` reads these instead
+  ([An app's settings](docs/your-app.md#an-apps-settings-snowglobe-env)). Account names in the file
+  must now be unique.
+- **The default snowglobe is named `snowglobe`, not `devnet`, and its Docker names follow.** The
+  state folder is `~/.local/share/snowglobe/snowglobe`, the Docker network is `snowglobe`, the images
+  are `snowglobe-dns`, `-proxy`, `-pdsls`, `-relay` and `-slingshot`. Your CA is kept. If you made the default snowglobe under the old name, `up --default` stops
+  and changes nothing; it prints the commands. To keep its accounts, move the folder and keep the old
+  compose project: `mv ~/.local/share/snowglobe/devnet ~/.local/share/snowglobe/snowglobe`, then
+  `SG_PROJECT=devnet snowglobe up --default`. To drop it, `down -v` it and delete the folder.
+  Either way the old Docker network `devnet_atproto-devnet` is left behind: remove it with
+  `docker network rm devnet_atproto-devnet` once nothing uses it. The quick stack and the old
+  `DEVNET_*` setting names are unchanged.
 - **`snowglobe trust` puts your CA in the system and browser trust stores.** `--dry-run` shows what it
   would do, `--remove` undoes it. macOS and native Windows are untried.
 - **Tap is off by default.** Nothing in the default snowglobe attaches to it. Turn it on with

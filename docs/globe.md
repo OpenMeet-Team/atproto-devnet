@@ -58,7 +58,7 @@ tools to make its own ([Your app on a snowglobe](your-app.md)), and using them i
 
 `https://local.snowglobe.at/` is the network's own page (`page/index.html`): every service and its
 health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
-from Jetstream, the last week's and then live. nginx serves it with this snowglobe's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
+from Jetstream, the last week's and then live. nginx serves it with this snowglobe's relays (`page/snowglobe.conf`), a fixed GET-only path per read, so the page
 asks nothing but `local.snowglobe.at`. `snowglobe render` and `snowglobe app` write what it lists into
 `<state>/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
 computer](browser.md#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://local.snowglobe.at/globe.json`.
@@ -202,7 +202,7 @@ The scripts refuse the shared project `devnet-spaces` unless `SG_RESET_OK=1`, an
 calling docker.
 
 ```bash
-bin/snowglobe.mjs up --default   # certificates, two-pass authority boot, <state>/devnet.env
+bin/snowglobe.mjs up --default   # certificates, two-pass authority boot
 bin/snowglobe.mjs down           # stop it; -v also drops its volumes (every account and DID)
 ```
 
@@ -220,8 +220,9 @@ a long time before it redials a PDS that went away and came back. It refuses a P
 claimed with `snowglobe app`, before it writes anything. It makes the leaf certificate if there is
 none, brings the stack up, makes the lexicon authority (`lex-authority.local.snowglobe.at` on the file's
 `lexicons.authority` PDS, the alpha by default),
-brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
-`<state>/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
+brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it. It writes no
+settings file for an app: `snowglobe env` prints them ([An app's settings](your-app.md#an-apps-settings-snowglobe-env)).
+The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
 into `<state>/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
 stacks. Nothing else is seeded.
 
@@ -231,8 +232,8 @@ Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`SG_PLC_PORT`), 
 values on every run. The PDS, relay, Tap and Postgres ports are not published: reach a PDS by its
 https name. nginx needs port 443 itself, so a second snowglobe also takes another loopback
 address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
-environment or `.env`; the scripts read it as compose does, `snowglobe run` maps the names to it, and
-`<state>/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the snowglobe's
+environment or `.env`; the scripts read it as compose does, and `snowglobe run` maps the names to it.
+The scripts refuse anything but a `127.x.y.z` address: the snowglobe's
 logins are throwaway, so it is never published beyond this machine.
 
 `snowglobe down` runs `docker compose down` (with `-v` when given) and never deletes the state folder. The PLC's
@@ -247,13 +248,8 @@ a new DID.
 Everything is kept in `<state>`, the snowglobe's own folder ([above](#which-snowglobe-and-where-it-lives)),
 and nothing in the checkout:
 
-- `<state>/devnet.env`: the snowglobe's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
-  (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
-  leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
-  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `SG_PROJECT`, `SG_DOMAIN`,
-  `PAGE_URL` (`https://local.snowglobe.at/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
-  `SG_CA_FILE`.
-  An app can source it: `set -a; . <state>/devnet.env; set +a`.
+- No `devnet.env`: `snowglobe up` stopped writing it (and removes an old one). The addresses it
+  held come from `snowglobe env` ([An app's settings](your-app.md#an-apps-settings-snowglobe-env)).
 - `<state>/accounts.env` (mode 600): logins. `SG_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the [tools for an app](your-app.md#tools-for-an-app) add.
 - `<state>/globe/`: the rendered snowglobe, nothing secret. `compose.yml`, `nginx/` (each PDS's and

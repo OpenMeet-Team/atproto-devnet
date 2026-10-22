@@ -22,7 +22,7 @@
   `relay/allow-private-hosts.patch`, whose `RELAY_ALLOW_PRIVATE_HOSTS` covers the firehose dialer as
   well as the host check (see [The relay, built locally](#the-relay-built-locally)). The CA is mounted into
   `/etc/ssl/certs`, which Go reads on top of its bundle. `RELAY_ALLOW_INSECURE_HOSTS` is dropped. The
-  image has its own tag, `atproto-devnet-relay:https-<commit>`. The relay's `listHosts` shows a host
+  image has its own tag, `snowglobe-relay:https-<commit>`. The relay's `listHosts` shows a host
   only once it has sent an event.
 - **Tap resync is not supported.** Tap follows the relay's stream, but it fetches a repo to resync
   through an SSRF-safe transport that refuses nginx's address, so a resync fails here.

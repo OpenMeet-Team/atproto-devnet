@@ -8,9 +8,9 @@ An app uses a snowglobe the way it would use the real network. Three things conn
    `bin/snowglobe.mjs up ../myapp/snowglobe.yml` brings that snowglobe up and makes all of it.
 2. `snowglobe run` starts the app, or its tests, so that they reach the snowglobe at the real network's
    names and trust the snowglobe's CA (below).
-3. `<state>/devnet.env` holds the snowglobe's addresses, nothing secret, for the app's own settings:
-   `set -a; . <state>/devnet.env; set +a` ([What it writes](globe.md#what-it-writes)).
-   The logins are in `<state>/accounts.env`.
+3. `snowglobe env` hands the app the snowglobe's addresses as settings, from the `env:` mapping under
+   the app in `snowglobe.yml` (below): `eval "$(snowglobe env)"`. The logins are in
+   `<state>/accounts.env`.
 
 The tools further down make what the file does not: more accounts, invite codes, lexicons and
 routes.
@@ -36,8 +36,61 @@ bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the rea
 The names are read when the command starts. Handles are listed one by one (there is no wildcard
 DNS), so restart a command under `snowglobe run` to pick up a handle or app made after it started.
 Node's certificate checks stay on: `snowglobe run` only adds a CA for them to trust. It needs Linux
-and bubblewrap; on a Mac it says so and exits, and an app there reaches the snowglobe through its
-proxy instead (`PROXY_PAC_URL` in `<state>/devnet.env`).
+and bubblewrap; on a Mac it says so and exits, and an app there is handed its settings with
+`eval "$(snowglobe env)"` instead.
+
+## An app's settings: `snowglobe env`
+
+An app is handed the snowglobe's addresses as settings; nothing stands in for Bluesky's names. The
+mapping is `apps[].env` in `snowglobe.yml`, from the setting's name to a value that may hold
+`${name}` placeholders (`$$` is a literal `$`). Quote a value that starts with `${` inside `{ }`;
+in a block map it needs none.
+
+```yaml
+apps:
+  - name: atmo
+    local: { port: 5173 }
+    env:
+      PUBLIC_ATPROTO_PLC_URL: ${services.plc.url}
+      PUBLIC_ATPROTO_JETSTREAM_URLS: ${services.jetstream.ws}
+      PUBLIC_ATPROTO_SIGNUP_PDS: ${pds.alpha.url}
+      E2E_CREDENTIALS: ${accounts.file}
+```
+
+```bash
+eval "$(snowglobe env)"               # export NAME='value' lines, and NODE_EXTRA_CA_CERTS
+snowglobe env --dotenv > .env.local   # NAME=value, for a framework's own file
+snowglobe run npm run dev             # the same settings, passwords included, for that command
+```
+
+With one app in the file, `env` and `run` use it; with several, name it with `--app <name>`; with
+none, only `NODE_EXTRA_CA_CERTS` is set. `env` leaves out a password
+(`accounts.<name>.password`) and prints a comment naming it; `--secrets` includes it, and `run`
+always does, printing none. `--dotenv` quotes for dotenv and Vite, and refuses (naming the setting)
+a value with a `$` that starts a name, since Vite would expand it; use the `export` form for that one.
+A setting `run` hands over replaces the same name already in the environment, and `run` prints one
+line naming the ones it replaced.
+
+The names follow the file: the section, the name you gave it, then the field. Every server has
+`.url` (`https://<host>`) and `.host`:
+
+| Name | Value |
+|---|---|
+| `domain`, `globe`, `page.url` | the file's domain and name; `https://<domain>/` |
+| `pds.<name>.url` `.host` `.did` | `https://<name>.<domain>`, the host, `did:web:<host>` |
+| `grouphosts.<name>.url` `.host` `.did` | the same, for a group host |
+| `apps.<name>.url` `.host` | `https://<name>.app.<domain>` |
+| `services.plc.url` | `https://plc.<domain>` |
+| `services.relay` `.jetstream` `.url` `.ws` | `https://relay.<domain>`, `wss://relay.<domain>`; Jetstream's `.ws` ends in `/subscribe` |
+| `services.slingshot.url`, `services.pdsls.url` | `https://slingshot.<domain>`, `https://pdsls.<domain>` |
+| `accounts.<name>.handle` `.pds` | the handle, and its PDS's url |
+| `lexicons.authority.handle` | the authority account's handle |
+| `services.mail.url`, `accounts.<name>.did` `.password`, `accounts.file`, `lexicons.authority.did`, `ca.file` | known after `snowglobe up`, read from its state |
+
+`snowglobe check` reads the names with the rest of the file: a misspelled one is an error at
+`apps[0].env.<NAME>` that lists what exists ("pds.nope is not a PDS in this file: alpha, regular,
+prod"), and so is the address of a service the file turns off. Account names must be unique in the
+file.
 
 ## Tools for an app
 
