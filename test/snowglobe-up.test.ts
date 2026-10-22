@@ -60,12 +60,13 @@ describe('what up writes', () => {
 describe('what run maps', () => {
   it('maps the leaf\'s names but its wildcards, handles, apps and extras, each once', () => {
     const names = runNames({
-      leafNames: 'four.test\nalpha.four.test\n*.four.test\nplc.directory\n*.devnet.internal\n',
+      leafNames: 'four.test\nalpha.four.test\n*.four.test\nplc.directory\n*.app.four.test\n',
+      domain: 'four.test',
       handles: 'carol.four.test\nnot a name\nalpha.four.test\n',
       apps: [{ name: 'probe', port: 5480, ending: null }],
       extra: ' x.example  y.example ',
     });
-    expect(names).toEqual(['four.test', 'alpha.four.test', 'plc.directory', 'carol.four.test', 'probe.devnet.internal', 'x.example', 'y.example']);
+    expect(names).toEqual(['four.test', 'alpha.four.test', 'plc.directory', 'carol.four.test', 'probe.app.four.test', 'x.example', 'y.example']);
   });
 
   it('keeps the machine\'s hosts file but the lines naming one of ours', () => {
@@ -145,7 +146,7 @@ describe('snowglobe run', () => {
     const r = globeRoot();
     writeFileSync(join(r, 'data/https/apps'), 'probe 5480\n');
     writeFileSync(join(r, 'data/https/names'), 'carol.beta.four.test\n');
-    const names = ['four.test', 'alpha.four.test', 'beta.four.test', 'regular.four.test', 'prod.four.test', 'plc.directory', 'carol.beta.four.test', 'probe.devnet.internal', 'x.example'];
+    const names = ['four.test', 'alpha.four.test', 'beta.four.test', 'regular.four.test', 'prod.four.test', 'plc.directory', 'carol.beta.four.test', 'probe.app.four.test', 'x.example'];
     const res = sg(r, ['run', '--', 'getent', 'hosts', ...names], { SG_BIND: '127.0.0.9', HTTPS_RUN_EXTRA_NAMES: 'x.example' });
     expect(res.status, res.stderr).toBe(0);
     expect(res.stdout.trim().split('\n').map((l) => l.split(/\s+/))).toEqual(names.map((n) => ['127.0.0.9', n]));

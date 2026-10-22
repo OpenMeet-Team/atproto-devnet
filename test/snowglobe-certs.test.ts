@@ -18,7 +18,7 @@ import { devnetRequest, paths } from '../lib/env.mjs';
 
 const ROOT = join(__dirname, '..');
 const D = 'certs.test';
-const NAMES = [D, `alpha.${D}`, `*.${D}`, `regular.${D}`, `*.regular.${D}`, `plc.${D}`, 'plc.directory', '*.devnet.internal'];
+const NAMES = [D, `alpha.${D}`, `*.${D}`, `regular.${D}`, `*.regular.${D}`, `plc.${D}`, 'plc.directory', `*.app.${D}`];
 const hasOpenssl = spawnSync('openssl', ['version']).status === 0;
 
 // A root with bin/ and lib/ and a rendered globe's leaf-names, as snowglobe up leaves it.
@@ -61,7 +61,7 @@ function oldScriptCerts(dir: string, names: string[]) {
     '-keyout', 'ca.key', '-out', 'ca.crt', '-subj', '/O=atproto-devnet/CN=atproto-devnet local CA',
     '-addext', 'basicConstraints=critical,CA:TRUE,pathlen:0', '-addext', 'keyUsage=critical,keyCertSign,cRLSign',
     '-addext', 'extendedKeyUsage=serverAuth',
-    '-addext', `nameConstraints=critical,permitted;DNS:${D},permitted;DNS:devnet.internal,permitted;DNS:plc.directory,excluded;IP:0.0.0.0/0.0.0.0,excluded;IP:0:0:0:0:0:0:0:0/0:0:0:0:0:0:0:0`);
+    '-addext', `nameConstraints=critical,permitted;DNS:${D},permitted;DNS:plc.directory,excluded;IP:0.0.0.0/0.0.0.0,excluded;IP:0:0:0:0:0:0:0:0/0:0:0:0:0:0:0:0`);
   writeFileSync(join(dir, 'leaf.ext'), [
     'basicConstraints=critical,CA:FALSE', 'keyUsage=critical,digitalSignature', 'extendedKeyUsage=serverAuth',
     'subjectKeyIdentifier=hash', 'authorityKeyIdentifier=keyid,issuer', `subjectAltName=${names.map((n) => `DNS:${n}`).join(',')}`,
@@ -96,7 +96,7 @@ describe('snowglobe certs', () => {
     expect(text).toMatch(/Basic Constraints: critical\s+CA:TRUE, pathlen:0/);
     expect(text).toMatch(/Key Usage: critical\s+Certificate Sign, CRL Sign/);
     expect(text).toMatch(/Extended Key Usage:\s+TLS Web Server Authentication/);
-    expect(text).toMatch(new RegExp(`Name Constraints: critical\\s+Permitted:\\s+DNS:${D}\\s+DNS:devnet.internal\\s+DNS:plc.directory\\s+Excluded:\\s+IP:0.0.0.0/0.0.0.0\\s+IP:0:0:0:0:0:0:0:0/0:0:0:0:0:0:0:0`));
+    expect(text).toMatch(new RegExp(`Name Constraints: critical\\s+Permitted:\\s+DNS:${D}\\\s+DNS:plc.directory\\s+Excluded:\\s+IP:0.0.0.0/0.0.0.0\\s+IP:0:0:0:0:0:0:0:0/0:0:0:0:0:0:0:0`));
     const verify = openssl('verify', '-CAfile', join(https(r), 'ca.crt'), join(https(r), 'leaf.crt'));
     expect(verify.status, verify.stderr).toBe(0);
   });

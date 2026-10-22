@@ -7,7 +7,7 @@
 //   account   makes an account on a PDS in the running globe
 //   invite    mints an invite code on one of its PDSes
 //   lexicons  publishes lexicons into its lexicon authority
-//   app       routes https://<name>.devnet.internal to a port on this machine
+//   app       routes https://<name>.app.<domain> to a port on this machine
 //   up        brings the globe up as compose project SG_PROJECT
 //   down      stops it
 //   run       runs a command that reaches the globe at the real network's names

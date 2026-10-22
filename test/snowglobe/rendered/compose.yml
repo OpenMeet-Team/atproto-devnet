@@ -100,6 +100,7 @@ services:
       PDS_LEXICON_AUTHORITY_DID: ${SG_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
+      SG_RESOLVE_DOMAIN: app.local.snowglobe.at
       NODE_OPTIONS: --require /https/app-names.cjs
     volumes:
       - pds-alpha-data:/pds/data
@@ -150,6 +151,7 @@ services:
       PDS_LEXICON_AUTHORITY_DID: ${SG_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
+      SG_RESOLVE_DOMAIN: app.local.snowglobe.at
       NODE_OPTIONS: --require /https/app-names.cjs
     volumes:
       - pds-regular-data:/pds/data
@@ -200,6 +202,7 @@ services:
       PDS_LEXICON_AUTHORITY_DID: ${SG_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
+      SG_RESOLVE_DOMAIN: app.local.snowglobe.at
       NODE_OPTIONS: --require /https/app-names.cjs
     volumes:
       - pds-prod-data:/pds/data
@@ -446,7 +449,7 @@ services:
       retries: 10
   proxy:
     build: ./https/proxy
-    image: atproto-devnet-proxy:eded0b6aa839
+    image: atproto-devnet-proxy:c0ae9a213789
     restart: unless-stopped
     depends_on:
       nginx:

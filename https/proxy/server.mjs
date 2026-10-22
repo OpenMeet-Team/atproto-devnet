@@ -10,7 +10,7 @@
 // The proxy reaches nginx and nothing else: a name outside the devnet, an IP address, a port other
 // than 443, or anything but a CONNECT is refused. On the one port:
 //
-//   GET /proxy.pac           the devnet's names: <domain>, *.<domain>, *.devnet.internal
+//   GET /proxy.pac           the devnet's names: <domain>, *.<domain>
 //   GET /proxy-with-plc.pac  the same plus plc.directory, for a browser used only for the devnet:
 //                            plc.directory then means this devnet's PLC for every page in it
 //   GET /_health             200, for the container's healthcheck (not logged)
@@ -35,12 +35,12 @@ const HANDSHAKE_MS = 10_000
 export function allowed(name, port, domain = DOMAIN) {
   const n = String(name).toLowerCase().replace(/\.$/, '')
   if (port !== 443 || !domain) return false
-  return n === domain || n.endsWith(`.${domain}`) || n.endsWith('.devnet.internal') || n === 'plc.directory'
+  return n === domain || n.endsWith(`.${domain}`) || n === 'plc.directory'
 }
 
 /** The PAC file: the devnet's names go to the proxy at `proxy` (host:port), the rest direct. */
 export function pac(proxy, domain = DOMAIN, withPlc = false) {
-  const names = [`host == ${JSON.stringify(domain)}`, `dnsDomainIs(host, ${JSON.stringify(`.${domain}`)})`, 'dnsDomainIs(host, ".devnet.internal")']
+  const names = [`host == ${JSON.stringify(domain)}`, `dnsDomainIs(host, ${JSON.stringify(`.${domain}`)})`]
   if (withPlc) names.push('host == "plc.directory"')
   return `// The https devnet at ${domain}: its names through its proxy, which resolves them; the rest direct.
 function FindProxyForURL(url, host) {

@@ -312,7 +312,10 @@ describe('https/app-names.cjs', () => {
     expect(lookup('mine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).toBe('127.0.0.1');
     expect(lookup('club.gh.mine.test', {})).not.toBe('127.0.0.1');
     expect(lookup('notmine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).not.toBe('127.0.0.1');
-    expect(lookup('app.devnet.internal', {})).toBe('127.0.0.1');
+    // The PDSes get app.<domain>: any app's name goes to nginx, the rest of the domain does not.
+    expect(lookup('x.app.mine.test', { SG_RESOLVE_DOMAIN: 'app.mine.test' })).toBe('127.0.0.1');
+    expect(lookup('alpha.mine.test', { SG_RESOLVE_DOMAIN: 'app.mine.test' })).not.toBe('127.0.0.1');
+    expect(lookup('x.devnet.internal', { SG_RESOLVE_DOMAIN: 'app.mine.test' })).not.toBe('127.0.0.1');
   });
 });
 

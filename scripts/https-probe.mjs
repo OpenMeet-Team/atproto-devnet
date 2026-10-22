@@ -10,7 +10,7 @@
 //     PlcDidDocumentResolver), then the PDS's protected-resource and authorization
 //     server metadata through atcute's resolvers, left at their defaults.
 // (b) Serves a confidential client's metadata and JWKS on PROBE_CLIENT_PORT, which nginx
-//     answers for as https://<PROBE_APP>.devnet.internal/ (under a path new to each run),
+//     answers for as https://<PROBE_APP>.app.<domain>/ (under a path new to each run),
 //     and pushes a PAR with that client_id through atcute. The PDS fetches both documents
 //     over TLS and must answer with a request_uri.
 // (c) Pushes a raw PAR (plain fetch: atcute refuses this client_id before sending) with a
@@ -24,7 +24,7 @@
 //                      authority, LEX_AUTHORITY_DID in data/devnet.env)
 //   PROBE_PDS          the PDS that DID must name (default https://alpha.<domain>, the
 //                      domain being SG_DOMAIN in data/devnet.env, else local.snowglobe.at)
-//   PROBE_APP          the app name (default probe: https://probe.devnet.internal/)
+//   PROBE_APP          the app name (default probe: https://probe.app.<domain>/)
 //   PROBE_CLIENT_PORT  where the client's documents are served (default 5480)
 //   PROBE_CLIENT_HOST  the address to serve on (default: the docker0 address, which is
 //                      where Docker's host gateway lands, so the server is not on the
@@ -55,7 +55,7 @@ const devnetEnv = () => {
 const DOMAIN = (devnetEnv().match(/^(?:SG|DEVNET)_DOMAIN=(.+)$/m)?.[1] ?? DEFAULT_DOMAIN).trim();
 const PDS = process.env.PROBE_PDS ?? `https://alpha.${DOMAIN}`;
 const APP = process.env.PROBE_APP ?? 'probe';
-const SITE = `https://${APP}.devnet.internal`;
+const SITE = `https://${APP}.app.${DOMAIN}`;
 // Always a .test name, whatever the domain: check (c) is about the .test suffix.
 const TEST_SITE = `https://${APP}.devnet.test`;
 const PORT = Number(process.env.PROBE_CLIENT_PORT ?? 5480);
