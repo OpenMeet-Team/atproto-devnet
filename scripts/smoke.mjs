@@ -98,7 +98,7 @@ try {
   let r = sg(['check']);
   step('check', r.status === 0, why(r));
 
-  r = sg(['up']);
+  r = sg(['up', '--default']);
   if (!step('up', r.status === 0, r.status === 0 ? '' : why(r))) {
     diagnose(r);
     throw new Error('up failed');

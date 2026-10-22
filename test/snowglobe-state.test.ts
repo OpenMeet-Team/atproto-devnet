@@ -52,6 +52,11 @@ describe('findFile', () => {
     expect(findFile({ env: {}, cwd: join(top, 'a/b/c') })).toBe(join(top, 'a/snowglobe.yml'));
   });
 
+  it('refuses to fall back to the default for a command that starts something', () => {
+    expect(() => findFile({ env: {}, cwd: tmpdir(), allowDefault: false })).toThrow(/up --default/);
+    expect(findFile({ env: { SG_FILE: 'y.yml' }, cwd: tmpdir(), allowDefault: false })).toBe('y.yml');
+  });
+
   it('falls back to the default globe at the repo root', () => {
     expect(findFile({ env: {}, cwd: tmpdir() })).toBe(join(ROOT, 'snowglobe.default.yml'));
   });
@@ -103,6 +108,7 @@ function box() {
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
   for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml']) cpSync(join(ROOT, f), join(r, f));
+  cpSync(join(ROOT, 'snowglobe.default.yml'), join(r, 'snowglobe.default.yml'));
   const shim = join(r, 'shim');
   mkdirSync(shim);
   symlinkSync(process.execPath, join(shim, 'node'));
@@ -180,6 +186,43 @@ describe('a snowglobe is found from the folder you are in', () => {
     spawnSync('rm', ['-r', join(r, 'one')]);
     expect(sg(r, join(r, 'two'), ['render']).status).toBe(0);
     expect(readFileSync(join(r, '.local/share/snowglobe/four/owner'), 'utf8')).toContain(join(r, 'two'));
+  });
+
+  it('says so when up takes over a name from a file that is gone', () => {
+    const r = box();
+    mkdirSync(join(r, 'one'));
+    mkdirSync(join(r, 'two'));
+    cpSync(FOUR, join(r, 'one/snowglobe.yml'));
+    cpSync(FOUR, join(r, 'two/snowglobe.yml'));
+    expect(sg(r, join(r, 'one'), ['render']).status).toBe(0);
+    spawnSync('rm', ['-r', join(r, 'one')]);
+    const res = sg(r, join(r, 'two'), ['up']);
+    const lines = res.stderr.split('\n').filter((l) => l.includes('is gone'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain(join(r, 'one/snowglobe.yml'));
+    expect(lines[0]).toContain(join(r, 'two/snowglobe.yml'));
+  });
+
+  it('refuses a bare up with no snowglobe.yml here or above, starts nothing, and says how to use the default', () => {
+    const r = box();
+    mkdirSync(join(r, 'empty/deep'), { recursive: true });
+    const res = sg(r, join(r, 'empty/deep'), ['up']);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain(join(r, 'empty/deep'));
+    expect(res.stderr).toContain('snowglobe up --default');
+    expect(dockerLog(r)).toBe('');
+    expect(existsSync(join(r, '.local'))).toBe(false);
+  });
+
+  it('takes up --default as the way to run the default file, but not with a file', () => {
+    const r = box();
+    mkdirSync(join(r, 'empty'));
+    // The shim docker fails, so up gets as far as docker: past the refusal.
+    const res = sg(r, join(r, 'empty'), ['up', '--default']);
+    expect(res.stderr).not.toContain('--default');
+    expect(res.stderr).toContain('globe devnet');
+    expect(dockerLog(r)).not.toBe('');
+    expect(sg(r, join(r, 'empty'), ['up', '--default', FOUR]).status).toBe(2);
   });
 
   it('keeps the old checkout\'s data/ as it was, and starts nothing, when up finds a globe in it', () => {
