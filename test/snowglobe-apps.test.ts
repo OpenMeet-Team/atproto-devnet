@@ -75,7 +75,7 @@ describe('the app renderers', () => {
 // A root with bin/ and lib/, a rendered four-PDS globe and its certificates, as snowglobe up leaves it.
 function globeRoot() {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-apps-'));
-  for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
+  for (const d of ['bin', 'lib', 'https/dns', 'https/proxy', 'pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
   for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml']) cpSync(join(ROOT, f), join(r, f));
