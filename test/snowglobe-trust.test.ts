@@ -185,7 +185,10 @@ describe('snowglobe trust: the command', () => {
     const xdg = tmp();
     await ensureCerts({ dir: join(xdg, 'snowglobe/g'), caDir: join(xdg, 'snowglobe/ca'), domain: 'local.snowglobe.at', names: ['local.snowglobe.at'] });
     const home = tmp();
-    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'trust', '--dry-run'], { encoding: 'utf8', env: { ...process.env, XDG_DATA_HOME: xdg, HOME: home } });
+    // A certutil that finds nothing trusted, so the run does not depend on one being installed.
+    const bin = tmp();
+    writeFileSync(join(bin, 'certutil'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'trust', '--dry-run'], { encoding: 'utf8', env: { ...process.env, XDG_DATA_HOME: xdg, HOME: home, PATH: `${bin}:${process.env.PATH}` } });
     expect(r.status, r.stdout + r.stderr).toBe(0);
     expect(r.stdout).toContain('dry run');
     expect(existsSync(join(home, '.pki'))).toBe(false);
