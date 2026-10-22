@@ -36,7 +36,7 @@ describe('the app renderers', () => {
       const apps = parseApps(APPS);
       const out: Record<string, string> = {
         ...renderApps(apps, globe.domain),
-        'globe.json': renderPage(JSON.parse(files['page.json']), apps),
+        'snowglobe.json': renderPage(JSON.parse(files['page.json']), apps),
       };
       for (const [f, text] of Object.entries(out)) {
         const path = join(ROOT, 'test/snowglobe/apps', name, f);
@@ -99,7 +99,7 @@ const caCrt = (r: string) => join(r, 'xdg/snowglobe/ca/ca.crt');
 const app = (r: string, ...args: string[]) =>
   spawnSync('node', [join(r, 'bin/snowglobe.mjs'), 'app', ...args], { cwd: r, env: cleanEnv(r), encoding: 'utf8' });
 const appsFile = (r: string) => (existsSync(st(r, 'https/apps')) ? readFileSync(st(r, 'https/apps'), 'utf8') : '');
-const page = (r: string) => JSON.parse(readFileSync(st(r, 'https/nginx/globe.json'), 'utf8'));
+const page = (r: string) => JSON.parse(readFileSync(st(r, 'https/nginx/snowglobe.json'), 'utf8'));
 const leaf = (r: string) => new X509Certificate(readFileSync(st(r, 'https/leaf.crt')));
 
 describe('snowglobe app', () => {

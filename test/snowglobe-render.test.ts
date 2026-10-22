@@ -51,12 +51,12 @@ describe('snowglobe render', () => {
     }
   });
 
-  it('mounts the folder the page and nginx read the routes and globe.json from, under the same path', () => {
+  it('mounts the folder the page and nginx read the routes and snowglobe.json from, under the same path', () => {
     const { compose } = render(THREE);
     const mounts: string[] = compose.services.nginx.volumes.filter((v: string) => v.includes('/etc/nginx/snowglobe'));
     expect(mounts.length).toBeGreaterThan(0);
     const page = readFileSync(join(ROOT, 'page/snowglobe.conf'), 'utf8');
-    expect(page).toContain('alias /etc/nginx/snowglobe/globe.json;');
+    expect(page).toContain('alias /etc/nginx/snowglobe/snowglobe.json;');
     expect(page).not.toContain('/etc/nginx/devnet');
     expect(readFileSync(join(ROOT, 'https/nginx.conf.template'), 'utf8')).toContain('include /etc/nginx/snowglobe/*.conf;');
   });
