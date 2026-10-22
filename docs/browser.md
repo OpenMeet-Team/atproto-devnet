@@ -1,10 +1,40 @@
 # From a browser on your own computer
 
-nginx runs in the dev container, so a browser on your own computer needs two things: a way to send
-the snowglobe's names to it, and trust in the snowglobe's CA. The proxy below does the first with a
-setting you make once, in the browser you already use. Launch flags (further down) are the older way.
+A browser needs two things to open a snowglobe: the snowglobe's names have to reach nginx, and the
+browser has to trust the snowglobe's CA. What you do about the first depends on where Docker runs.
 
-## Through the snowglobe's proxy (Chrome, Edge, Firefox)
+## Docker on the same computer as the browser
+
+1. **Trust the CA.** Run `bin/snowglobe.mjs trust`. It puts your CA (`<state root>/ca/ca.crt`, one
+   per user) in the system store and in the databases Chrome, Edge and Firefox read on Linux, in the
+   login keychain on macOS (not tried on a Mac) or in the user store on Windows. It prints every
+   command, marks the ones that need sudo, and does nothing the second time. On WSL it also prints
+   the PowerShell step for the Windows store, which a Windows browser needs. `trust --dry-run` shows
+   what it would do, and `trust --remove` undoes it.
+2. **Open `https://local.snowglobe.at/`**, the network's page. Its apps link to themselves, for
+   instance `https://atmo.app.local.snowglobe.at` once atmo is routed
+   ([Example: atmo](examples/atmo.md)).
+
+That is all. Public DNS answers every name under `local.snowglobe.at` with `127.0.0.1` (checked on
+2026-10-22 for `local.`, `alpha.`, an unused name and an app name), and nginx publishes port 443 on
+`127.0.0.1`, so there is no proxy to set up and nothing to map. Two cases break that:
+
+- `SG_BIND` set to another loopback address (see [Configuration](configuration.md)): the name still
+  resolves to `127.0.0.1`, where nothing listens. Use a hosts-file entry for each name, or the proxy
+  below.
+- A resolver that drops answers pointing at your own machine, as some routers do. Not measured here.
+  If a name does not resolve, use the proxy below.
+
+`plc.directory` is not under that domain, so a browser still reaches the real directory. Apps on the
+snowglobe use `https://plc.local.snowglobe.at`.
+
+## Docker somewhere else: a dev container or another machine
+
+nginx runs where Docker runs, so a browser on a different computer needs a way to send the
+snowglobe's names to it, as well as trust in the CA. The proxy below does the first with a setting
+you make once, in the browser you already use. Launch flags (further down) are the older way.
+
+### Through the snowglobe's proxy (Chrome, Edge, Firefox)
 
 The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
 port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
@@ -15,15 +45,10 @@ address and any port but 443.
 
 **Once per computer:**
 
-1. **Trust the snowglobe's CA** (more in [The CA](#the-ca)). On the machine whose browser you use:
-   `bin/snowglobe.mjs trust`. It puts your CA (`<state root>/ca/ca.crt`, one per user) in the system
-   store and in the NSS databases Chrome, Edge and Firefox read on Linux, in the login keychain on
-   macOS (not tried on a Mac) or in the user store on Windows. It prints every command, marks the
-   ones that need sudo, and does nothing the second time. On WSL it also prints the PowerShell step
-   for the Windows store. `trust --dry-run` shows what it would do; `trust --remove` undoes it.
+1. **Trust the snowglobe's CA** (more in [The CA](#the-ca)). On the machine whose browser you use, if
+   Docker runs there too, `bin/snowglobe.mjs trust` does it (above).
 
-   If the snowglobe runs on another machine (a dev container), copy its `ca.crt` over and trust it
-   there by hand:
+   Otherwise copy `ca.crt` from the machine that runs the snowglobe and trust it by hand:
    - Windows, for Chrome, Edge and Firefox: `certutil -user -addstore Root ca.crt` (no admin; Windows
      asks you to confirm). Firefox reads the Windows store: a Firefox on Windows set up this way
      found the trusted CA on 2026-10-19.
@@ -75,7 +100,7 @@ through the alpha's sign-in and consent pages, asking no host outside the snowgl
 of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headless shell ignores
 `--proxy-pac-url`; real Chrome and Edge are the full build.
 
-## With launch flags (Chrome, Edge)
+### With launch flags (Chrome, Edge)
 
 1. **Forward port 443**, in VS Code's Ports view: container 443 to host **443** exactly. The PDS's
    URLs carry no port, and VS Code quietly picks another local port when 443 is taken, so check the
