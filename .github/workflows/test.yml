@@ -23,3 +23,49 @@ jobs:
         if: failure()
         run: npm run logs -- --tail=50
       - run: npm run down
+
+  snowglobe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run test/snowglobe
+      # snowglobe run uses bubblewrap; Ubuntu 24.04 runners block unprivileged user namespaces.
+      - name: Allow bubblewrap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --dev-bind / / true
+      # check, up, accounts, env, run, app add and remove, down -v, on a copy with its own state
+      - run: node scripts/smoke.mjs
+        env:
+          SMOKE_KEEP: '1'
+      - name: Show containers on failure
+        if: failure()
+        run: |
+          docker ps -a
+          for c in $(docker ps -aq); do
+            echo "=== $(docker inspect -f '{{.Name}} {{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' $c)"
+            docker logs --tail 30 $c 2>&1 | cut -c1-300
+          done
+
+  # GitHub's macOS runners have no Docker, so this is the tests and the type check only, not the smoke.
+  snowglobe-mac:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run test/snowglobe

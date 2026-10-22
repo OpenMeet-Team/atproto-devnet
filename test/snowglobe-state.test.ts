@@ -9,7 +9,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { oldDataNotice, stateRoot } from '../lib/env.mjs';
+import { oldDataNotice, renamedDefaultNotice, stateRoot } from '../lib/env.mjs';
 // @ts-expect-error: a plain .mjs module, without types
 import { findFile } from '../lib/state.mjs';
 
@@ -97,6 +97,48 @@ describe('oldDataNotice', () => {
     mkdirSync(join(s, 'globe'));
     writeFileSync(join(s, 'globe/compose.yml'), 'services: {}\n');
     expect(oldDataNotice(r, s)).toBeNull();
+  });
+});
+
+describe('renamedDefaultNotice', () => {
+  // A state root holding an install made when the default snowglobe was still called devnet.
+  const root = (old: boolean) => {
+    const s = mkdtempSync(join(tmpdir(), 'snowglobe-renamed-'));
+    if (old) {
+      mkdirSync(join(s, 'devnet/globe'), { recursive: true });
+      writeFileSync(join(s, 'devnet/globe/compose.yml'), 'services: {}\n');
+    }
+    return s;
+  };
+
+  it('is null when nothing was made under the old name', () => {
+    const s = root(false);
+    expect(renamedDefaultNotice('/repo', join(s, 'snowglobe'))).toBeNull();
+  });
+
+  it('names the old folder and the commands to keep it or drop it, and changes nothing', () => {
+    const s = root(true);
+    const text = renamedDefaultNotice('/repo', join(s, 'snowglobe'), 'linux');
+    expect(text).toContain(`mv "${join(s, 'devnet')}" "${join(s, 'snowglobe')}"`);
+    expect(text).toContain('SG_PROJECT=devnet snowglobe up --default');
+    expect(text).toContain(`docker compose -p devnet --project-directory "/repo" -f "${join(s, 'devnet/globe/compose.yml')}" down -v`);
+    expect(text).toContain('Nothing was changed');
+    expect(existsSync(join(s, 'devnet/globe/compose.yml'))).toBe(true);
+    expect(existsSync(join(s, 'snowglobe'))).toBe(false);
+  });
+
+  it('says it in PowerShell on Windows', () => {
+    const s = root(true);
+    const text = renamedDefaultNotice('C:\\repo', join(s, 'snowglobe'), 'win32');
+    expect(text).toContain('Move-Item');
+    expect(text).toContain("$env:SG_PROJECT='devnet'");
+  });
+
+  it('is null once the snowglobe folder has its globe', () => {
+    const s = root(true);
+    mkdirSync(join(s, 'snowglobe/globe'), { recursive: true });
+    writeFileSync(join(s, 'snowglobe/globe/compose.yml'), 'services: {}\n');
+    expect(renamedDefaultNotice('/repo', join(s, 'snowglobe'))).toBeNull();
   });
 });
 
@@ -220,7 +262,7 @@ describe('a snowglobe is found from the folder you are in', () => {
     // The shim docker fails, so up gets as far as docker: past the refusal.
     const res = sg(r, join(r, 'empty'), ['up', '--default']);
     expect(res.stderr).not.toContain('--default');
-    expect(res.stderr).toContain('globe devnet');
+    expect(res.stderr).toContain('globe snowglobe');
     expect(dockerLog(r)).not.toBe('');
     expect(sg(r, join(r, 'empty'), ['up', '--default', FOUR]).status).toBe(2);
   });

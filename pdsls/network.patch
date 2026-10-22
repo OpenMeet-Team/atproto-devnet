@@ -199,7 +199,7 @@ index 0000000..cc75ea4
 --- /dev/null
 +++ b/src/lib/network.ts
 @@ -0,0 +1,37 @@
-+// The atproto network PDSls looks at. A host page can point it at a private network (a devnet, a
++// The atproto network PDSls looks at. A host page can point it at a private network (a snowglobe, a
 +// sandbox) by setting globalThis.PDSLS_NETWORK before the app loads; unset, every address is the
 +// public network's, as before. A setting given as null turns its feature off, for a network that
 +// has no such service, so nothing falls back to a public one.

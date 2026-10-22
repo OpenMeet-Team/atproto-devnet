@@ -19,7 +19,7 @@ import { contextHash, loadBase, renderGlobe } from '../lib/render.mjs';
 const ROOT = join(__dirname, '..');
 const RENDERED = join(__dirname, 'snowglobe', 'rendered');
 // Where the fixtures say a snowglobe's state is, the same on every machine.
-const STATE = '/state/snowglobe/devnet';
+const STATE = '/state/snowglobe/snowglobe';
 const base = loadBase(ROOT);
 
 function render(doc: object) {
@@ -49,6 +49,16 @@ describe('snowglobe render', () => {
       }
       expect(text, name).toBe(readFileSync(path, 'utf8'));
     }
+  });
+
+  it('mounts the folder the page and nginx read the routes and globe.json from, under the same path', () => {
+    const { compose } = render(THREE);
+    const mounts: string[] = compose.services.nginx.volumes.filter((v: string) => v.includes('/etc/nginx/snowglobe'));
+    expect(mounts.length).toBeGreaterThan(0);
+    const page = readFileSync(join(ROOT, 'page/snowglobe.conf'), 'utf8');
+    expect(page).toContain('alias /etc/nginx/snowglobe/globe.json;');
+    expect(page).not.toContain('/etc/nginx/devnet');
+    expect(readFileSync(join(ROOT, 'https/nginx.conf.template'), 'utf8')).toContain('include /etc/nginx/snowglobe/*.conf;');
   });
 
   it('runs one service per PDS, each on the plain network under its own name', () => {
@@ -89,7 +99,7 @@ describe('snowglobe render', () => {
     const { compose } = render({ ...FOUR, services: { tap: true } });
     const names = FOUR.pds.map((p) => `${p.name}.mine.test`);
     expect(compose.services['relay-init'].environment.RELAY_HOSTS.split(' ')).toEqual(names);
-    expect(compose.services.nginx.networks['atproto-devnet'].aliases).toEqual(names);
+    expect(compose.services.nginx.networks["snowglobe"].aliases).toEqual(names);
     expect(compose.services.jetstream.environment.JETSTREAM_WS_URL).toBe('ws://relay:2470/xrpc/com.atproto.sync.subscribeRepos');
     expect(compose.services.tap.environment.TAP_RELAY_URL).toBe('http://relay:2470');
   });
@@ -118,7 +128,7 @@ describe('snowglobe render', () => {
   });
 
   it('refuses a PDS named for one of the page\'s own health routes, which nginx would see twice', () => {
-    const fixed = [...readFileSync(join(ROOT, 'page/devnet.conf'), 'utf8').matchAll(/location = \/health\/([a-z0-9-]+) /g)].map((m) => m[1]);
+    const fixed = [...readFileSync(join(ROOT, 'page/snowglobe.conf'), 'utf8').matchAll(/location = \/health\/([a-z0-9-]+) /g)].map((m) => m[1]);
     expect(fixed.length).toBeGreaterThan(0);
     for (const name of [...fixed, 'pds']) {
       expect(checkGlobe({ ...THREE, pds: [PDS(name)] }).errors.map((e: string) => e.split(': ')[0]), name).toContain('pds[0].name');
@@ -239,7 +249,7 @@ describe('snowglobe render: group hosts', () => {
         expect(s.environment[k], k).toBe(compose.services['pds-alpha'].environment[k]);
       expect(s.volumes[0]).toBe(`grouphost-${name}-data:/data`);
       expect(compose.volumes).toHaveProperty(`grouphost-${name}-data`);
-      expect(compose.services.nginx.networks['atproto-devnet'].aliases).toContain(`${name}.mine.test`);
+      expect(compose.services.nginx.networks["snowglobe"].aliases).toContain(`${name}.mine.test`);
     }
   });
 
@@ -325,7 +335,7 @@ describe('snowglobe images built from this repo', () => {
   it('tags each by a hash of its build folder, so a changed folder is rebuilt', () => {
     const { compose } = render(THREE);
     for (const [svc, name] of [['slingshot-dns', 'dns'], ['proxy', 'proxy'], ['pdsls', 'pdsls']])
-      expect(compose.services[svc].image, svc).toMatch(new RegExp(`^atproto-devnet-${name}:[0-9a-f]{12}$`));
+      expect(compose.services[svc].image, svc).toMatch(new RegExp(`^snowglobe-${name}:[0-9a-f]{12}$`));
   });
 
   it('changes the tag when a file the build uses changes, not when another file in the folder does', () => {

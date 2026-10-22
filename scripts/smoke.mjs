@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The whole snowglobe sequence on this machine, end to end: check, up, account on two PDSes,
-// invite, lexicons, app add, run (names, the CA, each PDS's health and the app), app --remove,
+// invite, lexicons, env and run (the app's settings), app add, run (names, the CA, each PDS's
+// health and the app), app --remove,
 // down -v. One line per step, ok or FAIL, and exit 0 only when every step passed. Nothing secret
 // is printed: accounts print their DID, invite and lexicons print nothing a login needs.
 //
@@ -12,7 +13,7 @@
 // and the copy keeps every file as checked out, line endings and .env included. The
 // globe is compose project snowglobe-smoke, on its own ports and loopback address, beside any other
 // globe: SG_BIND and SG_DOMAIN come from the environment or the copied .env if set there,
-// else 127.0.0.3 and the default file's domain, and the step "devnet.env" checks up read them.
+// else 127.0.0.3 and the default file's domain, and the steps on snowglobe env check they were used.
 // The copy is taken down with -v at the end whatever happened; its folder is left for a look.
 //
 // Needs Docker with compose, Node 20+ and, for the run steps, Linux with bubblewrap.
@@ -41,7 +42,7 @@ adoptOldNames({ root, env: given });
 for (const k of Object.keys(given)) if (/^(DEVNET|SNOWGLOBE)_/.test(k)) delete given[k];
 const env = {
   ...given,
-  // The state of the copy's snowglobe (the default one, devnet) and its CA, in the copy.
+  // The state of the copy's snowglobe (the default one) and its CA, in the copy.
   XDG_DATA_HOME: join(root, 'state'),
   SG_PROJECT: PROJECT,
   SG_PLC_PORT: '2593',
@@ -53,6 +54,21 @@ const env = {
   SG_BIND: setting('SG_BIND', { root, env: given }) || '127.0.0.3',
 };
 for (const k of ['SG_FILE', 'ACCOUNTS_FILE', 'SG_PUBLIC', 'SG_RESET_OK']) delete env[k];
+// The default globe plus one app, with the settings the steps below check. Its name is smokeapp,
+// so the route the app step adds is the one the file names.
+writeFileSync(
+  join(root, 'snowglobe.yml'),
+  `${readFileSync(join(root, 'snowglobe.default.yml'), 'utf8')}
+apps:
+  - name: smokeapp
+    env:
+      SMOKE_PDS: \${pds.alpha.url}
+      SMOKE_PLC: \${services.plc.url}
+      SMOKE_ALICE_HANDLE: \${accounts.alice.handle}
+      SMOKE_ALICE_PASSWORD: \${accounts.alice.password}
+      SMOKE_AUTHORITY_DID: \${lexicons.authority.did}
+`,
+);
 const wantDomain = setting('SG_DOMAIN', { root, env: given }) || DEFAULT_DOMAIN;
 
 const sg = (args, opts = {}) =>
@@ -98,15 +114,24 @@ try {
   let r = sg(['check']);
   step('check', r.status === 0, why(r));
 
-  r = sg(['up', '--default']);
+  r = sg(['up']);
   if (!step('up', r.status === 0, r.status === 0 ? '' : why(r))) {
     diagnose(r);
     throw new Error('up failed');
   }
 
-  const denv = readFileSync(join(root, 'state/snowglobe/devnet/devnet.env'), 'utf8');
-  const fact = (k) => denv.match(new RegExp(`^${k}=(.*)$`, 'm'))?.[1];
-  step('devnet.env', fact('SG_DOMAIN') === wantDomain && fact('SG_BIND') === env.SG_BIND, `SG_DOMAIN=${fact('SG_DOMAIN')} SG_BIND=${fact('SG_BIND')}`);
+  step('no devnet.env', !existsSync(join(root, 'state/snowglobe/snowglobe/devnet.env')));
+  r = sg(['env']);
+  step(
+    'env: settings, no password',
+    r.status === 0 &&
+      r.stdout.includes(`export SMOKE_PDS='https://alpha.${wantDomain}'`) &&
+      /^export SMOKE_AUTHORITY_DID='did:plc:/m.test(r.stdout) &&
+      r.stdout.includes(`export NODE_EXTRA_CA_CERTS='${join(root, 'state/snowglobe/ca/ca.crt')}'`) &&
+      !r.stdout.includes('PASSWORD=') &&
+      /^# SMOKE_ALICE_PASSWORD left out/m.test(r.stdout),
+    why(r),
+  );
 
   r = sg(['account', 'smoke-one', 'SMOKE_ONE']);
   step('account on the bare-handle PDS', r.status === 0 && r.stdout.startsWith('did:'), why(r));
@@ -116,7 +141,7 @@ try {
   step('account rerun finds it', r.status === 0 && /^Found /m.test(r.stderr), why(r));
 
   r = sg(['invite', 'SMOKE_INVITE']);
-  const accounts = readFileSync(join(root, 'state/snowglobe/devnet/accounts.env'), 'utf8');
+  const accounts = readFileSync(join(root, 'state/snowglobe/snowglobe/accounts.env'), 'utf8');
   step('invite', r.status === 0 && /^SMOKE_INVITE=./m.test(accounts), why(r));
 
   const lex = join(root, 'smoke-lexicons');
@@ -125,6 +150,10 @@ try {
     writeFileSync(join(lex, `${id}.json`), JSON.stringify({ lexicon: 1, id, defs: { main: { type: 'token' } } }));
   r = sg(['lexicons', lex]);
   step('lexicons', r.status === 0 && r.stdout.trim().split('\n').length === 2, why(r));
+
+  // run hands over the same settings, the login too, and the PDS they name answers.
+  r = run([process.execPath, '-e', `if (!process.env.SMOKE_ALICE_PASSWORD) process.exit(2); fetch(process.env.SMOKE_PDS + '/xrpc/_health').then((r) => console.log(r.status), (e) => console.log(e.cause?.code ?? e.message))`]);
+  step('run: the app\'s settings, and the PDS they name answers', r.stdout?.trim() === '200', r.stdout?.trim() || why(r));
 
   listener = spawn(process.execPath, ['-e', `require('http').createServer((q, s) => s.end('smokeapp')).listen(${APP_PORT}, '0.0.0.0', () => console.log('up'))`], { stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((ok) => listener.stdout.once('data', ok));
@@ -157,6 +186,11 @@ try {
   if (e.message !== 'up failed') step('smoke', false, e.message);
 } finally {
   listener?.kill();
+  // SMOKE_KEEP=1 leaves the containers up when a step failed, so CI can read their logs.
+  if (process.env.SMOKE_KEEP && failed) {
+    console.log('SMOKE_KEEP set: containers left running');
+    process.exit(1);
+  }
   const r = sg(['down', '-v'], { stdio: ['ignore', 'ignore', 'pipe'] });
   const count = (args) =>
     spawnSync('docker', [...args, '-q', '--filter', `label=com.docker.compose.project=${PROJECT}`], { encoding: 'utf8' })

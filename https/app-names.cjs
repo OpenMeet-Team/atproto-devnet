@@ -3,7 +3,7 @@
 // metadata and keys from there. Docker's DNS has no wildcard names, so every such name is
 // looked up as nginx instead, which routes it by name (https/nginx.conf.template). Only
 // the address lookup changes: the request still carries the app's name, and TLS still
-// checks the certificate for it against the devnet CA. Every other name resolves as usual.
+// checks the certificate for it against the snowglobe CA. Every other name resolves as usual.
 //
 // SG_RESOLVE_DOMAIN sets the domain whose names, itself included, go to nginx. Each PDS sets it
 // to app.<domain>, where the apps are; a group host sets it to the globe's domain: it resolves its members' handles, which Docker's DNS does
@@ -21,11 +21,11 @@ const isApp = (name) => {
 };
 
 const lookup = dns.lookup;
-dns.lookup = function devnetLookup(hostname, ...rest) {
+dns.lookup = function snowglobeLookup(hostname, ...rest) {
   return lookup.call(this, isApp(hostname) ? PROXY : hostname, ...rest);
 };
 
 const lookupPromise = dns.promises.lookup;
-dns.promises.lookup = function devnetLookupPromise(hostname, ...rest) {
+dns.promises.lookup = function snowglobeLookupPromise(hostname, ...rest) {
   return lookupPromise.call(this, isApp(hostname) ? PROXY : hostname, ...rest);
 };
