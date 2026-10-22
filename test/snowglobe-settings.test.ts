@@ -183,7 +183,7 @@ describe('snowglobe env', () => {
     expect(sg(f, ['env', '--secrets']).stdout).toContain("export PW='hunter2'");
     const dot = sg(f, ['env', '--dotenv']);
     expect(dot.stdout).toContain('PDS=https://alpha.sg.test\n');
-    expect(dot.stdout).toContain('QUOTED="it\'s sg.test"\n');
+    expect(dot.stdout).toContain('QUOTED=`it\'s sg.test`\n');
     expect(dot.stdout).not.toContain('export');
   });
 
@@ -208,7 +208,9 @@ describe('snowglobe env', () => {
   });
 
   it('uses the app\'s own NODE_EXTRA_CA_CERTS rather than a second one', () => {
-    const f = folder('globe: setg\npds: [{ name: alpha, image: spaces-alpha }]\napps:\n  - name: a\n    env:\n      NODE_EXTRA_CA_CERTS: ${ca.file}\n');
+    const f = folder('globe: setg\npds: [{ name: alpha, image: spaces-alpha }]\napps:\n  - name: a\n    env:\n      NODE_EXTRA_CA_CERTS: ${ca.file}\n', '');
+    mkdirSync(join(f.data, 'snowglobe/ca'), { recursive: true });
+    writeFileSync(join(f.data, 'snowglobe/ca/ca.crt'), 'x');
     expect(sg(f, ['env']).stdout.match(/NODE_EXTRA_CA_CERTS/g)).toHaveLength(1);
   });
 
@@ -226,5 +228,109 @@ describe('formatEnv', () => {
       '# A left out: accounts.a.password is a secret; --secrets includes it',
       '# B left out: accounts.a.password, accounts.b.password are secrets; --secrets includes it',
     ]);
+  });
+});
+
+// dotenv 16's reading of one NAME=value line (lib/main.js: its LINE pattern, quotes stripped, \n and
+// \r expanded only inside double quotes), which Vite uses; then what Vite's expansion would change.
+function dotenvRead(line: string) {
+  const m = /^\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?$/m.exec(line);
+  let value = (m?.[2] ?? '').trim();
+  const q = value[0];
+  value = value.replace(/^(['"`])([\s\S]*)\1$/m, '$2');
+  if (q === '"') value = value.replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+  return value;
+}
+
+describe('env --dotenv', () => {
+  const dot = (value: string) => formatEnv({ vars: [{ name: 'V', value }], left: [] }, { dotenv: true }).trimEnd();
+
+  it('writes a value so dotenv reads back exactly what it was given', () => {
+    for (const value of ['https://alpha.sg.test', '', 'C:\\Users\\a b\\ca.crt', 'two words', 'a # b', "it's", 'say "hi"', 'it\'s "both"'.replace('"both"', 'x'), 'line1\nline2', 'a\\nb', 'price $5', 'a$', ' padded ', 'back`tick'])
+      expect(dotenvRead(dot(value)), JSON.stringify(value)).toBe(value);
+  });
+
+  it('keeps a Windows path and a literal \\n as written', () => {
+    expect(dot('C:\\a\\new')).toBe("V='C:\\a\\new'");
+  });
+
+  it('refuses, naming the setting, a value no dotenv form can hold', () => {
+    for (const value of ['${UNCHANGED}', 'x$HOME', 'a\rb', `'"\``]) expect(() => dot(value), JSON.stringify(value)).toThrow(/^V cannot be written as a dotenv value/);
+  });
+});
+
+describe('a value no process can be given', () => {
+  const nul = (extra = '') => `globe: setg
+pds: [{ name: alpha, image: spaces-alpha, bare_handles: true }]
+accounts: [alice@alpha]
+apps:
+  - name: web
+    env:
+      PW: "prefix\\0\${accounts.alice.password}"
+${extra}`;
+
+  it('is refused by check, without the password in anything printed', () => {
+    const f = folder(nul(), 'ALICE_PASSWORD=hunter2\n');
+    for (const args of [['check'], ['env', '--secrets'], ['run', 'true']]) {
+      const r = sg(f, args);
+      expect(r.status, args.join(' ')).toBe(1);
+      expect(r.stderr).toContain('apps[0].env.PW: must not contain a NUL');
+      expect(r.stdout + r.stderr).not.toContain('hunter2');
+    }
+  });
+
+  it('is refused when it is the login that holds it, naming the setting and never the value', () => {
+    const f = folder(nul().replace('prefix\\0', 'prefix'), 'ALICE_PASSWORD=hun\0ter2\n');
+    const r = sg(f, ['env', '--secrets']);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('apps[0].env.PW');
+    expect(r.stdout + r.stderr).not.toMatch(/hun|ter2/);
+  });
+});
+
+describe('what is not known until up', () => {
+  const yml = `globe: setg
+pds: [{ name: alpha, image: spaces-alpha }]
+apps:
+  - name: web
+    env:
+      CREDS: \${accounts.file}
+      CA: \${ca.file}
+      MAIL: \${services.mail.url}
+`;
+
+  it('says so, for each, in a snowglobe that was never started', () => {
+    const r = sg(folder(yml), ['env']);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('apps[0].env.CREDS');
+    expect(r.stderr).toContain('snowglobe up');
+    for (const name of ['CA', 'MAIL']) {
+      const only = yml.split('\n').filter((l) => !/^      (CREDS|CA|MAIL):/.test(l) || l.includes(`${name}:`)).join('\n');
+      const one = sg(folder(only), ['env']);
+      expect(one.status, name).toBe(1);
+      expect(one.stderr).toContain(`env.${name}`);
+    }
+  });
+
+  it('gives each its value once the state has it', () => {
+    const f = folder(yml, 'ALICE_DID=x\n');
+    mkdirSync(join(f.data, 'snowglobe/ca'), { recursive: true });
+    writeFileSync(join(f.data, 'snowglobe/ca/ca.crt'), 'x');
+    mkdirSync(join(f.data, 'snowglobe/setg/globe'), { recursive: true });
+    writeFileSync(join(f.data, 'snowglobe/setg/globe/compose.yml'), 'x');
+    const r = sg(f, ['env']);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain(`export CREDS='${join(f.data, 'snowglobe/setg/accounts.env')}'`);
+    expect(r.stdout).toContain(`export CA='${join(f.data, 'snowglobe/ca/ca.crt')}'`);
+    expect(r.stdout).toContain("export MAIL='http://127.0.0.1:1081'");
+  });
+});
+
+describe('a setting named __proto__', () => {
+  it('is checked like any other', () => {
+    const f = folder('globe: setg\npds: [{ name: alpha, image: spaces-alpha }]\napps:\n  - name: web\n    env:\n      __proto__: ${pds.nope.url}\n');
+    const r = sg(f, ['check']);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('apps[0].env.__proto__: pds.nope is not a PDS');
   });
 });

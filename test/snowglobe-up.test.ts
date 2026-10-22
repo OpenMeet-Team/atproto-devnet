@@ -4,7 +4,7 @@
 // what it was asked; bringing a globe up for real is checked by hand on an isolated copy.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
@@ -184,6 +184,23 @@ describe('snowglobe run', () => {
     expect(res.stderr).not.toMatch(/KEEP|hunter2|plc\.directory/);
     expect(sg(r, ['run', '--app', 'web', ...show]).stdout.trim()).toBe('https://plc.four.test hunter2 four.test');
     expect(sg(r, ['run', '--app', 'nope', ...show]).status).toBe(2);
+  });
+
+  it.skipIf(!bwrapWorks)('names a CA setting it replaced, and stays quiet when the value is the same', () => {
+    const r = globeRoot();
+    const ca = join(r, '.local/share/snowglobe/ca/ca.crt');
+    writeFileSync(join(r, 'snowglobe.yml'), `${readFileSync(FOUR, 'utf8')}apps:\n  - name: web\n    env:\n      NODE_EXTRA_CA_CERTS: \${ca.file}\n`);
+    const show = ['node', '-e', 'console.log(process.env.NODE_EXTRA_CA_CERTS)'];
+    // A real file, or node itself warns about it at start.
+    const elsewhere = join(r, 'elsewhere.crt');
+    copyFileSync(ca, elsewhere);
+    const other = sg(r, ['run', ...show], { NODE_EXTRA_CA_CERTS: elsewhere });
+    expect(other.stdout.trim()).toBe(ca);
+    expect(other.stderr).toContain('replaced NODE_EXTRA_CA_CERTS from the environment');
+    expect(sg(r, ['run', ...show], { NODE_EXTRA_CA_CERTS: ca }).stderr).toBe('');
+    // Without its own mapping, run's CA is not "a replaced setting".
+    writeFileSync(join(r, 'snowglobe.yml'), readFileSync(FOUR, 'utf8'));
+    expect(sg(r, ['run', ...show], { NODE_EXTRA_CA_CERTS: elsewhere }).stderr).toBe('');
   });
 
   it('says plainly that it needs bubblewrap when there is none', () => {

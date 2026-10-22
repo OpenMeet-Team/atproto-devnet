@@ -1035,7 +1035,8 @@ snowglobe run npm run dev          # the same settings, passwords included, for 
 With one app in the file `env` and `run` use it; with several, name it with `--app <name>`; with
 none, only `NODE_EXTRA_CA_CERTS` is set. `env` leaves out a password
 (`accounts.<name>.password`) and prints a comment naming it; `--secrets` includes it, and `run`
-always does, printing none. A setting `run` hands over replaces the same name already in the
+always does, printing none. `--dotenv` quotes for dotenv and Vite, and refuses (naming the setting) a value
+with a `$` that starts a name, since Vite would expand it; use the `export` form for that one. A setting `run` hands over replaces the same name already in the
 environment, and `run` prints one line naming the ones it replaced.
 
 The names follow the file: the section, the name you gave it, then the field. Every server has
