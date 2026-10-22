@@ -55,7 +55,7 @@ server {
 }
 
 # The network's own page at the bare name, as a globe serves it at <globe>.snowglobe.at: the same
-# page/index.html, with this stack's relays (page/snowglobe.conf) and a globe.json naming its
+# page/index.html, with this stack's relays (page/snowglobe.conf) and a snowglobe.json naming its
 # services, which bin/snowglobe.mjs up and snowglobe app write.
 server {
     listen 443 ssl;

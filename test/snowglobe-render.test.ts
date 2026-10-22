@@ -51,12 +51,12 @@ describe('snowglobe render', () => {
     }
   });
 
-  it('mounts the folder the page and nginx read the routes and globe.json from, under the same path', () => {
+  it('mounts the folder the page and nginx read the routes and snowglobe.json from, under the same path', () => {
     const { compose } = render(THREE);
     const mounts: string[] = compose.services.nginx.volumes.filter((v: string) => v.includes('/etc/nginx/snowglobe'));
     expect(mounts.length).toBeGreaterThan(0);
     const page = readFileSync(join(ROOT, 'page/snowglobe.conf'), 'utf8');
-    expect(page).toContain('alias /etc/nginx/snowglobe/globe.json;');
+    expect(page).toContain('alias /etc/nginx/snowglobe/snowglobe.json;');
     expect(page).not.toContain('/etc/nginx/devnet');
     expect(readFileSync(join(ROOT, 'https/nginx.conf.template'), 'utf8')).toContain('include /etc/nginx/snowglobe/*.conf;');
   });
@@ -96,7 +96,7 @@ describe('snowglobe render', () => {
   });
 
   it('has the relay crawl every PDS at its https name, and nginx answer to each inside the network', () => {
-    const { compose } = render(FOUR);
+    const { compose } = render({ ...FOUR, services: { tap: true } });
     const names = FOUR.pds.map((p) => `${p.name}.mine.test`);
     expect(compose.services['relay-init'].environment.RELAY_HOSTS.split(' ')).toEqual(names);
     expect(compose.services.nginx.networks["snowglobe"].aliases).toEqual(names);
@@ -146,7 +146,7 @@ describe('snowglobe render', () => {
   });
 
   it('runs no relay for one PDS, and Jetstream and TAP read that PDS', () => {
-    const { compose, files, env } = render({ globe: 'one', domain: 'one.test', pds: [PDS('solo')] });
+    const { compose, files, env } = render({ globe: 'one', domain: 'one.test', pds: [PDS('solo')], services: { tap: true } });
     expect(compose.services).not.toHaveProperty('relay');
     expect(compose.services).not.toHaveProperty('relay-init');
     expect(compose.services.jetstream.environment.JETSTREAM_WS_URL).toBe('ws://pds-solo:3000/xrpc/com.atproto.sync.subscribeRepos');
