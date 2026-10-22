@@ -7,7 +7,7 @@
 // SG_WRITE_RENDERED=1 npx vitest run snowglobe-render, and read the diff.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parse } from 'yaml';
@@ -323,14 +323,15 @@ describe('snowglobe images built from this repo', () => {
       expect(compose.services[svc].image, svc).toMatch(new RegExp(`^atproto-devnet-${name}:[0-9a-f]{12}$`));
   });
 
-  it('changes the tag when a file in the folder changes, not when a test does', () => {
+  it('changes the tag when a file the build uses changes, not when another file in the folder does', () => {
     const dir = mkdtempSync(join(tmpdir(), 'sg-ctx-'));
     mkdirSync(join(dir, 'ctx'));
     writeFileSync(join(dir, 'ctx', 'Dockerfile'), 'FROM alpine\n');
-    const before = contextHash(dir, 'ctx');
+    const before = contextHash(dir, 'ctx', ['Dockerfile']);
     writeFileSync(join(dir, 'ctx', 'server.test.mjs'), 'x');
-    expect(contextHash(dir, 'ctx')).toBe(before);
+    symlinkSync('missing', join(dir, 'ctx', '.#Dockerfile'));
+    expect(contextHash(dir, 'ctx', ['Dockerfile'])).toBe(before);
     writeFileSync(join(dir, 'ctx', 'Dockerfile'), 'FROM alpine:3.20\n');
-    expect(contextHash(dir, 'ctx')).not.toBe(before);
+    expect(contextHash(dir, 'ctx', ['Dockerfile'])).not.toBe(before);
   });
 });
