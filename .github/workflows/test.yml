@@ -21,7 +21,7 @@ jobs:
       - run: npm test
       - name: Show logs on failure
         if: failure()
-        run: npm run logs -- --tail=50
+        run: docker compose -f docker-compose.yml -f docker-compose.test.yml logs --no-color --tail=50
       - run: npm run down
 
   snowglobe:
