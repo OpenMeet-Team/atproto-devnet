@@ -1,8 +1,7 @@
 {
-  "name": "snowglobe",
+  "name": "@openmeet/snowglobe",
   "version": "0.1.0",
   "description": "Standalone, testable ATProto development network for local development and CI",
-  "private": true,
   "type": "module",
   "bin": {
     "snowglobe": "bin/snowglobe.mjs"
@@ -47,5 +46,23 @@
     "@peculiar/x509": "2.2.0",
     "reflect-metadata": "0.2.2",
     "yaml": "^2.9.1"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "https/",
+    "!https/**/*.test.mjs",
+    "page/",
+    "relay/",
+    "slingshot/",
+    "pdsls/",
+    "!pdsls/*.test.mjs",
+    "scripts/init.sh",
+    "docker-compose*.yml",
+    "snowglobe.default.yml",
+    ".env.example"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
