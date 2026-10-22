@@ -49,6 +49,9 @@ bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https:
 To open the network's page, `https://local.snowglobe.at/`, in a browser on your own computer, run
 `bin/snowglobe.mjs trust` and set up the proxy first ([From a browser on your own computer](docs/browser.md)).
 
+The default snowglobe comes with one app to look at, [PDSls](docs/globe.md#pdsls-browsing-the-networks-records),
+the record browser. `https://pdsls.local.snowglobe.at/at://alice.local.snowglobe.at` shows alice's repo.
+
 Stop the snowglobe with `bin/snowglobe.mjs down`. Add `-v` to delete its data too, every account
 included. Everything a snowglobe makes is kept in your own account, in
 `~/.local/share/snowglobe` (or under `XDG_DATA_HOME`), and nothing in the checkout
