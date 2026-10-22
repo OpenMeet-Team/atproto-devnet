@@ -43,10 +43,49 @@ jobs:
           sudo apt-get install -y bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --dev-bind / / true
+      # The images the default snowglobe runs: the five snowglobe builds and the pulled ones. They are
+      # kept whole between runs, named by the list itself: the builds are tagged by a hash of their
+      # sources, so a change to one makes a new list and a new cache. A cache from an older list is
+      # loaded first, so only what changed is built. Images pinned by digest are left out, because
+      # docker load drops the digest and compose would pull them again; they are pulled below.
+      - name: List the images
+        id: images
+        run: |
+          state="$RUNNER_TEMP/render"
+          XDG_DATA_HOME="$state" node bin/snowglobe.mjs render snowglobe.default.yml --out "$state/out"
+          docker compose -p images --project-directory . -f "$state/out/compose.yml" config --images | sort -u > "$RUNNER_TEMP/all-images.txt"
+          grep -v '@sha256:' "$RUNNER_TEMP/all-images.txt" > "$RUNNER_TEMP/images.txt"
+          cat "$RUNNER_TEMP/all-images.txt"
+          echo "hash=$(sha256sum "$RUNNER_TEMP/images.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: Restore the images
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/images.tar.zst
+          key: docker-images-${{ steps.images.outputs.hash }}
+          restore-keys: docker-images-
+      - name: Load the images
+        run: |
+          [ -f "$RUNNER_TEMP/images.tar.zst" ] || { echo "no cache: cache-hit='${{ steps.cache.outputs.cache-hit }}'"; exit 0; }
+          ls -lh "$RUNNER_TEMP/images.tar.zst"
+          time (zstd -d -c "$RUNNER_TEMP/images.tar.zst" | docker load -q)
+      - name: Pull what is not loaded
+        run: |
+          time docker compose -p images --project-directory . -f "$RUNNER_TEMP/render/out/compose.yml" pull --ignore-buildable --quiet
       # check, up, accounts, env, run, app add and remove, down -v, on a copy with its own state
       - run: node scripts/smoke.mjs
         env:
           SMOKE_KEEP: '1'
+      - name: Save the images
+        if: success() && steps.cache.outputs.cache-hit != 'true'
+        run: |
+          time (docker save $(cat "$RUNNER_TEMP/images.txt") | zstd -T0 -3 -f -o "$RUNNER_TEMP/images.tar.zst")
+          ls -lh "$RUNNER_TEMP/images.tar.zst"
+      - uses: actions/cache/save@v4
+        if: success() && steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/images.tar.zst
+          key: docker-images-${{ steps.images.outputs.hash }}
       - name: Show containers on failure
         if: failure()
         run: |

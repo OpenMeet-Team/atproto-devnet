@@ -76,9 +76,13 @@ const sg = (args, opts = {}) =>
 const run = (args, extra = {}) => sg(['run', '--', ...args], { env: { ...env, ...extra } });
 
 let failed = 0;
+let lastStep = Date.now();
 function step(name, ok, detail = '') {
   if (!ok) failed++;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? `: ${detail}` : ''}`);
+  // How long the step took, when it was long enough to matter: up is most of the run.
+  const secs = Math.round((Date.now() - lastStep) / 1000);
+  lastStep = Date.now();
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${secs >= 5 ? ` (${secs}s)` : ''}${detail ? `: ${detail}` : ''}`);
   return ok;
 }
 // The last line of a failed command's stderr, which names what went wrong.
