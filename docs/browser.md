@@ -1,15 +1,15 @@
 # From a browser on your own computer
 
 nginx runs in the dev container, so a browser on your own computer needs two things: a way to send
-the globe's names to it, and trust in the globe's CA. The proxy below does the first with a
+the snowglobe's names to it, and trust in the snowglobe's CA. The proxy below does the first with a
 setting you make once, in the browser you already use. Launch flags (further down) are the older way.
 
-## Through the globe's proxy (Chrome, Edge, Firefox)
+## Through the snowglobe's proxy (Chrome, Edge, Firefox)
 
 The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
 port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
 reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at` and `*.local.snowglobe.at` (apps included) to the proxy and
-everything else direct, so the rest of your browsing is untouched. The browser hands the proxy the name, and the proxy connects every name in the globe to nginx,
+everything else direct, so the rest of your browsing is untouched. The browser hands the proxy the name, and the proxy connects every name in the snowglobe to nginx,
 so a handle made a second ago works with nothing to update. It refuses any other name, any IP
 address and any port but 443.
 
@@ -34,12 +34,12 @@ address and any port but 443.
      `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n snowglobe -i ca.crt` (from `libnss3-tools`).
      Firefox: import it as on macOS.
 
-   Without this step the proxy still works, but each of the globe's names gets a certificate warning you click
+   Without this step the proxy still works, but each of the snowglobe's names gets a certificate warning you click
    through once, and an app's own calls from the page to a PDS fail where no one can click.
 2. **Forward the proxy's port.** In VS Code's Ports view, forward port 1080 of the dev container
    (`SG_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
    fetched from. The proxy asks no one to sign in, so whoever can reach the forwarded port reaches
-   the whole globe: every PDS, the PLC, the network page, and every app of yours routed with
+   the whole snowglobe: every PDS, the PLC, the network page, and every app of yours routed with
    `snowglobe app`, each behind only its own sign-in. Keep the forwarded port on your computer's
    loopback address and don't open it to a network.
 3. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (the forwarded port):
@@ -56,22 +56,22 @@ address and any port but 443.
 **Then** open `https://local.snowglobe.at/`, the network's page. Its apps link to themselves, for instance
 `https://atmo.app.local.snowglobe.at` once atmo is routed ([Example: atmo](examples/atmo.md)).
 
-**When you are done**, turn the setting off, or leave it: it sends only the globe's names anywhere, and
-those fail anyway while the globe is down. What a browser does when it cannot fetch the PAC itself
+**When you are done**, turn the setting off, or leave it: it sends only the snowglobe's names anywhere, and
+those fail anyway while the snowglobe is down. What a browser does when it cannot fetch the PAC itself
 was not measured.
 
 `proxy.pac` leaves `plc.directory` alone, so the setting never moves the real directory for your
-everyday browsing; apps on the globe use `https://plc.local.snowglobe.at`. For an app that insists on
-`plc.directory` in the browser, a profile used only for the globe can take
-`http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this globe's PLC.
+everyday browsing; apps on the snowglobe use `https://plc.local.snowglobe.at`. For an app that insists on
+`plc.directory` in the browser, a profile used only for the snowglobe can take
+`http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this snowglobe's PLC.
 
 Measured on 2026-10-19, on Windows: Chrome through the Windows "Use setup script" setting (the PAC
 then named a SOCKS5 proxy), and Firefox both through its own "Automatic proxy configuration URL" and
 through "Use system proxy settings" (an HTTP proxy), reached the page and a handle's own name. Firefox
 uses the Windows setting only when its Network Settings say "Use system proxy settings": with any other
-choice it fetches no PAC and the globe's names do not resolve. In the dev
+choice it fetches no PAC and the snowglobe's names do not resolve. In the dev
 container, full Chromium and Firefox set only to the PAC URL went from the page to atmo and signed in
-through the alpha's sign-in and consent pages, asking no host outside the globe, with either kind
+through the alpha's sign-in and consent pages, asking no host outside the snowglobe, with either kind
 of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headless shell ignores
 `--proxy-pac-url`; real Chrome and Edge are the full build.
 
@@ -90,7 +90,7 @@ of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headle
 
    The wildcard rule covers the PDS names and the handles; the bare `local.snowglobe.at`, the network's
    page, needs its own. Hosts-file entries work too, one name at a time; they need admin, and they
-   point `plc.directory` at the globe for every program on the computer until you remove the line.
+   point `plc.directory` at the snowglobe for every program on the computer until you remove the line.
 3. **Trust the CA**, as in step 1 of the proxy's steps.
 
 ## The CA

@@ -1,17 +1,17 @@
 # Snowglobe
 
-Your own [AT Protocol](https://atproto.com) network, for testing and demos. A globe has its own
+Your own [AT Protocol](https://atproto.com) network, for testing and demos. A snowglobe has its own
 PDSes, PLC directory, relay and Jetstream, and nothing in it reaches Bluesky's network. It uses
 https and the real network's sign-in (OAuth), so an app built for the real network runs against it
 with no test-only code.
 
-Run a globe on your machine with this repo, or open the one we host,
+Run a snowglobe on your machine with this repo, or open the one we host,
 [lighthouse.snowglobe.at](https://lighthouse.snowglobe.at). [snowglobe.at](https://snowglobe.at)
 says more about the project.
 
-## What runs in a globe
+## What runs in a snowglobe
 
-One file, `snowglobe.yml`, says what a globe runs. The default file in this repo gives you:
+One file, `snowglobe.yml`, says what a snowglobe runs. The default file in this repo gives you:
 
 - three PDSes, each at its own https name: the permissioned-spaces alpha, a current release, and an
   older release (0.4.5009);
@@ -23,8 +23,8 @@ One file, `snowglobe.yml`, says what a globe runs. The default file in this repo
 - two test accounts, `alice` and `bob`.
 
 Every name is under one domain, `local.snowglobe.at`, served by nginx with a certificate from a
-local CA that the globe makes for itself. There is no AppView and no feed generator.
-[The globe](docs/globe.md) shows the whole file and what each part does.
+local CA that the snowglobe makes for itself. There is no AppView and no feed generator.
+[The snowglobe](docs/globe.md) shows the whole file and what each part does.
 
 ## Quick start
 
@@ -39,8 +39,8 @@ npm install
 bin/snowglobe.mjs up --default   # the first run pulls and builds images, which takes a while
 ```
 
-Check it from the shell. `snowglobe run` runs a command that sees the globe's names, and
-`--cacert` gives curl the globe's CA:
+Check it from the shell. `snowglobe run` runs a command that sees the snowglobe's names, and
+`--cacert` gives curl the snowglobe's CA:
 
 ```bash
 bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https://local.snowglobe.at/globe.json
@@ -49,12 +49,12 @@ bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https:
 To open the network's page, `https://local.snowglobe.at/`, in a browser on your own computer, run
 `bin/snowglobe.mjs trust` and set up the proxy first ([From a browser on your own computer](docs/browser.md)).
 
-Stop the globe with `bin/snowglobe.mjs down`. Add `-v` to delete its data too, every account
+Stop the snowglobe with `bin/snowglobe.mjs down`. Add `-v` to delete its data too, every account
 included. Everything a snowglobe makes is kept in your own account, in
 `~/.local/share/snowglobe` (or under `XDG_DATA_HOME`), and nothing in the checkout
 ([Which snowglobe, and where it lives](docs/globe.md#which-snowglobe-and-where-it-lives)).
 
-To run your own app against a globe, see [Your app on a globe](docs/your-app.md).
+To run your own app against a snowglobe, see [Your app on a snowglobe](docs/your-app.md).
 
 ## Platforms
 
@@ -68,20 +68,20 @@ worked.
 
 `npm run up` starts an older, smaller stack: one PDS, a PLC directory, Jetstream and Tap, on plain
 http ports. An app has to be told it is on a test network to use it. It is deprecated, and new work
-goes into the globe. Its documentation is in [The quick stack](docs/quick-stack.md).
+goes into the snowglobe. Its documentation is in [The quick stack](docs/quick-stack.md).
 
 ## Documentation
 
-- [The globe](docs/globe.md): what a `snowglobe.yml` holds, the commands, the globe's names, up and
+- [The snowglobe](docs/globe.md): what a `snowglobe.yml` holds, the commands, the snowglobe's names, up and
   down, and what it writes.
-- [Your app on a globe](docs/your-app.md): `snowglobe run`, and the tools that make an app's
+- [Your app on a snowglobe](docs/your-app.md): `snowglobe run`, and the tools that make an app's
   accounts, invite codes, lexicons and routes.
 - [From a browser on your own computer](docs/browser.md): the proxy, launch flags, and trusting the
   CA.
 - [How it works](docs/how-it-works.md): what changes for https, Slingshot, and the relay build.
 - [Configuration](docs/configuration.md): the settings.
 - [Testing Snowglobe](docs/testing.md): the test suite and the smoke run.
-- [Example: atmo](docs/examples/atmo.md): an events app on a local globe.
+- [Example: atmo](docs/examples/atmo.md): an events app on a local snowglobe.
 - [The quick stack](docs/quick-stack.md) (deprecated): `npm run up`, its overlays, and composing it
   into your project.
 - [Changelog](CHANGELOG.md): what changed in each version, and how to upgrade.

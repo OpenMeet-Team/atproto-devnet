@@ -1,6 +1,6 @@
 # How it works
 
-## How a globe differs from the quick stack
+## How a snowglobe differs from the quick stack
 
 - **Each PDS at its https name.** A PDS's `PDS_HOSTNAME` is `<name>.<domain>`, such as
   `alpha.local.snowglobe.at`. The PDS with `bare_handles` takes handles under the domain itself
@@ -33,7 +33,7 @@
 
 `slingshot` is [Slingshot](https://tangled.org/jola.dev/microcosm-rs/tree/main/slingshot) from
 microcosm-rs, built from a pinned commit (`slingshot/Dockerfile`; upstream publishes no image), set
-to the globe's PLC and Jetstream. The public Slingshot cannot see an account on a globe;
+to the snowglobe's PLC and Jetstream. The public Slingshot cannot see an account on a snowglobe;
 this one answers for it:
 
 ```sh
@@ -46,7 +46,7 @@ It checks a handle both ways, which means it fetches `https://<handle>/.well-kno
 from inside the compose network, and a handle's name exists nowhere but in nginx. So it runs in
 the network namespace of `slingshot-dns`, a dnsmasq
 that answers nginx's address for any name under `SG_DOMAIN` and nothing else, and its only
-root is the globe's CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
+root is the snowglobe's CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
 handle: `snowglobe account` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
 To build another Slingshot, set `SG_SLINGSHOT_COMMIT` to a full microcosm-rs commit; it picks
 the source and names the image.
@@ -56,10 +56,10 @@ the source and names the image.
 **The relay is built locally, not pulled.** Upstream's relay (`ghcr.io/bluesky-social/indigo:relay-<commit>`)
 checks every host through an SSRF-safe transport that refuses loopback and private addresses, with
 no setting to turn it off. Its admin `requestCrawl` accepts `localhost:<port>`, and the host check
-then fails with `unsafe network address`, so the published image can never crawl a PDS on a globe or the quick stack.
+then fails with `unsafe network address`, so the published image can never crawl a PDS on a snowglobe or the quick stack.
 `relay/Dockerfile` builds the same upstream commit with `relay/allow-private-hosts.patch`, which
 adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
 image. The setting covers both places the relay refuses those addresses: the host check, and the
-firehose dialer for `wss://` hosts, which [a globe](globe.md) needs because its
+firehose dialer for `wss://` hosts, which [a snowglobe](globe.md) needs because its
 PDS names resolve to nginx's private address. Pick another commit with `SG_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
 image, and the patch has to apply.

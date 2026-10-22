@@ -1,22 +1,22 @@
-# atmo (the https devnet, with no devnet code in the app)
+# atmo (the snowglobe, with no snowglobe code in the app)
 
 [atmo](https://github.com/flo-bit/atmo-events) is an events app. It runs on
-[the https devnet](../globe.md) as it would on the real network. Its server reaches each PDS
-and `plc.directory` at their https names, and the app has no devnet code or test switch. The devnet
-knows nothing about atmo, so everything below is made with the devnet's tools. The steps use the
+[the snowglobe](../globe.md) as it would on the real network. Its server reaches each PDS
+and `plc.directory` at their https names, and the app has no snowglobe code or test switch. The snowglobe
+knows nothing about atmo, so everything below is made with the snowglobe's tools. The steps use the
 `feat/groups-opensocial` branch of
 [tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial),
-checked out beside the devnet as `atmo-events/`, and the
+checked out beside the snowglobe as `atmo-events/`, and the
 [opensocial.group proposal](https://tangled.org/opensocial.group/proposal) beside both as
 `opensocial-proposal/`. Start with the default snowglobe up (`bin/snowglobe.mjs up --default`), and in
 each shell set `state=~/.local/share/snowglobe/devnet`, its state folder
 ([Which snowglobe, and where it lives](../globe.md#which-snowglobe-and-where-it-lives)).
 
-**Lexicons.** Every devnet PDS resolves NSIDs only from the devnet's lexicon authority. atmo's OAuth
+**Lexicons.** Every snowglobe PDS resolves NSIDs only from the snowglobe's lexicon authority. atmo's OAuth
 scope includes two permission sets, `rsvp.atmo.permissionSet` and `app.bsky.authCreatePosts`. If the
 authority does not hold them, the PDS cannot expand the scope and the consent page fails. Copy both
 from their real authorities, then publish them, and the proposal's lexicons for groups. From the
-devnet checkout, outside `snowglobe run`, because the copy reads the real `plc.directory`:
+snowglobe checkout, outside `snowglobe run`, because the copy reads the real `plc.directory`:
 
 ```bash
 mkdir -p data/atmo-lexicons
@@ -51,7 +51,7 @@ GROUP_HANDLE_DOMAIN=local.snowglobe.at
   makes atmo use its loopback OAuth client, `http://127.0.0.1:5454`, which needs no keys and no
   public origin.
 - `GROUP_PDS_SERVICE` and `GROUP_HANDLE_DOMAIN` name where atmo would create group accounts: the
-  alpha, the devnet PDS that serves spaces. Write the domain with no leading dot. atmo adds the dot
+  alpha, the snowglobe PDS that serves spaces. Write the domain with no leading dot. atmo adds the dot
   itself, and `.local.snowglobe.at` gives handles like `name..local.snowglobe.at`, which the PDS refuses.
 
 Then create atmo's tables in its local D1 database. Without them, atmo logs
@@ -79,10 +79,10 @@ and approve, then back to atmo, signed in.
 | `http://127.0.0.1:5454` | atmo |
 | `https://alpha.local.snowglobe.at` | the alpha PDS: its sign-in and consent pages, and its xrpc |
 | `https://<handle>/.well-known/atproto-did` | the handle's PDS, with the handle's DID |
-| `https://plc.directory/<did>` | the devnet's PLC, with the DID document |
+| `https://plc.directory/<did>` | the snowglobe's PLC, with the DID document |
 
 **Use it from the shell.** The same names work under `snowglobe run`. curl does not read
-`NODE_EXTRA_CA_CERTS`, so give it the CA. From the devnet checkout:
+`NODE_EXTRA_CA_CERTS`, so give it the CA. From the snowglobe checkout:
 
 ```bash
 dn() { ./bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt "$@"; }
@@ -97,8 +97,8 @@ The last line lists the events atmo has written to alice's repo.
 
 **Groups: atmo's confidential client.** With the loopback client, atmo's group page says group
 creation is not configured. To create and link a group, atmo needs its confidential OAuth client, at
-an https origin where the PDS can fetch its client metadata and keys. The devnet gives that origin
-with an app route. From the devnet checkout:
+an https origin where the PDS can fetch its client metadata and keys. The snowglobe gives that origin
+with an app route. From the snowglobe checkout:
 
 ```bash
 ./bin/snowglobe.mjs app atmo 5454                       # https://atmo.app.local.snowglobe.at -> port 5454
@@ -135,13 +135,13 @@ another machine the proxy's PAC covers the name, and only the proxy's port (or 4
 mints the group's account on the alpha, then has you sign in as the group to link it. The groups
 e2e below creates a group the same way on every run, through atmo's own create.
 
-**Sealed, as on a globe.** The `deploy/snowglobe` branch of atmo runs with
+**Sealed, as on a snowglobe.** The `deploy/snowglobe` branch of atmo runs with
 `PUBLIC_ATPROTO_SEALED=true`: it refuses to start without its network's addresses and turns off every
-public service with no stand-in. The devnet has an https name for each, so the settings mirror a
-globe's. Walked on 2026-10-19 from the network's page to atmo and a signed-in session, in Chromium
-and Firefox through the proxy, with no request leaving the devnet.
+public service with no stand-in. The snowglobe has an https name for each, so the settings mirror a
+snowglobe's. Walked on 2026-10-19 from the network's page to atmo and a signed-in session, in Chromium
+and Firefox through the proxy, with no request leaving the snowglobe.
 
-1. Lexicons, from the devnet checkout: the two permission sets above, and the proposal's lexicons
+1. Lexicons, from the snowglobe checkout: the two permission sets above, and the proposal's lexicons
    from its `main` branch. Its `lex-refactor` branch changed `group.opensocial.meta`, and atmo's
    sign-in then fails at the PDS with `Unable to retrieve space declarations`.
 
@@ -158,7 +158,7 @@ and Firefox through the proxy, with no request leaving the devnet.
    cookie secret and client key and prints neither), and its tables:
 
    ```bash
-   ../../../snowglobe/bin/snowglobe.mjs app atmo 5454     # from apps/web; or run it from the devnet checkout
+   ../../../snowglobe/bin/snowglobe.mjs app atmo 5454     # from apps/web; or run it from the snowglobe checkout
    npx tsx src/lib/atproto/scripts/setup-dev.ts
    pnpm exec wrangler d1 migrations apply DB --local
    ```
@@ -173,11 +173,11 @@ and Firefox through the proxy, with no request leaving the devnet.
    PUBLIC_ATPROTO_RELAY_URLS=https://relay.local.snowglobe.at
    PUBLIC_ATPROTO_SIGNUP_PDS=https://alpha.local.snowglobe.at
    PUBLIC_ATPROTO_BLOB_URL_TEMPLATE=https://alpha.local.snowglobe.at/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}
-   PUBLIC_NETWORK_NOTICE=Local devnet: not Bluesky, test data only.
+   PUBLIC_NETWORK_NOTICE=Local snowglobe: not Bluesky, test data only.
    PUBLIC_NETWORK_NOTICE_URL=https://local.snowglobe.at/
    ```
 
-   The image template reaches the alpha's own blobs only; a globe's image service finds any
+   The image template reaches the alpha's own blobs only; a snowglobe's image service finds any
    account's server.
 5. Run it under `snowglobe run`, on every address so nginx can reach it:
 
@@ -189,7 +189,7 @@ and Firefox through the proxy, with no request leaving the devnet.
 Open `https://local.snowglobe.at/` and follow its atmo link. Signing in sends you to
 `https://alpha.local.snowglobe.at` for the password and the consent page, and back to atmo.
 
-**The groups e2e.** It makes its fixtures with the same tools. From the devnet checkout, after the
+**The groups e2e.** It makes its fixtures with the same tools. From the snowglobe checkout, after the
 lexicons above:
 
 ```bash
@@ -218,7 +218,7 @@ are mapped:
 # SUMMARY: 49 passed, 0 failed
 ```
 
-The test refuses any host that is not this machine. Under `snowglobe run` the devnet's names resolve to
+The test refuses any host that is not this machine. Under `snowglobe run` the snowglobe's names resolve to
 127.0.0.1, so it admits them. Without `snowglobe run` it refuses them before any login. The test is
 `apps/web/scripts/groups-e2e.mjs` on the `feat/groups-opensocial` branch of
 [tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial/apps/web/scripts).

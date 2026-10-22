@@ -1,14 +1,14 @@
-# Your app on a globe
+# Your app on a snowglobe
 
-An app uses a globe the way it would use the real network. Three things connect them:
+An app uses a snowglobe the way it would use the real network. Three things connect them:
 
-1. A `snowglobe.yml` in the app's repo, next to the lexicons it publishes, says what globe the app
+1. A `snowglobe.yml` in the app's repo, next to the lexicons it publishes, says what snowglobe the app
    needs: its PDSes, the accounts the app signs in with, its lexicons and a route to the app
    ([The file and the commands](globe.md#the-file-and-the-commands)). From the snowglobe checkout,
-   `bin/snowglobe.mjs up ../myapp/snowglobe.yml` brings that globe up and makes all of it.
-2. `snowglobe run` starts the app, or its tests, so that they reach the globe at the real network's
-   names and trust the globe's CA (below).
-3. `<state>/devnet.env` holds the globe's addresses, nothing secret, for the app's own settings:
+   `bin/snowglobe.mjs up ../myapp/snowglobe.yml` brings that snowglobe up and makes all of it.
+2. `snowglobe run` starts the app, or its tests, so that they reach the snowglobe at the real network's
+   names and trust the snowglobe's CA (below).
+3. `<state>/devnet.env` holds the snowglobe's addresses, nothing secret, for the app's own settings:
    `set -a; . <state>/devnet.env; set +a` ([What it writes](globe.md#what-it-writes)).
    The logins are in `<state>/accounts.env`.
 
@@ -24,19 +24,19 @@ bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the rea
 
 `snowglobe run <cmd>` runs the command with two changes, for its process tree only:
 
-- the globe's names (its page, every PDS, its services and `plc.directory`, as the rendered globe
+- the snowglobe's names (its page, every PDS, its services and `plc.directory`, as the rendered snowglobe
   lists them), every handle in `<state>/https/names` and every app in `<state>/https/apps` (as
   `<name>.app.<domain>`) resolve to `SG_BIND` (`127.0.0.1` by default).
   [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
   with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
   `HTTPS_RUN_EXTRA_NAMES` adds names.
-- Node trusts the globe's CA on top of its own roots (`NODE_EXTRA_CA_CERTS=<state root>/ca/ca.crt`).
+- Node trusts the snowglobe's CA on top of its own roots (`NODE_EXTRA_CA_CERTS=<state root>/ca/ca.crt`).
   Miniflare's source passes the same file to workerd, so a Worker's `fetch` should trust it too.
 
 The names are read when the command starts. Handles are listed one by one (there is no wildcard
 DNS), so restart a command under `snowglobe run` to pick up a handle or app made after it started.
 Node's certificate checks stay on: `snowglobe run` only adds a CA for them to trust. It needs Linux
-and bubblewrap; on a Mac it says so and exits, and an app there reaches the globe through its
+and bubblewrap; on a Mac it says so and exits, and an app there reaches the snowglobe through its
 proxy instead (`PROXY_PAC_URL` in `<state>/devnet.env`).
 
 ## Tools for an app
@@ -44,7 +44,7 @@ proxy instead (`PROXY_PAC_URL` in `<state>/devnet.env`).
 Each example uses a made-up app, `bookclub`. None of them prints a secret; a login or code goes only
 to the file named.
 
-**An account**, on any PDS in the globe: `bin/snowglobe.mjs account <name> <PREFIX> [<pds>]`.
+**An account**, on any PDS in the snowglobe: `bin/snowglobe.mjs account <name> <PREFIX> [<pds>]`.
 
 ```bash
 bin/snowglobe.mjs account bookclubowner BOOKCLUB_OWNER            # bookclubowner.local.snowglobe.at on the alpha
@@ -56,21 +56,21 @@ rerun finds the account instead of making another. The login goes to `ACCOUNTS_F
 `<state>/accounts.env`, mode 600) as `<PREFIX>_HANDLE`, `_DID`, `_PASSWORD` and `_PDS`, and the
 handle goes to `<state>/https/names`. A PDS with `invites: required` is sent `SG_INVITE_CODE` if it
 is set, else a single-use code minted for the account; the others are sent none. On the PDS with
-bare handles, a name the globe uses itself (a PDS's, a service's, an app's handle ending) is
+bare handles, a name the snowglobe uses itself (a PDS's, a service's, an app's handle ending) is
 refused, because the handle would be that name.
 
 **An invite code**, for an app that creates accounts itself:
 `bin/snowglobe.mjs invite <VAR> [file] [--pds <pds>]`.
 
 ```bash
-bin/snowglobe.mjs invite BOOKCLUB_INVITE_CODE ../bookclub/.env.devnet
+bin/snowglobe.mjs invite BOOKCLUB_INVITE_CODE ../bookclub/.env.snowglobe
 ```
 
 It mints the code through the PDS's admin API (`INVITE_USES`, default 100) and writes
 `<VAR>=<code>` to the file (default `<state>/accounts.env`, mode 600), replacing an earlier line. The
-PDS is the one with `invites: required`; name it with `--pds` when the globe has more than one.
+PDS is the one with `invites: required`; name it with `--pds` when the snowglobe has more than one.
 
-**Lexicons.** With `PDS_LEXICON_AUTHORITY_DID` set, every PDS in the globe resolves **every** NSID from
+**Lexicons.** With `PDS_LEXICON_AUTHORITY_DID` set, every PDS in the snowglobe resolves **every** NSID from
 the authority account, never from DNS, so an app's record types, permission sets and space types
 have to be published there as `com.atproto.lexicon.schema` records, keyed by NSID. An app publishes
 its own:
@@ -96,7 +96,7 @@ containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `
 rerun with the same name changes the port), and nginx in the snowglobe's stack is reloaded.
 `bin/snowglobe.mjs app --remove bookclub` drops the route the same way, and the app comes off the
 network page. `bin/snowglobe.mjs app --render` only writes nginx's routes and the network page from
-`<state>/https/apps`, as `snowglobe up` does before it starts the globe. A name under `app.<domain>` with no route gets a 404 from nginx and reaches nothing. A confidential
+`<state>/https/apps`, as `snowglobe up` does before it starts the snowglobe. A name under `app.<domain>` with no route gets a 404 from nginx and reaches nothing. A confidential
 OAuth client can use `https://bookclub.app.local.snowglobe.at/...` as its client_id: the PDS fetches its
 metadata and keys from there over TLS. A client_id under `.test` is refused by the PDS
 (`invalid_client_id: The client_id's TLD must not be a local hostname`), which is why apps live under
@@ -110,7 +110,7 @@ bin/snowglobe.mjs app grouphost 7070 gh  # also https://<handle>.gh.local.snowgl
 ```
 
 nginx then sends every name under `gh.local.snowglobe.at` to the app, Host and all, so the app answers
-`/.well-known/atproto-did` for its handles and they resolve from anywhere on the devnet. The leaf
+`/.well-known/atproto-did` for its handles and they resolve from anywhere on the snowglobe. The leaf
 gains `*.gh.local.snowglobe.at` from the same CA, so nothing has to be trusted again. `alpha`, `regular` and
 `prod` belong to the PDSes, and an ending belongs to one app. A rerun without the ending drops it.
 Under `snowglobe run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for any handle.
