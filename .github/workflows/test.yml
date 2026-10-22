@@ -45,6 +45,13 @@ jobs:
           bwrap --dev-bind / / true
       # check, up, accounts, env, run, app add and remove, down -v, on a copy with its own state
       - run: node scripts/smoke.mjs
+        env:
+          SMOKE_KEEP: '1'
       - name: Show containers on failure
         if: failure()
-        run: docker ps -a
+        run: |
+          docker ps -a
+          for c in $(docker ps -aq); do
+            echo "=== $(docker inspect -f '{{.Name}} {{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' $c)"
+            docker logs --tail 30 $c 2>&1 | cut -c1-300
+          done
