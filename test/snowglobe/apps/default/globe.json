@@ -48,6 +48,12 @@
       "Resolves handles, DIDs and records from this network only"
     ],
     [
+      "Tap",
+      "",
+      "sync",
+      "Syncs and backfills repos"
+    ],
+    [
       "Mail",
       "",
       "mail",

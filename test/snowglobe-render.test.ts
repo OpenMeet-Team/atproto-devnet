@@ -96,7 +96,7 @@ describe('snowglobe render', () => {
   });
 
   it('has the relay crawl every PDS at its https name, and nginx answer to each inside the network', () => {
-    const { compose } = render({ ...FOUR, services: { tap: true } });
+    const { compose } = render(FOUR);
     const names = FOUR.pds.map((p) => `${p.name}.mine.test`);
     expect(compose.services['relay-init'].environment.RELAY_HOSTS.split(' ')).toEqual(names);
     expect(compose.services.nginx.networks["snowglobe"].aliases).toEqual(names);
@@ -146,7 +146,7 @@ describe('snowglobe render', () => {
   });
 
   it('runs no relay for one PDS, and Jetstream and TAP read that PDS', () => {
-    const { compose, files, env } = render({ globe: 'one', domain: 'one.test', pds: [PDS('solo')], services: { tap: true } });
+    const { compose, files, env } = render({ globe: 'one', domain: 'one.test', pds: [PDS('solo')] });
     expect(compose.services).not.toHaveProperty('relay');
     expect(compose.services).not.toHaveProperty('relay-init');
     expect(compose.services.jetstream.environment.JETSTREAM_WS_URL).toBe('ws://pds-solo:3000/xrpc/com.atproto.sync.subscribeRepos');

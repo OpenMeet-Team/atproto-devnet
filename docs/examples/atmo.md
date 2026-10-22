@@ -1,7 +1,7 @@
 # atmo (the snowglobe, with no snowglobe code in the app)
 
 [atmo](https://github.com/flo-bit/atmo-events) is an events app. It runs on
-[the snowglobe](../globe.md) as it would on the real network. Its server reaches each PDS
+[the snowglobe](../snowglobe.md) as it would on the real network. Its server reaches each PDS
 and `plc.directory` at their https names, and the app has no snowglobe code or test switch. The snowglobe
 knows nothing about atmo, so everything below is made with the snowglobe's tools. The steps use the
 `feat/groups-opensocial` branch of
@@ -10,7 +10,7 @@ checked out beside the snowglobe as `atmo-events/`, and the
 [opensocial.group proposal](https://tangled.org/opensocial.group/proposal) beside both as
 `opensocial-proposal/`. Start with the default snowglobe up (`bin/snowglobe.mjs up --default`), and in
 each shell set `state=~/.local/share/snowglobe/snowglobe`, its state folder
-([Which snowglobe, and where it lives](../globe.md#which-snowglobe-and-where-it-lives)).
+([Which snowglobe, and where it lives](../snowglobe.md#which-snowglobe-and-where-it-lives)).
 
 **Lexicons.** Every snowglobe PDS resolves NSIDs only from the snowglobe's lexicon authority. atmo's OAuth
 scope includes two permission sets, `rsvp.atmo.permissionSet` and `app.bsky.authCreatePosts`. If the

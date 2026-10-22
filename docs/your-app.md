@@ -4,7 +4,7 @@ An app uses a snowglobe the way it would use the real network. Three things conn
 
 1. A `snowglobe.yml` in the app's repo, next to the lexicons it publishes, says what snowglobe the app
    needs: its PDSes, the accounts the app signs in with, its lexicons and a route to the app
-   ([The file and the commands](globe.md#the-file-and-the-commands)). From the snowglobe checkout,
+   ([The file and the commands](snowglobe.md#the-file-and-the-commands)). From the snowglobe checkout,
    `bin/snowglobe.mjs up ../myapp/snowglobe.yml` brings that snowglobe up and makes all of it.
 2. `snowglobe run` starts the app, or its tests, so that they reach the snowglobe at the real network's
    names and trust the snowglobe's CA (below).

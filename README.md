@@ -24,7 +24,7 @@ One file, `snowglobe.yml`, says what a snowglobe runs. The default file in this 
 
 Every name is under one domain, `local.snowglobe.at`, served by nginx with a certificate from a
 local CA that the snowglobe makes for itself. There is no AppView and no feed generator.
-[The snowglobe](docs/globe.md) shows the whole file and what each part does.
+[The snowglobe](docs/snowglobe.md) shows the whole file and what each part does.
 
 ## Quick start
 
@@ -43,19 +43,19 @@ Check it from the shell. `snowglobe run` runs a command that sees the snowglobe'
 `--cacert` gives curl the snowglobe's CA:
 
 ```bash
-bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https://local.snowglobe.at/globe.json
+bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https://local.snowglobe.at/snowglobe.json
 ```
 
 To open the network's page, `https://local.snowglobe.at/`, in a browser on your own computer, run
 `bin/snowglobe.mjs trust` and set up the proxy first ([From a browser on your own computer](docs/browser.md)).
 
-The default snowglobe comes with one app to look at, [PDSls](docs/globe.md#pdsls-browsing-the-networks-records),
+The default snowglobe comes with one app to look at, [PDSls](docs/snowglobe.md#pdsls-browsing-the-networks-records),
 the record browser. `https://pdsls.local.snowglobe.at/at://alice.local.snowglobe.at` shows alice's repo.
 
 Stop the snowglobe with `bin/snowglobe.mjs down`. Add `-v` to delete its data too, every account
 included. Everything a snowglobe makes is kept in your own account, in
 `~/.local/share/snowglobe` (or under `XDG_DATA_HOME`), and nothing in the checkout
-([Which snowglobe, and where it lives](docs/globe.md#which-snowglobe-and-where-it-lives)).
+([Which snowglobe, and where it lives](docs/snowglobe.md#which-snowglobe-and-where-it-lives)).
 
 To run your own app against a snowglobe, see [Your app on a snowglobe](docs/your-app.md).
 
@@ -75,7 +75,7 @@ goes into the snowglobe. Its documentation is in [The quick stack](docs/quick-st
 
 ## Documentation
 
-- [The snowglobe](docs/globe.md): what a `snowglobe.yml` holds, the commands, the snowglobe's names, up and
+- [The snowglobe](docs/snowglobe.md): what a `snowglobe.yml` holds, the commands, the snowglobe's names, up and
   down, and what it writes.
 - [Your app on a snowglobe](docs/your-app.md): `snowglobe run`, and the tools that make an app's
   accounts, invite codes, lexicons and routes.

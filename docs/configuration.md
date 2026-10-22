@@ -7,10 +7,10 @@ the snowglobe checkout. Every setting has a default.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SG_PROJECT` | the file's `globe:` name | The snowglobe's Docker Compose project name ([Up and down](globe.md#up-and-down)) |
-| `SG_FILE` | none | The `snowglobe.yml` a command reads when no file is named. Without it, the nearest `snowglobe.yml` in the folder you run from or above ([Which snowglobe](globe.md#which-snowglobe-and-where-it-lives)) |
+| `SG_PROJECT` | the file's `globe:` name | The snowglobe's Docker Compose project name ([Up and down](snowglobe.md#up-and-down)) |
+| `SG_FILE` | none | The `snowglobe.yml` a command reads when no file is named. Without it, the nearest `snowglobe.yml` in the folder you run from or above ([Which snowglobe](snowglobe.md#which-snowglobe-and-where-it-lives)) |
 | `XDG_DATA_HOME` | unset | Where snowglobes keep their state, in `snowglobe/` under it. Without it, `~/.local/share/snowglobe` (`%LOCALAPPDATA%\snowglobe` on Windows) |
-| `SG_DOMAIN` | `local.snowglobe.at` | The domain every name in the snowglobe sits under, in place of the file's `domain` ([The snowglobe](globe.md)) |
+| `SG_DOMAIN` | `local.snowglobe.at` | The domain every name in the snowglobe sits under, in place of the file's `domain` ([The snowglobe](snowglobe.md)) |
 | `SG_BIND` | `127.0.0.1` | The loopback address nginx listens on, port 443. A second snowglobe on the same machine takes another, such as `127.0.0.2` |
 | `SG_PLC_PORT` | `2582` | The PLC, on `127.0.0.1` |
 | `SG_JETSTREAM_PORT` / `SG_JETSTREAM_METRICS_PORT` | `6008` / `6009` | Jetstream and its metrics, on `127.0.0.1` |

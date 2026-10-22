@@ -1,6 +1,6 @@
 # The quick stack
 
-> **Deprecated.** New work goes into the globe ([the https devnet](globe.md)). The quick stack
+> **Deprecated.** New work goes into the globe ([the https devnet](snowglobe.md)). The quick stack
 > still runs from `main` for now. A project that depends on it should pin a release tag, as
 > OpenMeet's CI pins `v0.1.0`.
 
@@ -69,8 +69,8 @@ The tests read the same `.env`, so `npm test` follows the move. Every setting is
 ### The network's page
 
 This stack has no web page. The page that lists the network's services, accounts and live activity
-comes with [the https devnet](globe.md), at `https://local.snowglobe.at/`
-([The network's page](globe.md#the-networks-page)).
+comes with [the https devnet](snowglobe.md), at `https://local.snowglobe.at/`
+([The network's page](snowglobe.md#the-networks-page)).
 
 ## Seeded test accounts
 

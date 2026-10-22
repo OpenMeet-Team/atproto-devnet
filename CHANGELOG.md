@@ -5,7 +5,7 @@ Changes to the default stack that existing setups will notice:
 ## Unreleased
 
 - **The docs moved.** The README is short now, and the guides are under `docs/`, starting with
-  [The globe](docs/globe.md). The quick stack (`npm run up`) is deprecated.
+  [The snowglobe](docs/snowglobe.md). The quick stack (`npm run up`) is deprecated.
 - **A snowglobe keeps its state in your own account, not in the checkout.** It is in
   `~/.local/share/snowglobe/<name>/` (under `XDG_DATA_HOME` if you set it, `%LOCALAPPDATA%\snowglobe`
   on Windows), where `<name>` is the `globe:` line of its `snowglobe.yml`, and the Docker Compose
@@ -39,6 +39,9 @@ Changes to the default stack that existing setups will notice:
   Either way the old Docker network `devnet_atproto-devnet` is left behind: remove it with
   `docker network rm devnet_atproto-devnet` once nothing uses it. The quick stack and the old
   `DEVNET_*` setting names are unchanged.
+- **The network page's facts are at `/snowglobe.json`, not `/globe.json`.** `up` writes
+  `https/nginx/snowglobe.json` and the page reads it. Anything that fetched `globe.json` from a
+  snowglobe uses the new name after its next `up`.
 - **`snowglobe trust` puts your CA in the system and browser trust stores.** `--dry-run` shows what it
   would do, `--remove` undoes it. macOS and native Windows are untried.
 - **Tap is off by default.** Nothing in the default snowglobe attaches to it. Turn it on with
@@ -98,7 +101,7 @@ Changes to the default stack that existing setups will notice:
   resolves a new DID fails with `Forbidden protocol "http:"`. The PDS now sets
   `PDS_DISABLE_SSRF_PROTECTION=true`, so it can also fetch private addresses, such as an OAuth client's
   metadata on your machine. The default stack still uses http. The
-  [https devnet](docs/globe.md) keeps SSRF protection off too, for another reason: every address
+  [https devnet](docs/snowglobe.md) keeps SSRF protection off too, for another reason: every address
   a PDS fetches from there (nginx, the PLC, your machine) is a private one, and the protected fetch
   refuses private addresses.
 - **init reseeds when `data/` is stale.** `data/` outlives `npm run down`. init used to skip seeding

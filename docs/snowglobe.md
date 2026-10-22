@@ -60,8 +60,8 @@ tools to make its own ([Your app on a snowglobe](your-app.md)), and using them i
 health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
 from Jetstream, the last week's and then live. nginx serves it with this snowglobe's relays (`page/snowglobe.conf`), a fixed GET-only path per read, so the page
 asks nothing but `local.snowglobe.at`. `snowglobe render` and `snowglobe app` write what it lists into
-`<state>/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
-computer](browser.md#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://local.snowglobe.at/globe.json`.
+`<state>/https/nginx/snowglobe.json`. Open it from a browser set up as in [From a browser on your own
+computer](browser.md#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://local.snowglobe.at/snowglobe.json`.
 
 ## PDSls: browsing the network's records
 
@@ -257,6 +257,6 @@ and nothing in the checkout:
   `snowglobe up` writes it again on every run; `bin/snowglobe.mjs render` writes it alone.
 - `<state>/https/`: `leaf.crt` and `leaf.key` (what nginx serves),
   `names` (the handles `snowglobe run` maps), `apps` and `nginx/` (the app routes and the page's
-  `globe.json`), and `hosts` (the
+  `snowglobe.json`), and `hosts` (the
   hosts file `snowglobe run` last generated).
 - `<state root>/ca/`: `ca.crt` and `ca.key`, your CA, one for all your snowglobes ([The CA](browser.md#the-ca)).

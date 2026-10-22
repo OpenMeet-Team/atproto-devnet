@@ -60,6 +60,6 @@ then fails with `unsafe network address`, so the published image can never crawl
 `relay/Dockerfile` builds the same upstream commit with `relay/allow-private-hosts.patch`, which
 adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
 image. The setting covers both places the relay refuses those addresses: the host check, and the
-firehose dialer for `wss://` hosts, which [a snowglobe](globe.md) needs because its
+firehose dialer for `wss://` hosts, which [a snowglobe](snowglobe.md) needs because its
 PDS names resolve to nginx's private address. Pick another commit with `SG_RELAY_INDIGO_COMMIT`; it needs a published `relay-<commit>`
 image, and the patch has to apply.
