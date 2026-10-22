@@ -4,7 +4,7 @@
 // what it was asked; bringing a globe up for real is checked by hand on an isolated copy.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
@@ -49,7 +49,8 @@ describe('what run maps', () => {
 // it was asked to docker.log and fails, unless SHIM_EXIT says otherwise: a guard that let up
 // through then ends the run at once instead of waiting on a globe.
 function globeRoot() {
-  const r = mkdtempSync(join(tmpdir(), 'snowglobe-up-'));
+  // realpath: on macOS tmpdir() is under /var, a link to /private/var, which is what a command's cwd reports.
+  const r = mkdtempSync(join(realpathSync(tmpdir()), 'snowglobe-up-'));
   for (const d of ['bin', 'lib', 'https/dns', 'https/proxy', 'pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
   cpSync(join(ROOT, 'https/nginx.conf.template'), join(r, 'https/nginx.conf.template'));
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
@@ -128,7 +129,9 @@ describe('snowglobe up and down', () => {
 
   it('up restarts nginx when its template changed since it last started, even with the leaf current', () => {
     const r = globeRoot();
-    const env = { SG_PROJECT: 'mine', SHIM_EXIT: '0', SG_NGINX_WAIT: '1' };
+    // 127.0.0.1, not the file's 127.77.0.9: nothing answers there, so the wait fails at once; macOS has only 127.0.0.1
+    // on loopback, and a connect to any other 127.x address hangs.
+    const env = { SG_PROJECT: 'mine', SHIM_EXIT: '0', SG_NGINX_WAIT: '1', SG_BIND: '127.0.0.1' };
     // No stamp yet, as after an upgrade: the leaf is current (render and certs ran), the template is not known.
     expect(existsSync(state(r, 'https/nginx-template.sha256'))).toBe(false);
     sg(r, ['up'], env);

@@ -17,7 +17,15 @@ const D = 'acct.test';
 const BIND = '127.77.0.1';
 const PDS = ['alpha', 'beta', 'regular'];
 
-const canBind443 = Number(readFileSync('/proc/sys/net/ipv4/ip_unprivileged_port_start', 'utf8').trim() || 1024) <= 443;
+// Linux says which ports a user may bind. macOS has no such file, and a user cannot listen on 443 there
+// (EACCES even on 127.0.0.1), so these tests are skipped.
+const canBind443 = (() => {
+  try {
+    return Number(readFileSync('/proc/sys/net/ipv4/ip_unprivileged_port_start', 'utf8').trim() || 1024) <= 443;
+  } catch {
+    return false;
+  }
+})();
 
 type Req = { pds: string; nsid: string; auth?: string; body: any; query: URLSearchParams };
 

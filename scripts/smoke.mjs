@@ -186,6 +186,11 @@ try {
   if (e.message !== 'up failed') step('smoke', false, e.message);
 } finally {
   listener?.kill();
+  // SMOKE_KEEP=1 leaves the containers up when a step failed, so CI can read their logs.
+  if (process.env.SMOKE_KEEP && failed) {
+    console.log('SMOKE_KEEP set: containers left running');
+    process.exit(1);
+  }
   const r = sg(['down', '-v'], { stdio: ['ignore', 'ignore', 'pipe'] });
   const count = (args) =>
     spawnSync('docker', [...args, '-q', '--filter', `label=com.docker.compose.project=${PROJECT}`], { encoding: 'utf8' })
