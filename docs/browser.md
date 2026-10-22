@@ -22,11 +22,52 @@ That is all. Public DNS answers every name under `local.snowglobe.at` with `127.
 - `SG_BIND` set to another loopback address (see [Configuration](configuration.md)): the name still
   resolves to `127.0.0.1`, where nothing listens. Use a hosts-file entry for each name, or the proxy
   below.
-- A resolver that drops answers pointing at your own machine, as some routers do. Not measured here.
-  If a name does not resolve, use the proxy below.
+- A resolver that drops answers pointing at your own machine, as some routers do (see
+  [When the browser cannot open it](#when-the-browser-cannot-open-it)). If a name does not resolve,
+  use the proxy below.
 
 `plc.directory` is not under that domain, so a browser still reaches the real directory. Apps on the
 snowglobe use `https://plc.local.snowglobe.at`.
+
+## When the browser cannot open it
+
+Measured on 2026-10-22, on Linux with Docker and Firefox and Chrome on the same computer, the
+snowglobe up and healthy. Check first that the snowglobe answers, then that the name resolves:
+
+```sh
+curl -sk --resolve local.snowglobe.at:443:127.0.0.1 -o /dev/null -w '%{http_code}\n' https://local.snowglobe.at/   # 200
+getent hosts local.snowglobe.at                                                                                  # 127.0.0.1
+dig +short @1.1.1.1 local.snowglobe.at                                                                           # 127.0.0.1
+```
+
+If the first prints 200 and the second prints nothing, the snowglobe is fine and name resolution is
+the problem.
+
+- **The router refuses the name (Firefox: "server not found", `getent` prints nothing).** The
+  names are public DNS records that point at `127.0.0.1`. A router that does DNS-rebind protection
+  drops such answers and replies SERVFAIL, for every name under `snowglobe.at` alike, while
+  `1.1.1.1` and `8.8.8.8` answer correctly (`dig @<router> local.snowglobe.at` shows
+  `status: SERVFAIL`). Any one of these fixes it:
+  - put public resolvers ahead of the router's for your connection (on a NetworkManager system, set
+    the connection's DNS servers to `1.1.1.1 8.8.8.8`), which fixes every program;
+  - allow `snowglobe.at` in the router's rebind-protection list (dnsmasq: `rebind-domain-ok=/snowglobe.at/`);
+  - turn on DNS over HTTPS in the browser (Firefox: Settings, Privacy & Security, DNS over HTTPS),
+    which fixes that browser only;
+  - or use the proxy below, which resolves the names itself.
+
+  A hosts-file entry works but names every host by hand: `/etc/hosts` has no wildcards, so each
+  PDS, handle and app name needs a line.
+- **Chrome says `ERR_CONNECTION_REFUSED` for a bare `local.snowglobe.at`.** Typed without a scheme,
+  Chrome tries https and, when that fails, falls back to `http://`, which is port 80. A snowglobe
+  publishes only 443, so the fallback is refused and hides the https failure behind it. Type
+  `https://local.snowglobe.at/` in full. If it then fails, the error shown is the real one. In our
+  run it opened at once once the name resolved; flush Chrome's lookups with
+  `chrome://net-internals/#dns` ("Clear host cache") and `chrome://net-internals/#sockets` ("Flush
+  socket pools") when it still shows the old failure. Likely cause, not isolated: the earlier DNS
+  failure.
+- **A certificate warning, or a failure no click gets past.** The browser does not trust the CA. Run
+  `bin/snowglobe.mjs trust` and see [The CA](#the-ca). Firefox keeps its own store unless `trust`
+  has put the CA in it.
 
 ## Docker somewhere else: a dev container or another machine
 
