@@ -33,6 +33,17 @@ The overlays add more services:
 - `relay` on 2470 and a one-shot `relay-init` ([A local relay](#a-local-relay));
 - `nginx` on 127.0.0.1:443 ([The https devnet](#the-https-devnet)).
 
+## Install
+
+```bash
+npm install -g @openmeet/snowglobe
+snowglobe --help
+```
+
+Run `snowglobe up` in a folder with a `snowglobe.yml` (or one above it). The installed package is
+read-only to snowglobe: everything it makes is in your own data folder (`~/.local/share/snowglobe`,
+`XDG_DATA_HOME`, or `%LOCALAPPDATA%\snowglobe` on Windows). It needs Node 20 or newer and Docker.
+
 ## Quick start (standalone)
 
 Run the devnet with its own Postgres and MailDev for self-contained testing:
