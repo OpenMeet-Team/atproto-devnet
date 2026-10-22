@@ -5,13 +5,14 @@
 //   render    writes the https globe it describes into its state folder
 //   certs     makes your CA, once, and the leaf nginx serves
 //   trust     puts your CA in the system and browser trust stores (--remove takes it out)
+//   env       prints the settings an app is handed, for eval "$(snowglobe env)"
 //   account   makes an account on a PDS in the running globe
 //   invite    mints an invite code on one of its PDSes
 //   lexicons  publishes lexicons into its lexicon authority
 //   app       routes https://<name>.app.<domain> to a port on this machine
 //   up        brings the globe up, as the compose project named for its file
 //   down      stops it
-//   run       runs a command that reaches the globe at the real network's names
+//   run       runs a command with the app's settings, and plc.directory pointed at the snowglobe
 //
 // A snowglobe is the snowglobe.yml in the folder you are in or the nearest one above (else
 // SG_FILE, else the default). Its state is kept per user, not in a checkout: ~/.local/share/
@@ -32,6 +33,7 @@ const COMMANDS = {
   render: () => import('../lib/commands/render.mjs'),
   certs: () => import('../lib/commands/certs.mjs'),
   trust: () => import('../lib/commands/trust.mjs'),
+  env: () => import('../lib/commands/env.mjs'),
   account: () => import('../lib/commands/account.mjs'),
   invite: () => import('../lib/commands/invite.mjs'),
   lexicons: () => import('../lib/commands/lexicons.mjs'),

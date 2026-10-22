@@ -1,0 +1,45 @@
+# Every value name in the design's table, in one app: the settings test resolves each.
+globe: setg
+domain: sg.test
+pds:
+  - { name: alpha, image: spaces-alpha, bare_handles: true, invites: required }
+  - { name: regular, image: ghcr.io/bluesky-social/pds:0.4.5037 }
+grouphosts:
+  - { name: gh, kind: opensocial, image: ghcr.io/example/grouphost:1 }
+services: { relay: auto, jetstream: true, tap: true, slingshot: true, pdsls: true }
+lexicons: { authority: alpha }
+accounts: [alice@alpha, bob@regular]
+apps:
+  - name: web
+    local: { port: 5173 }
+    env:
+      N_DOMAIN: ${domain}
+      N_GLOBE: ${globe}
+      N_PAGE: ${page.url}
+      PDS_URL: ${pds.regular.url}
+      PDS_HOST: ${pds.regular.host}
+      PDS_DID: ${pds.regular.did}
+      GH_URL: ${grouphosts.gh.url}
+      GH_HOST: ${grouphosts.gh.host}
+      GH_DID: ${grouphosts.gh.did}
+      APP_URL: ${apps.web.url}
+      APP_HOST: ${apps.web.host}
+      PLC: ${services.plc.url}
+      RELAY_URL: ${services.relay.url}
+      RELAY_WS: ${services.relay.ws}
+      JET_URL: ${services.jetstream.url}
+      JET_WS: ${services.jetstream.ws}
+      SLING: ${services.slingshot.url}
+      PDSLS: ${services.pdsls.url}
+      MAIL: ${services.mail.url}
+      ALICE_HANDLE: ${accounts.alice.handle}
+      ALICE_PDS: ${accounts.alice.pds}
+      ALICE_DID: ${accounts.alice.did}
+      ALICE_PASSWORD: ${accounts.alice.password}
+      BOB_HANDLE: ${accounts.bob.handle}
+      BOB_PDS: ${accounts.bob.pds}
+      ACCOUNTS_FILE: ${accounts.file}
+      AUTH_DID: ${lexicons.authority.did}
+      AUTH_HANDLE: ${lexicons.authority.handle}
+      CA: ${ca.file}
+      MIXED: https://${pds.alpha.host}/x?q=$${not}&w=$5

@@ -1,7 +1,7 @@
 {
   "globe": "four",
   "domain": "four.test",
-  "about": "An atproto network on this machine: its own PDSs, PLC directory, relay and Jetstream. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here, and apps run under snowglobe run reach it at the real network's names.",
+  "about": "An atproto network on this machine: its own PDSs, PLC directory, relay and Jetstream. Its accounts live in its own directory, not the public one, so Bluesky cannot find anything here. An app is handed this network's addresses (snowglobe env), not Bluesky's.",
   "accountsNote": "Every account on the network, on each of its 4 PDSs.",
   "feed": "/subscribe",
   "services": [

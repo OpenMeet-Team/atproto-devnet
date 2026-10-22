@@ -94,6 +94,11 @@ comes with [the https devnet](#the-https-devnet), at `https://local.snowglobe.at
 
 Changes to the default stack that existing setups will notice:
 
+- **`data/devnet.env` is gone; an app's settings come from `snowglobe env`.** `snowglobe up` no
+  longer writes it (and removes an old one). Map the addresses an app needs in `apps[].env` of its
+  `snowglobe.yml`, then `eval "$(snowglobe env)"` or `snowglobe run`; see
+  [An app's settings](#an-apps-settings-snowglobe-env). Account names in the file must now be
+  unique.
 - **The repo is `OpenMeet-Team/snowglobe`, and every setting is `SG_*`.** It was
   `OpenMeet-Team/atproto-devnet` until 2026-10-20; GitHub sends the old address here. Projects that
   use it still look for it beside them at `../atproto-devnet`, so clone it under that name. The
@@ -551,9 +556,7 @@ unset ACCOUNTS_FILE
 ./bin/snowglobe.mjs invite E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
 # what the test reads: URLs, DIDs, the handle domain and where the secrets are; no secret
 { grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
-  echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
-  echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' data/devnet.env)"
-  echo "E2E_HANDLE_DOMAIN=$(sed -n 's/^SG_DOMAIN=//p' data/devnet.env)"
+  ./bin/snowglobe.mjs env --dotenv --app atmo | grep -E '^E2E_(PDS|PLC_URL|HANDLE_DOMAIN)='   # mapped in the atmo app's env: in snowglobe.yml
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 
@@ -926,7 +929,7 @@ the shared project `devnet-spaces` unless `SG_RESET_OK=1`, and exit before calli
 
 ```bash
 export SG_PROJECT=devnet-mine
-bin/snowglobe.mjs up      # certificates, two-pass authority boot, data/devnet.env
+bin/snowglobe.mjs up      # certificates, two-pass authority boot
 bin/snowglobe.mjs down    # stop it; -v also drops its volumes (every account and DID)
 ```
 
@@ -944,8 +947,8 @@ a long time before it redials a PDS that went away and came back. It refuses a P
 claimed with `snowglobe app`, before it writes anything. It makes the leaf certificate if there is
 none, brings the stack up, makes the lexicon authority (`lex-authority.local.snowglobe.at` on the file's
 `lexicons.authority` PDS, the alpha by default),
-brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
-`data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
+brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it. It writes no
+settings file for an app: `snowglobe env` prints them. The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
 into `data/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
 stacks. Nothing else is seeded.
 
@@ -955,8 +958,7 @@ Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`SG_PLC_PORT`), 
 values on every run. The PDS, relay, Tap and Postgres ports are not published: reach a PDS by its
 https name. nginx needs port 443 itself, so a second https devnet also takes another loopback
 address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
-environment or `.env`; the scripts read it as compose does, `snowglobe run` maps the names to it, and
-`data/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the devnet's
+environment or `.env`; the scripts read it as compose does, and `snowglobe run` maps the names to it. The scripts refuse anything but a `127.x.y.z` address: the devnet's
 logins are throwaway, so it is never published beyond this machine.
 
 `snowglobe down` runs `docker compose down` (with `-v` when given) and never deletes `data/`. The PLC's
@@ -970,13 +972,8 @@ a new DID.
 
 `data/` is git-ignored:
 
-- `data/devnet.env`: the devnet's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
-  (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
-  leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
-  `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `SG_PROJECT`, `SG_DOMAIN`,
-  `PAGE_URL` (`https://local.snowglobe.at/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
-  `SG_CA_FILE`.
-  An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
+- No `data/devnet.env`: `snowglobe up` stopped writing it (and removes an old one). The addresses it
+  held come from `snowglobe env`, see "An app's settings" below.
 - `data/accounts.env` (mode 600): logins. `SG_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the tools below add.
 - `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's and
@@ -1008,8 +1005,59 @@ bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the rea
 The names are read when the command starts. Handles are listed one by one (there is no wildcard
 DNS), so restart a command under `snowglobe run` to pick up a handle or app made after it started.
 Node's certificate checks stay on: `snowglobe run` only adds a CA for them to trust. It needs Linux
-and bubblewrap; on a Mac it says so and exits, and an app there reaches the devnet through its
-proxy instead (`PROXY_PAC_URL` in `data/devnet.env`).
+and bubblewrap; on a Mac it says so and exits, and an app there is handed its settings with
+`eval "$(snowglobe env)"` instead.
+
+### An app's settings: `snowglobe env`
+
+An app is handed the snowglobe's addresses as settings; nothing stands in for Bluesky's names. The
+mapping is `apps[].env` in `snowglobe.yml`, from the setting's name to a value that may hold
+`${name}` placeholders (`$$` is a literal `$`). Quote a value that starts with `${` inside `{ }`;
+in a block map it needs none.
+
+```yaml
+apps:
+  - name: atmo
+    local: { port: 5173 }
+    env:
+      PUBLIC_ATPROTO_PLC_URL: ${services.plc.url}
+      PUBLIC_ATPROTO_JETSTREAM_URLS: ${services.jetstream.ws}
+      PUBLIC_ATPROTO_SIGNUP_PDS: ${pds.alpha.url}
+      E2E_CREDENTIALS: ${accounts.file}
+```
+
+```bash
+eval "$(snowglobe env)"            # export NAME='value' lines, and NODE_EXTRA_CA_CERTS
+snowglobe env --dotenv > .env.local   # NAME=value, for a framework's own file
+snowglobe run npm run dev          # the same settings, passwords included, for that command
+```
+
+With one app in the file `env` and `run` use it; with several, name it with `--app <name>`; with
+none, only `NODE_EXTRA_CA_CERTS` is set. `env` leaves out a password
+(`accounts.<name>.password`) and prints a comment naming it; `--secrets` includes it, and `run`
+always does, printing none. A setting `run` hands over replaces the same name already in the
+environment, and `run` prints one line naming the ones it replaced.
+
+The names follow the file: the section, the name you gave it, then the field. Every server has
+`.url` (`https://<host>`) and `.host`:
+
+| Name | Value |
+|---|---|
+| `domain`, `globe`, `page.url` | the file's domain and globe name; `https://<domain>/` |
+| `pds.<name>.url` `.host` `.did` | `https://<name>.<domain>`, the host, `did:web:<host>` |
+| `grouphosts.<name>.url` `.host` `.did` | the same, for a group host |
+| `apps.<name>.url` `.host` | `https://<name>.app.<domain>` |
+| `services.plc.url` | `https://plc.<domain>` |
+| `services.relay` `.jetstream` `.url` `.ws` | `https://relay.<domain>`, `wss://relay.<domain>`; Jetstream's `.ws` ends in `/subscribe` |
+| `services.slingshot.url`, `services.pdsls.url` | `https://slingshot.<domain>`, `https://pdsls.<domain>` |
+| `accounts.<name>.handle` `.pds` | the handle, and its PDS's url |
+| `lexicons.authority.handle` | the authority account's handle |
+| `services.mail.url`, `accounts.<name>.did` `.password`, `accounts.file`, `lexicons.authority.did`, `ca.file` | known after `snowglobe up`, read from its state |
+
+`snowglobe check` reads the names with the rest of the file: a misspelled one is an error at
+`apps[0].env.<NAME>` that lists what exists ("pds.nope is not a PDS in this file: alpha, regular,
+prod"), and so is the address of a service the file turns off. Account names must be unique in the
+file. The `plc.directory` stand-in `run` makes is unchanged.
 
 ### Tools for an app
 
