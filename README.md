@@ -43,7 +43,8 @@ your computer has to send the names to the snowglobe, and trust its certificate.
 **Before you start it:**
 
 1. Install Docker with Compose, and Node 20 or newer. Use Linux, or Windows with WSL 2.
-2. To run your own app, or its tests, against the snowglobe from your machine, also install
+2. To run a command against the snowglobe from your machine (`snowglobe run`: your own app, its
+   tests, or the `curl` example below), also install
    [bubblewrap](https://github.com/containers/bubblewrap): `sudo apt install bubblewrap` on Debian or
    Ubuntu. You do not need it to bring a snowglobe up or to look at one in a browser.
 

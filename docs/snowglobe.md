@@ -197,6 +197,12 @@ snowglobes' folders is `ca/`, your one certificate authority, which they all use
 names the Docker Compose project, unless `SG_PROJECT` is set. A state folder remembers the file that
 owns it, and `up` refuses a second file that says the same `globe:`: give one of them another name.
 
+Docker keeps each snowglobe's data (the PDS, the PLC directory) in volumes named after the project,
+and `snowglobe down` leaves them, so the next `up` finds the same accounts. If the volumes outlive
+the state folder (you deleted the folder, or changed `XDG_DATA_HOME`), `up` stops with `init failed`
+because `alice` already exists; `docker logs <globe>-init-1` says so. Run `snowglobe down -v` to
+delete the volumes and start clean, or give the file another `globe:` name.
+
 ## Up and down
 
 The scripts refuse the shared project `devnet-spaces` unless `SG_RESET_OK=1`, and exit before

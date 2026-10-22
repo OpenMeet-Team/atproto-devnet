@@ -204,7 +204,7 @@ alice and bob:
 
 ```bash
 snowglobe account tester TESTER             # tester.local.snowglobe.at, on the PDS with bare handles
-snowglobe account guest GUEST other         # guest.other.local.snowglobe.at, on a PDS named other
+snowglobe account guest GUEST other         # guest.other.local.snowglobe.at, on a PDS named other (the file needs a second PDS)
 ```
 
 Without `<pds>` it uses the PDS with `bare_handles`, else the first. It prints the DID alone, and a
