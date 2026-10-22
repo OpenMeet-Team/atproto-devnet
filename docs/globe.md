@@ -33,7 +33,7 @@ Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.local.sno
 all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's public URL, OAuth
 issuer and DID document endpoint is `https://<its name>`, and the relay crawls every PDS as a
 `wss://` host. Inside the compose network nginx also answers to every PDS's name, so the PDSes,
-the relay and Tap reach each other over TLS; no service shares another's network but Slingshot. On the machine, the names resolve to `127.0.0.1` only for
+the relay (and Tap, when on) reach each other over TLS; no service shares another's network but Slingshot. On the machine, the names resolve to `127.0.0.1` only for
 commands run under `bin/snowglobe.mjs run`, so every other program still reaches the real
 `plc.directory`.
 
@@ -108,7 +108,7 @@ grouphosts:                      # optional; each is grouphost-<name> at https:/
 services:                        # each true or false; these are the defaults
   relay: auto                    # auto: on when there is more than one PDS
   jetstream: true
-  tap: true
+  tap: false                     # off by default; it syncs and backfills repos for an app that attaches to it
   slingshot: true                # needs jetstream
   pdsls: true
 

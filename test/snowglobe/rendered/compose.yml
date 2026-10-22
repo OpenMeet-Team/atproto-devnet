@@ -303,33 +303,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-  tap:
-    image: ghcr.io/bluesky-social/indigo/tap:latest
-    restart: unless-stopped
-    depends_on:
-      relay:
-        condition: service_healthy
-    environment:
-      TAP_RELAY_URL: http://relay:2470
-      TAP_PLC_URL: http://plc:2582
-      TAP_DATABASE_URL: sqlite:///data/tap.db
-      TAP_DISABLE_ACKS: "true"
-      TAP_LOG_LEVEL: info
-    volumes:
-      - tap-data:/data
-      - ./data/https/ca.crt:/etc/ssl/certs/atproto-devnet-ca.pem:ro
-    networks:
-      - atproto-devnet
-    healthcheck:
-      test:
-        - CMD
-        - wget
-        - -q
-        - --spider
-        - http://127.0.0.1:2480/health
-      interval: 5s
-      timeout: 3s
-      retries: 10
   init:
     image: alpine:3.20
     depends_on:
@@ -507,7 +480,6 @@ volumes:
   pds-prod-data:
   relay-data:
   jetstream-data:
-  tap-data:
   slingshot-data:
 networks:
   atproto-devnet:

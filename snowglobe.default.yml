@@ -19,7 +19,7 @@ pds:
 services:
   relay: auto
   jetstream: true
-  tap: true
+  tap: false
   slingshot: true
   pdsls: true
 
