@@ -8,8 +8,9 @@ knows nothing about atmo, so everything below is made with the snowglobe's tools
 [tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial),
 checked out beside the snowglobe as `atmo-events/`, and the
 [opensocial.group proposal](https://tangled.org/opensocial.group/proposal) beside both as
-`opensocial-proposal/`. Start by copying [`atmo.yml`](atmo.yml), the snowglobe this example builds on, to `snowglobe.yml` in the snowglobe
-checkout and bringing it up (`bin/snowglobe.mjs up`), and in
+`opensocial-proposal/`. Run `npm link` once in the snowglobe checkout, so the `snowglobe` command works from any folder. Then
+copy [`atmo.yml`](atmo.yml), the snowglobe this example builds on, to `snowglobe.yml` in the snowglobe
+checkout and bring it up (`snowglobe up`). In
 each shell set `state=~/.local/share/snowglobe/snowglobe`, its state folder
 ([Which snowglobe, and where it lives](../snowglobe.md#which-snowglobe-and-where-it-lives)).
 
@@ -29,13 +30,13 @@ for nsid in rsvp.atmo.permissionSet app.bsky.authCreatePosts; do
   curl -s "$pds/xrpc/com.atproto.repo.getRecord?repo=$did&collection=com.atproto.lexicon.schema&rkey=$nsid" |
     jq '.value | del(."$type")' > "data/atmo-lexicons/$nsid.json"
 done
-./bin/snowglobe.mjs lexicons data/atmo-lexicons
-./bin/snowglobe.mjs lexicons ../opensocial-proposal/lexicons
+snowglobe lexicons data/atmo-lexicons
+snowglobe lexicons ../opensocial-proposal/lexicons
 ```
 
 **An account.** `alice.local.snowglobe.at` and `bob.local.snowglobe.at` are already there (see
 [The snowglobe](../snowglobe.md#the-file-and-the-commands)). To use another, make it with
-`bin/snowglobe.mjs account` before you start atmo, because `snowglobe run` maps only the handles it knows
+`snowglobe account` before you start atmo, because `snowglobe run` maps only the handles it knows
 when the command starts.
 
 **Configure atmo.** In `atmo-events/apps/web`, after `pnpm install`, write a git-ignored `.env`.
@@ -65,7 +66,7 @@ pnpm exec wrangler d1 migrations apply DB --local
 **Run atmo** under `snowglobe run`, from `atmo-events/apps/web`:
 
 ```bash
-../../../snowglobe/bin/snowglobe.mjs run pnpm dev     # http://127.0.0.1:5454
+../../../snowglobe/snowglobe run pnpm dev     # http://127.0.0.1:5454
 ```
 
 **Use it from a browser.** Set up a browser on your computer as in
@@ -86,7 +87,7 @@ and approve, then back to atmo, signed in.
 `NODE_EXTRA_CA_CERTS`, so give it the CA. From the snowglobe checkout:
 
 ```bash
-dn() { ./bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt "$@"; }
+dn() { snowglobe run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt "$@"; }
 dn https://alpha.local.snowglobe.at/xrpc/_health                # {"version":"0.5.32"}
 dn https://alice.local.snowglobe.at/.well-known/atproto-did     # alice's DID
 did=$(sed -n 's/^ALICE_DID=//p' "$state/accounts.env")
@@ -102,8 +103,8 @@ an https origin where the PDS can fetch its client metadata and keys. The snowgl
 with an app route. From the snowglobe checkout:
 
 ```bash
-./bin/snowglobe.mjs app atmo 5454                       # https://atmo.app.local.snowglobe.at -> port 5454
-./bin/snowglobe.mjs invite GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
+snowglobe app atmo 5454                       # https://atmo.app.local.snowglobe.at -> port 5454
+snowglobe invite GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
 ```
 
 Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.app.local.snowglobe.at` in `.env`
@@ -120,7 +121,7 @@ Run atmo where nginx can reach it, still under `snowglobe run`:
 ```bash
 __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.app.local.snowglobe.at \
 HTTPS_RUN_EXTRA_NAMES=mygroup.local.snowglobe.at \
-  ../../../snowglobe/bin/snowglobe.mjs run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
+  ../../../snowglobe/snowglobe run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
 ```
 
 - `--host` replaces the `127.0.0.1` in atmo's `vite.config.ts`. Use the address that
@@ -149,17 +150,17 @@ and Firefox through the proxy, with no request leaving the snowglobe.
    ```bash
    mkdir -p data/proposal-main
    git -C ../opensocial-proposal archive origin/main lexicons | tar -x -C data/proposal-main
-   ./bin/snowglobe.mjs lexicons data/proposal-main/lexicons
+   snowglobe lexicons data/proposal-main/lexicons
    ```
 
    Without `dig`, look up a lexicon authority over DNS-over-HTTPS in the copy loop above:
    `curl -s -H 'accept: application/dns-json' "https://cloudflare-dns.com/dns-query?name=_lexicon.$authority&type=TXT" | jq -r '.Answer[0].data'`.
-2. An account to sign in with, made before atmo starts: `./bin/snowglobe.mjs account <name> <PREFIX>`.
+2. An account to sign in with, made before atmo starts: `snowglobe account <name> <PREFIX>`.
 3. Route atmo, then from `atmo-events/apps/web` make its `.env` with its own script (it writes the
    cookie secret and client key and prints neither), and its tables:
 
    ```bash
-   ../../../snowglobe/bin/snowglobe.mjs app atmo 5454     # from apps/web; or run it from the snowglobe checkout
+   ../../../snowglobe/snowglobe app atmo 5454     # from apps/web; or run it from the snowglobe checkout
    npx tsx src/lib/atproto/scripts/setup-dev.ts
    pnpm exec wrangler d1 migrations apply DB --local
    ```
@@ -184,7 +185,7 @@ and Firefox through the proxy, with no request leaving the snowglobe.
 
    ```bash
    __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.app.local.snowglobe.at \
-     ../../../snowglobe/bin/snowglobe.mjs run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
+     ../../../snowglobe/snowglobe run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
    ```
 
 Open `https://local.snowglobe.at/` and follow its atmo link. Signing in sends you to
@@ -195,15 +196,15 @@ lexicons above:
 
 ```bash
 export ACCOUNTS_FILE=$PWD/data/atmo-e2e.env       # the test's logins, kept mode 600
-./bin/snowglobe.mjs account e2e-owner E2E_OWNER
-./bin/snowglobe.mjs account e2e-admin E2E_ADMIN
-./bin/snowglobe.mjs account e2e-outsider E2E_OUTSIDER
-./bin/snowglobe.mjs account e2enospaces E2E_NOSPACES regular   # a member on a PDS without spaces
+snowglobe account e2e-owner E2E_OWNER
+snowglobe account e2e-admin E2E_ADMIN
+snowglobe account e2e-outsider E2E_OUTSIDER
+snowglobe account e2enospaces E2E_NOSPACES regular   # a member on a PDS without spaces
 unset ACCOUNTS_FILE
-./bin/snowglobe.mjs invite E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
+snowglobe invite E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
 # what the test reads: URLs, DIDs, the handle domain and where the secrets are; no secret
 { grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
-  ./bin/snowglobe.mjs env --dotenv --app atmo | grep -E '^E2E_(PDS|PLC_URL|HANDLE_DOMAIN)='   # mapped in the atmo app's env: in snowglobe.yml
+  snowglobe env --dotenv --app atmo | grep -E '^E2E_(PDS|PLC_URL|HANDLE_DOMAIN)='   # mapped in the atmo app's env: in snowglobe.yml
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 
@@ -211,7 +212,7 @@ Then from atmo's `apps/web`, under `snowglobe run`. Start it after the accounts 
 are mapped:
 
 ```bash
-../../../snowglobe/bin/snowglobe.mjs run sh -c \
+../../../snowglobe/snowglobe run sh -c \
   'set -a; . ../../../snowglobe/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
 # ...
 # SUMMARY: 49 passed, 0 failed

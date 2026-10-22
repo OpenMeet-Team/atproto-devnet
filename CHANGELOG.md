@@ -35,7 +35,7 @@ Changes to the default stack that existing setups will notice:
   writes it, and removes an old one. Map the addresses an app needs under the app in `snowglobe.yml`
   (`env:`), then `eval "$(snowglobe env)"`, `snowglobe env --dotenv > .env.local`, or
   `snowglobe run`. Anything that sourced `devnet.env` reads these instead
-  ([An app's settings](docs/your-app.md#an-apps-settings-snowglobe-env)). Account names in the file
+  ([An app's settings](docs/your-app.md#snowglobe-env-know-where-things-are)). Account names in the file
   must now be unique.
 - **The default snowglobe is named `snowglobe`, not `devnet`, and its Docker names follow.** The
   state folder is `~/.local/share/snowglobe/snowglobe`, the Docker network is `snowglobe`, the images

@@ -5,7 +5,7 @@ browser has to trust the snowglobe's CA. What you do about the first depends on 
 
 ## Docker on the same computer as the browser
 
-1. **Trust the CA.** Run `bin/snowglobe.mjs trust`. It puts your CA (`<state root>/ca/ca.crt`, one
+1. **Trust the CA.** Run `snowglobe trust`. It puts your CA (`<state root>/ca/ca.crt`, one
    per user) in the system store and in the databases Chrome, Edge and Firefox read on Linux, in the
    login keychain on macOS (not tried on a Mac) or in the user store on Windows. It prints every
    command, marks the ones that need sudo, and does nothing the second time. On WSL it also prints
@@ -66,7 +66,7 @@ the problem.
   socket pools") when it still shows the old failure. Likely cause, not isolated: the earlier DNS
   failure.
 - **A certificate warning, or a failure no click gets past.** The browser does not trust the CA. Run
-  `bin/snowglobe.mjs trust` and see [The CA](#the-ca). Firefox keeps its own store unless `trust`
+  `snowglobe trust` and see [The CA](#the-ca). Firefox keeps its own store unless `trust`
   has put the CA in it.
 
 ## Docker somewhere else: a dev container or another machine
@@ -87,7 +87,7 @@ address and any port but 443.
 **Once per computer:**
 
 1. **Trust the snowglobe's CA** (more in [The CA](#the-ca)). On the machine whose browser you use, if
-   Docker runs there too, `bin/snowglobe.mjs trust` does it (above).
+   Docker runs there too, `snowglobe trust` does it (above).
 
    Otherwise copy `ca.crt` from the machine that runs the snowglobe and trust it by hand:
    - Windows, for Chrome, Edge and Firefox: `certutil -user -addstore Root ca.crt` (no admin; Windows
@@ -123,9 +123,12 @@ address and any port but 443.
 **Then** open `https://local.snowglobe.at/`, the network's page. Its apps link to themselves, for instance
 `https://atmo.app.local.snowglobe.at` once atmo is routed ([Example: atmo](examples/atmo.md)).
 
-**When you are done**, turn the setting off, or leave it: it sends only the snowglobe's names anywhere, and
-those fail anyway while the snowglobe is down. What a browser does when it cannot fetch the PAC itself
-was not measured.
+**When you are done**, turn the setting off. Do not leave it on while the snowglobe is down. With the
+proxy unreachable, the browser cannot fetch the PAC, and in Firefox set to "Automatic proxy configuration
+URL" (seen on 2026-10-22, with Windows' own setting already off) ordinary sites such as reddit failed
+or crawled, not only the snowglobe's names. The fix was Settings, Network Settings, "No proxy". A
+separate Firefox profile for the snowglobe keeps everyday browsing from depending on it. Chrome and Edge
+with the system setting were not measured.
 
 `proxy.pac` leaves `plc.directory` alone, so the setting never moves the real directory for your
 everyday browsing; apps on the snowglobe use `https://plc.local.snowglobe.at`. For an app that insists on
@@ -162,10 +165,10 @@ of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headle
 
 ## The CA
 
-`bin/snowglobe.mjs certs` makes the CA once, in Node (no openssl needed). `snowglobe up` runs it
+`snowglobe certs` makes the CA once, in Node (no openssl needed). `snowglobe up` runs it
 when there is no leaf, or when the leaf lacks a name. Rerunning it keeps the CA and reissues the
 leaf only when it lacks a name, so a browser or OS that trusts `ca.crt` keeps trusting every snowglobe you run.
-`bin/snowglobe.mjs certs --check`
+`snowglobe certs --check`
 only says whether the leaf lacks a name (exit 1) or not (exit 0). The leaf names what the render lists in
 `<state>/globe/leaf-names`: `local.snowglobe.at` itself, each PDS and its handles (`*.local.snowglobe.at` for the one
 with bare handles, `*.<name>.local.snowglobe.at` for each other), each group host and its groups' handles,
@@ -181,8 +184,8 @@ under `local.snowglobe.at` is already covered. To start over, delete `<state>/ht
 The CA can only vouch for servers under `local.snowglobe.at` (the `SG_DOMAIN` it was made for),
 and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `<state>/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
-when you're done with it: `bin/snowglobe.mjs trust --remove`. On Windows by hand:
-`certutil -user -delstore Root "<its name>"`, the name being the CN that `bin/snowglobe.mjs certs`
+when you're done with it: `snowglobe trust --remove`. On Windows by hand:
+`certutil -user -delstore Root "<its name>"`, the name being the CN that `snowglobe certs`
 prints ("Keeping the existing CA: ...").
 
 There is one CA per user, shared by all your snowglobes, so you trust it once. Each CA has a name of

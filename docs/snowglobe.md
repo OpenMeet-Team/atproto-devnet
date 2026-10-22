@@ -1,7 +1,7 @@
 # The snowglobe
 
-A snowglobe is the network a `snowglobe.yml` describes ([The file and the commands](#the-file-and-the-commands)).
-`bin/snowglobe.mjs up` renders the file into one compose file (`bin/snowglobe.mjs render`) and
+A snowglobe is the atproto network a `snowglobe.yml` describes ([The file and the commands](#the-file-and-the-commands)).
+`snowglobe up` renders the file into one compose file (`snowglobe render`) and
 brings it up; with no file named, it uses the `snowglobe.yml` in this folder or above (copy
 `snowglobe.default.yml` to start). Every PDS sits at an https name, as on the real network, so an app
 built for the real network runs against it with no test-only code. The older plain-http stack
@@ -24,8 +24,8 @@ With `docs/examples/atmo.yml`, which has three PDSes (the default file has one, 
 | `plc.local.snowglobe.at`, `relay.local.snowglobe.at`, `jetstream.local.snowglobe.at` | the PLC, the relay and Jetstream, as a snowglobe names them, so an app's browser code reaches them over https too |
 | `pdsls.local.snowglobe.at` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
 | `local.snowglobe.at` | nginx itself: the network's page, the one a snowglobe serves at its bare name (below) |
-| `<name>.app.<domain>` | an app on this machine, at the port `bin/snowglobe.mjs app` recorded for `<name>` |
-| `*.<ending>.local.snowglobe.at` | the app that claimed `<ending>` with `bin/snowglobe.mjs app`, for the handles it hands out |
+| `<name>.app.<domain>` | an app on this machine, at the port `snowglobe app` recorded for `<name>` |
+| `*.<ending>.local.snowglobe.at` | the app that claimed `<ending>` with `snowglobe app`, for the handles it hands out |
 
 Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.local.snowglobe.at`; the one with
 `bare_handles` takes `*.local.snowglobe.at`, and every other its own `*.<name>.local.snowglobe.at`. nginx answers
@@ -33,7 +33,7 @@ all of them on `127.0.0.1:443` with one certificate from a local CA. Each PDS's 
 issuer and DID document endpoint is `https://<its name>`, and the relay crawls every PDS as a
 `wss://` host. Inside the compose network nginx also answers to every PDS's name, so the PDSes,
 the relay (and Tap, when on) reach each other over TLS; no service shares another's network but Slingshot. On the machine, the names resolve to `127.0.0.1` only for
-commands run under `bin/snowglobe.mjs run`, so every other program still reaches the real
+commands run under `snowglobe run`, so every other program still reaches the real
 `plc.directory`.
 
 `local.snowglobe.at` is the default file's domain, and every name in the table above (and in the
@@ -59,7 +59,9 @@ health, every account on each PDS, the apps `snowglobe app` routed, and the netw
 from Jetstream, the last week's and then live. nginx serves it with this snowglobe's relays (`page/snowglobe.conf`), a fixed GET-only path per read, so the page
 asks nothing but `local.snowglobe.at`. `snowglobe render` and `snowglobe app` write what it lists into
 `<state>/https/nginx/snowglobe.json`. Open it from a browser set up as in [From a browser on your own
-computer](browser.md#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://local.snowglobe.at/snowglobe.json`.
+computer](browser.md#from-a-browser-on-your-own-computer), or read the facts it shows from a script: `snowglobe run curl -s https://local.snowglobe.at/snowglobe.json` prints
+them as JSON. The file lists the snowglobe's services, PDSes, accounts (handles and DIDs, no passwords) and apps, so a test or tool can find
+where things are without a copy of the snowglobe's file.
 
 ## PDSls: browsing the network's records
 
@@ -120,10 +122,11 @@ accounts:                        # <name>@<pds>; up makes each one
 
 apps:
   - name: bookclub
-    local: { port: 5173, handles: bc }   # https://bookclub.app.local.snowglobe.at and handles *.bc.<domain>
+    local: { port: 5173, handles: bc }   # https://bookclub.app.local.snowglobe.at; handles: only for an app that hands out
+                                         # handles of its own, as a PDS does. Names under bc.<domain> then go to the app
 ```
 
-`bin/snowglobe.mjs check` says what is wrong with a file, one line per problem, and touches
+`snowglobe check` says what is wrong with a file, one line per problem, and touches
 nothing. A name used twice, a PDS named like a service, an app's handle ending that is a PDS's
 name, a handle longer than DNS allows: each fails here, before anything starts. `hosted`, an
 app's `hosted` and `services.cdn` (an image service) are read and checked for a snowglobe hosted on a
@@ -141,7 +144,7 @@ an unchanged one quick). The checkout is the group host's `build` folder in the 
 machines can leave it out:
 
 ```bash
-SG_OPENSOCIAL_BUILD=../atproto-group-host bin/snowglobe.mjs up ../myapp/snowglobe.yml
+SG_OPENSOCIAL_BUILD=../atproto-group-host snowglobe up ../myapp/snowglobe.yml
 ```
 
 `image:` in place of `build` runs a built image instead. With neither, and the variable unset,
@@ -162,7 +165,7 @@ handle.
 - **apps[].local**: the route `snowglobe app <name> <port> [<handles>]` would make, set before the
   certificate and nginx, so both have it. A route made by hand with `snowglobe app` stays.
 
-The commands, each `bin/snowglobe.mjs <command>`:
+The commands, each `snowglobe <command>`:
 
 | Command | What it does |
 | --- | --- |
@@ -200,14 +203,14 @@ The scripts refuse the shared project `devnet-spaces` unless `SG_RESET_OK=1`, an
 calling docker.
 
 ```bash
-bin/snowglobe.mjs up --default   # certificates, then the services
-bin/snowglobe.mjs down           # stop it; -v also drops its volumes (every account and DID)
+snowglobe up --default   # certificates, then the services
+snowglobe down           # stop it; -v also drops its volumes (every account and DID)
 ```
 
 Both run the one compose file `snowglobe up` last rendered, from the repo root:
 
 ```bash
-bin/snowglobe.mjs up ../myapp/snowglobe.yml   # another snowglobe than the default
+snowglobe up ../myapp/snowglobe.yml   # another snowglobe than the default
 docker compose -p <project> --project-directory . -f <state>/globe/compose.yml ps
 ```
 
@@ -219,7 +222,7 @@ claimed with `snowglobe app`, before it writes anything. It makes the leaf certi
 none, brings the stack up, makes the lexicon authority (`lex-authority.local.snowglobe.at` on the file's
 `lexicons.authority` PDS, the bare-handle PDS by default),
 brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it. It writes no
-settings file for an app: `snowglobe env` prints them ([An app's settings](your-app.md#an-apps-settings-snowglobe-env)).
+settings file for an app: `snowglobe env` prints them ([An app's settings](your-app.md#snowglobe-env-know-where-things-are)).
 The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
 into `<state>/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
 stacks. Nothing else is seeded.
@@ -246,13 +249,11 @@ a new DID.
 Everything is kept in `<state>`, the snowglobe's own folder ([above](#which-snowglobe-and-where-it-lives)),
 and nothing in the checkout:
 
-- No `devnet.env`: `snowglobe up` stopped writing it (and removes an old one). The addresses it
-  held come from `snowglobe env` ([An app's settings](your-app.md#an-apps-settings-snowglobe-env)).
 - `<state>/accounts.env` (mode 600): logins. `SG_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the [tools for an app](your-app.md#tools-for-an-app) add.
 - `<state>/globe/`: the rendered snowglobe, nothing secret. `compose.yml`, `nginx/` (each PDS's and
   group host's server and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
-  `snowglobe up` writes it again on every run; `bin/snowglobe.mjs render` writes it alone.
+  `snowglobe up` writes it again on every run; `snowglobe render` writes it alone.
 - `<state>/https/`: `leaf.crt` and `leaf.key` (what nginx serves),
   `names` (the handles `snowglobe run` maps), `apps` and `nginx/` (the app routes and the page's
   `snowglobe.json`), and `hosts` (the

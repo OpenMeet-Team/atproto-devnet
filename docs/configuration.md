@@ -31,7 +31,7 @@ the same values on every run.
 | --- | --- | --- |
 | `ACCOUNTS_FILE` | `<state>/accounts.env` | Where `account` writes the logins it makes, and where `lexicons` finds the authority's login |
 | `INVITE_USES` | `100` | How many uses `invite` gives a code |
-| `HTTPS_RUN_EXTRA_NAMES` | none | Names, space-separated, that `snowglobe run` also maps to the snowglobe, such as a group's handle ([Running a command against it](your-app.md#running-a-command-against-it-snowglobe-run)) |
+| `HTTPS_RUN_EXTRA_NAMES` | none | Names, space-separated, that `snowglobe run` also maps to the snowglobe, such as a group's handle ([Running a command against it](your-app.md#snowglobe-run-reach-the-snowglobe)) |
 | `HTTPS_EXTRA_NAMES` | none | Names, space-separated, added to the certificate nginx serves, for a name more than one label under the domain ([The CA](browser.md#the-ca)) |
 
 The snowglobe also writes facts for its own commands into `<state>/globe/globe.env` (`SG_PDS`,

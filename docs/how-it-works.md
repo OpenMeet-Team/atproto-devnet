@@ -1,33 +1,23 @@
 # How it works
 
-## How a snowglobe differs from plain http
+## What runs, and how it's wired
 
-- **Each PDS at its https name.** A PDS's `PDS_HOSTNAME` is `<name>.<domain>`, such as
-  `alpha.local.snowglobe.at`. The PDS with `bare_handles` takes handles under the domain itself
-  (`.local.snowglobe.at`), and every other PDS takes its own (`.regular.local.snowglobe.at`). Every
-  PDS runs with `PDS_DEV_MODE=false`, as it would on the real network, and keeps
-  `PDS_DISABLE_SSRF_PROTECTION`, because everything it fetches here sits on an RFC 1918 address.
-- **The PDSes reach each other over TLS.** Inside the compose network, nginx also answers to every
-  PDS's name, and each PDS trusts the CA through `NODE_EXTRA_CA_CERTS`. Docker's DNS has no
-  wildcard names, so each PDS preloads `https/app-names.cjs`, which looks up any name under `app.<domain>`
-  (the app names) as nginx; inside a container the public DNS answer, 127.0.0.1, would be the container
-  itself. Only the address changes: the request keeps the app's name, and TLS still checks the
-  certificate for it.
-- **nginx routes by name.** Each PDS's block takes its name and its handle wildcard, and passes Host
-  through, so the PDS answers `/.well-known/atproto-did` for a handle. Of two matching wildcards nginx
-  takes the longer, so `*.regular.local.snowglobe.at` wins over `*.local.snowglobe.at`. A name nginx does not list
-  gets no certificate at all.
-- **The relay dials wss.** `relay-init` registers every PDS by its name, which the relay treats as
-  an https host. Their addresses are nginx's, a private one, so the relay is built with
-  `relay/allow-private-hosts.patch`, whose `RELAY_ALLOW_PRIVATE_HOSTS` covers the firehose dialer as
-  well as the host check (see [The relay, built locally](#the-relay-built-locally)). The CA is mounted into
-  `/etc/ssl/certs`, which Go reads on top of its bundle. `RELAY_ALLOW_INSECURE_HOSTS` is dropped. The
-  image has its own tag, `snowglobe-relay:https-<commit>`. The relay's `listHosts` shows a host
-  only once it has sent an event.
-- **Tap resync is not supported.** Tap follows the relay's stream, but it fetches a repo to resync
-  through an SSRF-safe transport that refuses nginx's address, so a resync fails here.
-- **Jetstream is unchanged**, at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the
-  compose network.
+- **Each PDS has an https name.** A PDS's `PDS_HOSTNAME` is `<name>.<domain>`, such as
+  `main.local.snowglobe.at`. A PDS with `bare_handles` takes handles under the domain itself; every
+  other PDS takes its own (`.regular.local.snowglobe.at`). Each runs with `PDS_DEV_MODE=false`, as
+  on the real network.
+- **nginx routes by name.** It answers on port 443 with a certificate from the snowglobe's CA, and
+  passes the name through, so a PDS can answer `/.well-known/atproto-did` for a handle. A name
+  nginx does not list gets no certificate.
+- **The PDSes reach each other over TLS.** Inside Docker, nginx also answers to every PDS's name,
+  and each PDS trusts the CA. Names under `app.<domain>` resolve to nginx instead of `127.0.0.1`
+  (inside a container that would be the container itself), so a PDS can fetch your app's
+  sign-in metadata.
+- **The relay dials wss**, which is why it is built locally (see [The relay, built
+  locally](#the-relay-built-locally)). Its `listHosts` shows a host only once it has sent an event.
+- **Tap resync is not supported.** Tap fetches a repo to resync through an SSRF-safe transport that
+  refuses nginx's address, so a resync fails here.
+- **Jetstream** is at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the Docker network.
 
 ## Slingshot: handles and DIDs inside the network
 
@@ -37,7 +27,7 @@ to the snowglobe's PLC and Jetstream. The public Slingshot cannot see an account
 this one answers for it:
 
 ```sh
-bin/snowglobe.mjs run curl -sS --cacert ~/.local/share/snowglobe/ca/ca.crt \
+snowglobe run curl -sS --cacert ~/.local/share/snowglobe/ca/ca.crt \
   'https://slingshot.local.snowglobe.at/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.local.snowglobe.at'
 # {"did":"did:plc:...","handle":"alice.local.snowglobe.at","pds":"https://alpha.local.snowglobe.at","signing_key":"zQ3..."}
 ```
