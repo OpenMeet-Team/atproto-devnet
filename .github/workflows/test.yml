@@ -23,3 +23,28 @@ jobs:
         if: failure()
         run: npm run logs -- --tail=50
       - run: npm run down
+
+  snowglobe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run test/snowglobe
+      # snowglobe run uses bubblewrap; Ubuntu 24.04 runners block unprivileged user namespaces.
+      - name: Allow bubblewrap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --dev-bind / / true
+      # check, up, accounts, env, run, app add and remove, down -v, on a copy with its own state
+      - run: node scripts/smoke.mjs
+      - name: Show containers on failure
+        if: failure()
+        run: docker ps -a
