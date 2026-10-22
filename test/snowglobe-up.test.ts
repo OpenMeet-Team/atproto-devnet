@@ -76,9 +76,10 @@ describe('what run maps', () => {
   });
 });
 
-// A root with bin/ and lib/, the four-PDS globe rendered and its certificates, and a docker on
-// PATH that writes what it was asked to docker.log and fails, unless SHIM_EXIT says otherwise: a
-// guard that let up through then ends the run at once instead of waiting on a globe.
+// A root with bin/ and lib/, the four-PDS globe as its snowglobe.yml, rendered with its certificates
+// into the state under HOME (~/.local/share/snowglobe/four), and a docker on PATH that writes what
+// it was asked to docker.log and fails, unless SHIM_EXIT says otherwise: a guard that let up
+// through then ends the run at once instead of waiting on a globe.
 function globeRoot() {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-up-'));
   for (const d of ['bin', 'lib', 'https/dns', 'https/proxy', 'pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
@@ -89,7 +90,8 @@ function globeRoot() {
   mkdirSync(shim);
   symlinkSync(process.execPath, join(shim, 'node'));
   writeFileSync(join(shim, 'docker'), `#!/bin/sh\necho "$*" >> ${join(r, 'docker.log')}\nexit "\${SHIM_EXIT:-1}"\n`, { mode: 0o755 });
-  for (const args of [['render', FOUR], ['certs']]) expect(sg(r, args).status).toBe(0);
+  cpSync(FOUR, join(r, 'snowglobe.yml'));
+  for (const args of [['render'], ['certs']]) expect(sg(r, args).status).toBe(0);
   return r;
 }
 // An address no globe is on, so nothing here can reach one.
@@ -97,13 +99,14 @@ function sg(r: string, args: string[], env: Record<string, string> = {}, path = 
   const base = { PATH: path, HOME: r, SG_BIND: '127.77.0.9' };
   return spawnSync(join(r, 'shim/node'), [join(r, 'bin/snowglobe.mjs'), ...args], { cwd: r, env: { ...base, ...env }, encoding: 'utf8', timeout: 60000 });
 }
+// The four-PDS globe's state folder, and the user's CA beside it.
+const state = (r: string, f = '') => join(r, '.local/share/snowglobe/four', f);
 const dockerLog = (r: string) => (existsSync(join(r, 'docker.log')) ? readFileSync(join(r, 'docker.log'), 'utf8') : '');
 
 describe('snowglobe up and down', () => {
-  it('need SG_PROJECT, and refuse the shared devnet before any docker command', () => {
+  it('refuse the shared devnet before any docker command', () => {
     const r = globeRoot();
     for (const cmd of [['up'], ['down', '-v']]) {
-      expect(sg(r, cmd).status, cmd[0]).toBe(2);
       const shared = sg(r, cmd, { SG_PROJECT: 'devnet-spaces' });
       expect(shared.status, cmd[0]).toBe(3);
       expect(shared.stderr).toContain('devnet-spaces');
@@ -111,31 +114,38 @@ describe('snowglobe up and down', () => {
     expect(dockerLog(r)).toBe('');
   });
 
+  it('name the compose project for the file, unless SG_PROJECT is set', () => {
+    const r = globeRoot();
+    expect(sg(r, ['down'], { SHIM_EXIT: '0' }).status).toBe(0);
+    expect(sg(r, ['down'], { SG_PROJECT: 'mine', SHIM_EXIT: '0' }).status).toBe(0);
+    expect(dockerLog(r).split('\n').map((l) => l.split(' ').slice(0, 3).join(' '))).toEqual(['compose -p four', 'compose -p mine', '']);
+  });
+
   it('down stops the project on the rendered globe, with its volumes on -v', () => {
     const r = globeRoot();
     expect(sg(r, ['down', '-v'], { SG_PROJECT: 'mine', SHIM_EXIT: '0' }).status).toBe(0);
     expect(sg(r, ['down'], { SG_PROJECT: 'devnet-spaces', SG_RESET_OK: '1', SHIM_EXIT: '0' }).status).toBe(0);
     expect(dockerLog(r)).toBe(
-      `compose -p mine --project-directory ${r} -f ${join(r, 'data/globe/compose.yml')} down --remove-orphans -v\n` +
-        `compose -p devnet-spaces --project-directory ${r} -f ${join(r, 'data/globe/compose.yml')} down --remove-orphans\n`,
+      `compose -p mine --project-directory ${r} -f ${state(r, 'globe/compose.yml')} down --remove-orphans -v\n` +
+        `compose -p devnet-spaces --project-directory ${r} -f ${state(r, 'globe/compose.yml')} down --remove-orphans\n`,
     );
     expect(sg(r, ['down', '--force'], { SG_PROJECT: 'mine' }).status).toBe(2);
   });
 
   it('up refuses a PDS named for an app\'s ending, and leaves the render as it was', () => {
     const r = globeRoot();
-    writeFileSync(join(r, 'data/https/apps'), 'atmo 5173 beta\n');
-    const before = readFileSync(join(r, 'data/globe/globe.env'), 'utf8');
-    const res = sg(r, ['up', FOUR], { SG_PROJECT: 'mine' });
+    writeFileSync(state(r, 'https/apps'), 'atmo 5173 beta\n');
+    const before = readFileSync(state(r, 'globe/globe.env'), 'utf8');
+    const res = sg(r, ['up'], { SG_PROJECT: 'mine' });
     expect(res.status).toBe(1);
     expect(res.stderr).toContain('atmo');
-    expect(readFileSync(join(r, 'data/globe/globe.env'), 'utf8')).toBe(before);
+    expect(readFileSync(state(r, 'globe/globe.env'), 'utf8')).toBe(before);
     expect(dockerLog(r)).toBe('');
   });
 
   it('up refuses a SG_BIND that is not loopback before any docker command', () => {
     const r = globeRoot();
-    expect(sg(r, ['up', FOUR], { SG_PROJECT: 'mine', SG_BIND: '0.0.0.0' }).status).toBe(1);
+    expect(sg(r, ['up'], { SG_PROJECT: 'mine', SG_BIND: '0.0.0.0' }).status).toBe(1);
     expect(dockerLog(r)).toBe('');
   });
 });
@@ -143,8 +153,8 @@ describe('snowglobe up and down', () => {
 describe('snowglobe run', () => {
   it.skipIf(!bwrapWorks)('maps every PDS, handle and app name to SG_BIND, for the command alone', () => {
     const r = globeRoot();
-    writeFileSync(join(r, 'data/https/apps'), 'probe 5480\n');
-    writeFileSync(join(r, 'data/https/names'), 'carol.beta.four.test\n');
+    writeFileSync(state(r, 'https/apps'), 'probe 5480\n');
+    writeFileSync(state(r, 'https/names'), 'carol.beta.four.test\n');
     const names = ['four.test', 'alpha.four.test', 'beta.four.test', 'regular.four.test', 'prod.four.test', 'plc.directory', 'carol.beta.four.test', 'probe.devnet.internal', 'x.example'];
     const res = sg(r, ['run', '--', 'getent', 'hosts', ...names], { SG_BIND: '127.0.0.9', HTTPS_RUN_EXTRA_NAMES: 'x.example' });
     expect(res.status, res.stderr).toBe(0);
@@ -156,7 +166,7 @@ describe('snowglobe run', () => {
   it.skipIf(!bwrapWorks)('trusts the globe\'s CA in Node, and exits with the command\'s code', () => {
     const r = globeRoot();
     const ca = sg(r, ['run', 'node', '-e', 'console.log(process.env.NODE_EXTRA_CA_CERTS)']);
-    expect(ca.stdout.trim()).toBe(join(r, 'data/https/ca.crt'));
+    expect(ca.stdout.trim()).toBe(join(r, '.local/share/snowglobe/ca/ca.crt'));
     expect(sg(r, ['run', 'sh', '-c', 'exit 7']).status).toBe(7);
   });
 

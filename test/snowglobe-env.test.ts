@@ -8,12 +8,16 @@ import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
 import { adoptOldNames, envCompose, envGet, envPut, makePrivate, resolveBind, resolveDomain } from '../lib/env.mjs';
 
+// A snowglobe's state folder is not in the checkout.
+const state = (r: string) => join(r, 'state', 'g');
+const rd = (o: { root: string; env: Record<string, string>; rendering?: boolean }) => resolveDomain({ ...o, state: state(o.root) });
+
 function root(dotenv?: string, globeDomain?: string) {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-env-'));
   if (dotenv !== undefined) writeFileSync(join(r, '.env'), dotenv);
   if (globeDomain !== undefined) {
-    mkdirSync(join(r, 'data/globe'), { recursive: true });
-    writeFileSync(join(r, 'data/globe/globe.env'), `# rendered\nSG_DOMAIN=${globeDomain}\n`);
+    mkdirSync(join(state(r), 'globe'), { recursive: true });
+    writeFileSync(join(state(r), 'globe/globe.env'), `# rendered\nSG_DOMAIN=${globeDomain}\n`);
   }
   return r;
 }
@@ -94,26 +98,26 @@ describe('adoptOldNames', () => {
 
 describe('resolveDomain', () => {
   it('takes the environment, then .env, then the rendered globe, then the default', () => {
-    expect(resolveDomain({ root: root('SG_DOMAIN=env.test\n'), env: { SG_DOMAIN: 'x.test' }, rendering: true }).domain).toBe('x.test');
-    expect(resolveDomain({ root: root('SG_DOMAIN=env.test\n'), env: {} }).domain).toBe('env.test');
-    expect(resolveDomain({ root: root(undefined, 'globe.test'), env: {} }).domain).toBe('globe.test');
-    expect(resolveDomain({ root: root(), env: {} }).domain).toBe('local.snowglobe.at');
+    expect(rd({ root: root('SG_DOMAIN=env.test\n'), env: { SG_DOMAIN: 'x.test' }, rendering: true }).domain).toBe('x.test');
+    expect(rd({ root: root('SG_DOMAIN=env.test\n'), env: {} }).domain).toBe('env.test');
+    expect(rd({ root: root(undefined, 'globe.test'), env: {} }).domain).toBe('globe.test');
+    expect(rd({ root: root(), env: {} }).domain).toBe('local.snowglobe.at');
   });
 
   it('lets an empty setting in the environment win over .env, and fall through to the globe', () => {
     const r = root('SG_DOMAIN=env.test\n', 'globe.test');
-    expect(resolveDomain({ root: r, env: { SG_DOMAIN: '' } })).toEqual({ domain: 'globe.test', set: '' });
+    expect(rd({ root: r, env: { SG_DOMAIN: '' } })).toEqual({ domain: 'globe.test', set: '' });
   });
 
   it('refuses a stale render, unless this run renders again', () => {
     const r = root(undefined, 'globe.test');
-    expect(() => resolveDomain({ root: r, env: { SG_DOMAIN: 'other.test' } })).toThrow(/rendered for globe\.test/);
-    expect(resolveDomain({ root: r, env: { SG_DOMAIN: 'other.test' }, rendering: true }).domain).toBe('other.test');
+    expect(() => rd({ root: r, env: { SG_DOMAIN: 'other.test' } })).toThrow(/rendered for globe\.test/);
+    expect(rd({ root: r, env: { SG_DOMAIN: 'other.test' }, rendering: true }).domain).toBe('other.test');
   });
 
   it('refuses what is not a domain name', () => {
     for (const d of ['a b.test', '.a.test', 'a.test.', 'a..test', '${X}.test'])
-      expect(() => resolveDomain({ root: root(), env: { SG_DOMAIN: d } }), d).toThrow(/not a domain name/);
+      expect(() => rd({ root: root(), env: { SG_DOMAIN: d } }), d).toThrow(/not a domain name/);
   });
 });
 

@@ -81,7 +81,7 @@ describe('snowglobe check', () => {
   });
 
   it('fails an unknown command', () => {
-    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'up'], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'frobnicate'], { encoding: 'utf8' });
     expect(r.status).toBe(2);
   });
 });

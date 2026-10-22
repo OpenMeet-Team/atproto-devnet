@@ -2,15 +2,20 @@
 // snowglobe: run the globe a snowglobe.yml describes.
 //
 //   check     checks a snowglobe.yml
-//   render    writes the https globe it describes into data/globe/
-//   certs     makes the globe's CA and the leaf nginx serves
+//   render    writes the https globe it describes into its state folder
+//   certs     makes your CA, once, and the leaf nginx serves
 //   account   makes an account on a PDS in the running globe
 //   invite    mints an invite code on one of its PDSes
 //   lexicons  publishes lexicons into its lexicon authority
 //   app       routes https://<name>.devnet.internal to a port on this machine
-//   up        brings the globe up as compose project SG_PROJECT
+//   up        brings the globe up, as the compose project named for its file
 //   down      stops it
 //   run       runs a command that reaches the globe at the real network's names
+//
+// A snowglobe is the snowglobe.yml in the folder you are in or the nearest one above (else
+// SG_FILE, else the default). Its state is kept per user, not in a checkout: ~/.local/share/
+// snowglobe/<globe>/ (XDG_DATA_HOME, %LOCALAPPDATA% on Windows), and its compose project is the
+// file's `globe:` unless SG_PROJECT is set (lib/state.mjs).
 //
 // Each command is a file in lib/commands/, which says what it does and why; the usage below comes
 // from them. Exit 2 for a usage mistake, 1 when the globe refuses, 3 when up or down refuse the
