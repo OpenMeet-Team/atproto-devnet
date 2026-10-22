@@ -6,11 +6,35 @@ Changes to the default stack that existing setups will notice:
 
 - **The docs moved.** The README is short now, and the guides are under `docs/`, starting with
   [The globe](docs/globe.md). The quick stack (`npm run up`) is deprecated.
-- **A globe made before 2026-10-20 fails on its next `up`.** Snowglobe builds the `slingshot-dns`,
+- **A snowglobe keeps its state in your own account, not in the checkout.** It is in
+  `~/.local/share/snowglobe/<name>/` (under `XDG_DATA_HOME` if you set it, `%LOCALAPPDATA%\snowglobe`
+  on Windows), where `<name>` is the `globe:` line of its `snowglobe.yml`, and the Docker Compose
+  project has that name too unless `SG_PROJECT` is set. There is one CA per user, in `ca/` beside the
+  snowglobes' folders. A command finds the `snowglobe.yml` in the folder you are in or the nearest
+  one above; `up` with none refuses, and `up --default` runs the default file, whose name is
+  `devnet`. Nothing is moved for you. A checkout that still holds a snowglobe in its `data/` makes
+  `up` stop, change nothing, and print the commands that move the files; to keep the running
+  containers and volumes, run `up` again with `SG_PROJECT` set to the old project's name, as it
+  prints. Either way you trust a new CA once, with `snowglobe trust`.
+- **Apps are at `<app>.app.<domain>`, not `<app>.devnet.internal`.** Public DNS already answers
+  those names, and the CA no longer vouches for `devnet.internal`. To move an app, in this order:
+  run `snowglobe up`, which redoes the routes and the certificate and recreates nginx; then change
+  the app's `OAUTH_PUBLIC_URL`, its OAuth client ids and its allowed hosts (for vite,
+  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`) to `<app>.app.<domain>`; then restart anything running
+  under `snowglobe run`, which reads its names when it starts. `app` is now a reserved name: `up`
+  refuses a saved route whose handle ending is `app`. The browser proxy's PAC follows by itself;
+  Chrome launch flags drop the `MAP *.devnet.internal` rule.
+- **`snowglobe trust` puts your CA in the system and browser trust stores.** `--dry-run` shows what it
+  would do, `--remove` undoes it. macOS and native Windows are untried.
+- **Tap is off by default.** Nothing in the default snowglobe attaches to it. Turn it on with
+  `services: { tap: true }`.
+- **A globe made before 2026-10-20 failed on its next `up`.** Snowglobe builds the `slingshot-dns`,
   `proxy` and `pdsls` images itself, and Docker keeps an old copy when their source changes. With
   the old copies, `up` stops with `cannot join network namespace` while `slingshot-dns` restarts.
-  Rebuild them once from the checkout, after an `up` has rendered the globe:
-  `docker compose -p "$SG_PROJECT" --project-directory . -f data/globe/compose.yml build slingshot-dns proxy pdsls`.
+  Fixed since: each of those images is tagged by a hash of its Dockerfile and the files it copies, so
+  a change rebuilds it, and a failed compose step in `up` says how to clear a stale image. To rebuild
+  by hand, after an `up` has rendered the snowglobe:
+  `docker compose -p <project> --project-directory . -f <state>/globe/compose.yml build slingshot-dns proxy pdsls`.
 - **The repo is `OpenMeet-Team/snowglobe`, and every setting is `SG_*`.** It was
   `OpenMeet-Team/atproto-devnet` until 2026-10-20; GitHub sends the old address here. Projects that
   use it still look for it beside them at `../atproto-devnet`, so clone it under that name. The
