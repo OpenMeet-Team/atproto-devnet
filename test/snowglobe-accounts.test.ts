@@ -14,16 +14,16 @@ import { ensureCerts } from '../lib/certs.mjs';
 
 const ROOT = join(__dirname, '..');
 const D = 'acct.test';
-// An address of its own, so a real snowglobe on 127.0.0.1 does not clash; macOS has only 127.0.0.1 on loopback.
-const BIND = process.platform === 'darwin' ? '127.0.0.1' : '127.77.0.1';
+const BIND = '127.77.0.1';
 const PDS = ['alpha', 'beta', 'regular'];
 
-// Linux says which ports a user may bind; macOS has no such file and lets a user bind any (since Mojave).
+// Linux says which ports a user may bind. macOS has no such file, and a user cannot listen on 443 there
+// (EACCES even on 127.0.0.1), so these tests are skipped.
 const canBind443 = (() => {
   try {
     return Number(readFileSync('/proc/sys/net/ipv4/ip_unprivileged_port_start', 'utf8').trim() || 1024) <= 443;
   } catch {
-    return process.platform === 'darwin';
+    return false;
   }
 })();
 
