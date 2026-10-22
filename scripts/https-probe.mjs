@@ -21,9 +21,9 @@
 //                      @atcute/identity-resolver from (any project that installs them,
 //                      or a plain `npm i` of the two)
 //   PROBE_DID          the account to resolve and name in the PAR (default: the lexicon
-//                      authority, LEX_AUTHORITY_DID in data/devnet.env)
+//                      authority, lexicons.authority.did from snowglobe's settings)
 //   PROBE_PDS          the PDS that DID must name (default https://alpha.<domain>, the
-//                      domain being SG_DOMAIN in data/devnet.env, else local.snowglobe.at)
+//                      domain being the snowglobe.yml's, else local.snowglobe.at)
 //   PROBE_APP          the app name (default probe: https://probe.app.<domain>/)
 //   PROBE_CLIENT_PORT  where the client's documents are served (default 5480)
 //   PROBE_CLIENT_HOST  the address to serve on (default: the docker0 address, which is
@@ -31,28 +31,28 @@
 //                      machine's other interfaces)
 // Exits 0 only when all three lines print.
 import { createHash, randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { DEFAULT_DOMAIN } from '../lib/config.mjs';
+import { pathToFileURL } from 'node:url';
+import { resolveNames } from '../lib/commands/env.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ATCUTE_DIR = process.env.ATCUTE_DIR;
 if (!ATCUTE_DIR) {
 	console.log('FAIL setup: set ATCUTE_DIR to a directory node resolves @atcute/* from');
 	process.exit(2);
 }
-const devnetEnv = () => {
+// A fact of the snowglobe this folder (or one above) names, by its settings name.
+const fact = (name) => {
 	try {
-		return readFileSync(join(ROOT, 'data/devnet.env'), 'utf8');
-	} catch {
-		return '';
+		return resolveNames([name])[0];
+	} catch (e) {
+		console.log(`FAIL setup: ${e.message}`);
+		process.exit(2);
 	}
 };
-const DOMAIN = (devnetEnv().match(/^(?:SG|DEVNET)_DOMAIN=(.+)$/m)?.[1] ?? DEFAULT_DOMAIN).trim();
+const DOMAIN = fact('domain');
 const PDS = process.env.PROBE_PDS ?? `https://alpha.${DOMAIN}`;
 const APP = process.env.PROBE_APP ?? 'probe';
 const SITE = `https://${APP}.app.${DOMAIN}`;
@@ -64,12 +64,10 @@ const HOST =
   os.networkInterfaces().docker0?.find((a) => a.family === 'IPv4')?.address ??
   '127.0.0.1';
 const did = (
-	process.env.PROBE_DID ??
-	devnetEnv().match(/^LEX_AUTHORITY_DID=(.+)$/m)?.[1] ??
-	''
+	process.env.PROBE_DID ?? fact('lexicons.authority.did')
 ).trim();
 if (!did) {
-	console.log('FAIL setup: set PROBE_DID (or run bin/snowglobe.mjs up, which writes data/devnet.env)');
+	console.log('FAIL setup: set PROBE_DID (or run bin/snowglobe.mjs up)');
 	process.exit(2);
 }
 

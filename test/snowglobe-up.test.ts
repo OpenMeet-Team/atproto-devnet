@@ -4,11 +4,11 @@
 // what it was asked; bringing a globe up for real is checked by hand on an isolated copy.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { accountPrefixes, devnetEnv, endingClash, mergeRoutes, pdsVar } from '../lib/up.mjs';
+import { accountPrefixes, endingClash, mergeRoutes } from '../lib/up.mjs';
 // @ts-expect-error: a plain .mjs module, without types
 import { hostsFile, runNames } from '../lib/hosts.mjs';
 
@@ -17,43 +17,10 @@ const FOUR = join(ROOT, 'test/snowglobe/four.yml');
 const bwrapWorks = spawnSync('bwrap', ['--dev-bind', '/', '/', '--', 'true']).status === 0;
 
 describe('what up writes', () => {
-  it('names each PDS URL as a shell can source it', () => {
-    expect(['alpha', 'my-pds', '1st'].map(pdsVar)).toEqual(['ALPHA_PDS_URL', 'MY_PDS_PDS_URL', '_1ST_PDS_URL']);
-  });
-
   it('finds a PDS named for an app\'s handle ending', () => {
     const apps = [{ name: 'atmo', port: 5173, ending: 'ev' }, { name: 'probe', port: 5480, ending: null }];
     expect(endingClash(['alpha', 'ev'], apps)).toEqual({ pds: 'ev', app: 'atmo' });
     expect(endingClash(['alpha', 'beta'], apps)).toBeNull();
-  });
-
-  it('writes data/devnet.env with a URL per PDS and nothing secret', () => {
-    const text = devnetEnv({
-      project: 'p',
-      domain: 'four.test',
-      pds: ['alpha', 'beta', '1st'],
-      ports: { jetstream: '6018', maildev: '1091', proxy: '1090' },
-      authority: { did: 'did:plc:abc', handle: 'lex-authority.four.test' },
-      ca: '/x/ca.crt',
-      bind: '127.0.0.2',
-    });
-    const vars = Object.fromEntries(text.split('\n').filter((l: string) => l && !l.startsWith('#')).map((l: string) => l.split(/=(.*)/s).slice(0, 2)));
-    expect(vars).toEqual({
-      SG_PROJECT: 'p',
-      SG_DOMAIN: 'four.test',
-      PAGE_URL: 'https://four.test/',
-      ALPHA_PDS_URL: 'https://alpha.four.test',
-      BETA_PDS_URL: 'https://beta.four.test',
-      _1ST_PDS_URL: 'https://1st.four.test',
-      PLC_URL: 'https://plc.directory',
-      JETSTREAM_URL: 'ws://127.0.0.1:6018',
-      MAILDEV_URL: 'http://127.0.0.1:1091',
-      PROXY_PAC_URL: 'http://127.0.0.1:1090/proxy.pac',
-      LEX_AUTHORITY_DID: 'did:plc:abc',
-      LEX_AUTHORITY_HANDLE: 'lex-authority.four.test',
-      SG_CA_FILE: '/x/ca.crt',
-      SG_BIND: '127.0.0.2',
-    });
   });
 });
 
@@ -202,6 +169,38 @@ describe('snowglobe run', () => {
     const ca = sg(r, ['run', 'node', '-e', 'console.log(process.env.NODE_EXTRA_CA_CERTS)']);
     expect(ca.stdout.trim()).toBe(join(r, '.local/share/snowglobe/ca/ca.crt'));
     expect(sg(r, ['run', 'sh', '-c', 'exit 7']).status).toBe(7);
+  });
+
+  it.skipIf(!bwrapWorks)('hands the app\'s settings over, logins too, over the environment, and says which it replaced', () => {
+    const r = globeRoot();
+    writeFileSync(join(r, 'snowglobe.yml'), `${readFileSync(FOUR, 'utf8')}apps:\n  - name: web\n    env:\n      PLC: \${services.plc.url}\n      PW: \${accounts.alice.password}\n      KEEP: \${domain}\n`);
+    writeFileSync(state(r, 'accounts.env'), 'ALICE_PASSWORD=hunter2\n');
+    const show = ['node', '-e', 'console.log([process.env.PLC, process.env.PW, process.env.KEEP].join(" "))'];
+    const res = sg(r, ['run', '--', ...show], { PLC: 'https://plc.directory', KEEP: 'four.test' });
+    expect(res.stdout.trim()).toBe('https://plc.four.test hunter2 four.test');
+    // One line, naming only what changed, and no value.
+    expect(res.stderr.trim().split('\n')).toHaveLength(1);
+    expect(res.stderr).toContain('replaced PLC from the environment');
+    expect(res.stderr).not.toMatch(/KEEP|hunter2|plc\.directory/);
+    expect(sg(r, ['run', '--app', 'web', ...show]).stdout.trim()).toBe('https://plc.four.test hunter2 four.test');
+    expect(sg(r, ['run', '--app', 'nope', ...show]).status).toBe(2);
+  });
+
+  it.skipIf(!bwrapWorks)('names a CA setting it replaced, and stays quiet when the value is the same', () => {
+    const r = globeRoot();
+    const ca = join(r, '.local/share/snowglobe/ca/ca.crt');
+    writeFileSync(join(r, 'snowglobe.yml'), `${readFileSync(FOUR, 'utf8')}apps:\n  - name: web\n    env:\n      NODE_EXTRA_CA_CERTS: \${ca.file}\n`);
+    const show = ['node', '-e', 'console.log(process.env.NODE_EXTRA_CA_CERTS)'];
+    // A real file, or node itself warns about it at start.
+    const elsewhere = join(r, 'elsewhere.crt');
+    copyFileSync(ca, elsewhere);
+    const other = sg(r, ['run', ...show], { NODE_EXTRA_CA_CERTS: elsewhere });
+    expect(other.stdout.trim()).toBe(ca);
+    expect(other.stderr).toContain('replaced NODE_EXTRA_CA_CERTS from the environment');
+    expect(sg(r, ['run', ...show], { NODE_EXTRA_CA_CERTS: ca }).stderr).toBe('');
+    // Without its own mapping, run's CA is not "a replaced setting".
+    writeFileSync(join(r, 'snowglobe.yml'), readFileSync(FOUR, 'utf8'));
+    expect(sg(r, ['run', ...show], { NODE_EXTRA_CA_CERTS: elsewhere }).stderr).toBe('');
   });
 
   it('says plainly that it needs bubblewrap when there is none', () => {

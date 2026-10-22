@@ -157,7 +157,7 @@ describe('the rules behind the check', () => {
   it('names the handle each account gets, and refuses one listed twice', () => {
     const { globe } = checkGlobe({ globe: 'mine', pds: [BARE_A, PDS_B], accounts: ['alice@alpha', 'bob@beta'] });
     expect(globe.accounts.map((a: { handle: string }) => a.handle)).toEqual(['alice.local.snowglobe.at', 'bob.beta.local.snowglobe.at']);
-    expect(whereOf({ globe: 'mine', pds: [BARE_A, PDS_B], accounts: ['bob@beta', 'bob@beta', 'bob@alpha'] })).toEqual(['accounts[1]']);
+    expect(whereOf({ globe: 'mine', pds: [BARE_A, PDS_B], accounts: ['bob@beta', 'bob@beta', 'carol@alpha'] })).toEqual(['accounts[1]']);
   });
 
   it('refuses an account that is not <name>@<pds>, or names no PDS here', () => {
