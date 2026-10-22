@@ -1,3 +1,3 @@
-# Written by bin/snowglobe.mjs app from data/https/apps; rerun it instead of editing.
+# Written by bin/snowglobe.mjs app from https/apps; rerun it instead of editing.
 atmo.app.four.test devnet_app_atmo;
 probe.app.four.test devnet_app_probe;
