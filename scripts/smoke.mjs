@@ -131,14 +131,14 @@ try {
   r = sg(['app', 'smokeapp', String(APP_PORT), 'sm']);
   step('app add', r.status === 0, why(r));
 
-  const names = [wantDomain, ...['alpha', 'regular', 'prod'].map((p) => `${p}.${wantDomain}`), 'plc.directory', 'smokeapp.devnet.internal'];
+  const names = [wantDomain, ...['alpha', 'regular', 'prod'].map((p) => `${p}.${wantDomain}`), 'plc.directory', `smokeapp.app.${wantDomain}`];
   r = run(['getent', 'hosts', ...names]);
   const mapped = (r.stdout ?? '').trim().split('\n').filter((l) => l.startsWith(`${env.SG_BIND} `)).length;
   step('run maps the names', r.status === 0 && mapped === names.length, `${mapped} of ${names.length} on ${env.SG_BIND}`);
 
   // Node under run, with no flags: the names resolve and the CA is trusted.
   const fetches = `
-    const urls = ['alpha', 'regular', 'prod'].map((p) => 'https://${wantDomain}/health/' + p).concat('https://smokeapp.devnet.internal/x');
+    const urls = ['alpha', 'regular', 'prod'].map((p) => 'https://${wantDomain}/health/' + p).concat('https://smokeapp.app.${wantDomain}/x');
     Promise.all(urls.map((u) => fetch(u).then((r) => r.status, (e) => e.cause?.code ?? e.message))).then((s) => console.log(s.join(' ')));`;
   r = run([process.execPath, '-e', fetches]);
   step('run: health of each PDS, and the app', r.stdout?.trim() === '200 200 200 200', r.stdout?.trim() || why(r));
@@ -149,7 +149,7 @@ try {
   // background, so the old route can answer for a moment.
   let gone = '';
   for (let n = 0; n < 10 && gone !== '404'; n++) {
-    gone = run([process.execPath, '-e', "fetch('https://smokeapp.devnet.internal/x').then((r) => console.log(r.status), (e) => console.log(e.cause?.code ?? e.message))"], { HTTPS_RUN_EXTRA_NAMES: 'smokeapp.devnet.internal' }).stdout?.trim();
+    gone = run([process.execPath, '-e', `fetch('https://smokeapp.app.${wantDomain}/x').then((r) => console.log(r.status), (e) => console.log(e.cause?.code ?? e.message))`], { HTTPS_RUN_EXTRA_NAMES: `smokeapp.app.${wantDomain}` }).stdout?.trim();
     if (gone !== '404') spawnSync('sleep', ['1']);
   }
   step('removed app answers 404', gone === '404', gone);

@@ -439,11 +439,11 @@ an https origin where the PDS can fetch its client metadata and keys. The devnet
 with an app route. From the devnet checkout:
 
 ```bash
-./bin/snowglobe.mjs app atmo 5454                       # https://atmo.devnet.internal -> port 5454
+./bin/snowglobe.mjs app atmo 5454                       # https://atmo.app.local.snowglobe.at -> port 5454
 ./bin/snowglobe.mjs invite GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
 ```
 
-Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.devnet.internal` in `.env`
+Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.app.local.snowglobe.at` in `.env`
 in place of the empty line, and add a client key. atmo's key script prints the key, so write it
 straight into the file:
 
@@ -455,7 +455,7 @@ printf "CLIENT_ASSERTION_KEY='%s'\n" \
 Run atmo where nginx can reach it, still under `snowglobe run`:
 
 ```bash
-__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
+__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.app.local.snowglobe.at \
 HTTPS_RUN_EXTRA_NAMES=mygroup.local.snowglobe.at \
   ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
 ```
@@ -463,12 +463,12 @@ HTTPS_RUN_EXTRA_NAMES=mygroup.local.snowglobe.at \
 - `--host` replaces the `127.0.0.1` in atmo's `vite.config.ts`. Use the address that
   `host.docker.internal` has inside the containers; here it is the `docker0` address. Check with
   `docker exec <project>-nginx-1 getent hosts host.docker.internal`.
-- `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` lets vite answer requests for `atmo.devnet.internal`.
+- `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` lets vite answer requests for `atmo.app.local.snowglobe.at`.
 - `HTTPS_RUN_EXTRA_NAMES` maps, for atmo's process, the handle of the group you are about to
   create, since `snowglobe run` reads its names only at start.
 
-Open `https://atmo.devnet.internal` in the browser set up above, or from the network's page at
-`https://local.snowglobe.at/`, which links every routed app. The proxy's PAC, or the launch flags' `*.devnet.internal` rule, covers
+Open `https://atmo.app.local.snowglobe.at` in the browser set up above, or from the network's page at
+`https://local.snowglobe.at/`, which links every routed app. Public DNS answers the name with 127.0.0.1, so a browser on this machine needs only the CA. On another machine the proxy's PAC covers
 the name, and only the proxy's port (or 443) needs forwarding. Sign in, then create the group under groups. The form
 mints the group's account on the alpha, then has you sign in as the group to link it. The groups
 e2e below creates a group the same way on every run, through atmo's own create.
@@ -503,7 +503,7 @@ and Firefox through the proxy, with no request leaving the devnet.
 4. Add to `.env`:
 
    ```
-   OAUTH_PUBLIC_URL=https://atmo.devnet.internal
+   OAUTH_PUBLIC_URL=https://atmo.app.local.snowglobe.at
    PUBLIC_ATPROTO_SEALED=true
    PUBLIC_ATPROTO_PLC_URL=https://plc.local.snowglobe.at
    PUBLIC_ATPROTO_SLINGSHOT_URL=https://slingshot.local.snowglobe.at
@@ -520,7 +520,7 @@ and Firefox through the proxy, with no request leaving the devnet.
 5. Run it under `snowglobe run`, on every address so nginx can reach it:
 
    ```bash
-   __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
+   __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.app.local.snowglobe.at \
      ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
    ```
 
@@ -730,7 +730,7 @@ With the default file:
 | `plc.local.snowglobe.at`, `relay.local.snowglobe.at`, `jetstream.local.snowglobe.at` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
 | `pdsls.local.snowglobe.at` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
 | `local.snowglobe.at` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
-| `<name>.devnet.internal` | an app on this machine, at the port `bin/snowglobe.mjs app` recorded for `<name>` |
+| `<name>.app.local.snowglobe.at` | an app on this machine, at the port `bin/snowglobe.mjs app` recorded for `<name>` |
 | `*.<ending>.local.snowglobe.at` | the app that claimed `<ending>` with `bin/snowglobe.mjs app`, for the handles it hands out |
 
 Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.local.snowglobe.at`; the one with
@@ -750,7 +750,7 @@ else's server. Pick another domain freely, but not one under `.test`, `.local`, 
 so nobody can sign in through a group host or PDSls. `SG_DOMAIN` replaces it. Only the https devnet reads it; the plain stack
 keeps `SG_PDS_HOSTNAME` and `SG_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
 the same stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
-`regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
+`regular.<domain>`, `prod.<domain>`. `plc.directory` stays as it is; apps follow the domain, at `<name>.app.<domain>`.
 In `.env`, write the domain itself (quotes, `export` and a trailing comment are fine); the scripts
 refuse a `${...}` there, which compose would expand and they would not. A checkout keeps one domain,
 because its CA can vouch only for the domain it was made for ([The CA](#the-ca)); for a second
@@ -849,7 +849,7 @@ accounts:                        # <name>@<pds>; up makes each one
 
 apps:
   - name: bookclub
-    local: { port: 5173, handles: bc }   # https://bookclub.devnet.internal and handles *.bc.<domain>
+    local: { port: 5173, handles: bc }   # https://bookclub.app.<domain> and handles *.bc.<domain>
 ```
 
 `bin/snowglobe.mjs check` says what is wrong with a file, one line per problem, and touches
@@ -987,7 +987,7 @@ bin/snowglobe.mjs run getent hosts plc.directory     # 127.0.0.1 inside; the rea
 
 - the globe's names (its page, every PDS, its services and `plc.directory`, as the rendered globe
   lists them), every handle in `data/https/names` and every app in `data/https/apps` (as
-  `<name>.devnet.internal`) resolve to `SG_BIND` (`127.0.0.1` by default).
+  `<name>.app.<domain>`) resolve to `SG_BIND` (`127.0.0.1` by default).
   [bubblewrap](https://github.com/containers/bubblewrap) gives the command its own mount namespace,
   with a generated hosts file bound over `/etc/hosts`. Same filesystem, network and user otherwise.
   `HTTPS_RUN_EXTRA_NAMES` adds names.
@@ -1049,7 +1049,7 @@ already holds the same document. Or publish with the app's own tooling: sign in 
 reach: `bin/snowglobe.mjs app <name> <port>`.
 
 ```bash
-bin/snowglobe.mjs app bookclub 5600     # https://bookclub.devnet.internal -> port 5600 on this machine
+bin/snowglobe.mjs app bookclub 5600     # https://bookclub.app.local.snowglobe.at -> port 5600 on this machine
 ```
 
 The app must listen where Docker's host gateway lands (`host.docker.internal` inside the
@@ -1057,11 +1057,11 @@ containers; the `docker0` address here), or on `0.0.0.0`. The route is kept in `
 rerun with the same name changes the port), and nginx in `SG_PROJECT`'s stack is reloaded.
 `bin/snowglobe.mjs app --remove bookclub` drops the route the same way, and the app comes off the
 network page. A
-`.devnet.internal` name with no route gets a 404 from nginx and reaches nothing. A confidential
-OAuth client can use `https://bookclub.devnet.internal/...` as its client_id: the PDS fetches its
+name under `app.<domain>` with no route gets a 404 from nginx and reaches nothing. A confidential
+OAuth client can use `https://bookclub.app.local.snowglobe.at/...` as its client_id: the PDS fetches its
 metadata and keys from there over TLS. A client_id under `.test` is refused by the PDS
 (`invalid_client_id: The client_id's TLD must not be a local hostname`), which is why apps live under
-`.devnet.internal`.
+`app.<domain>`, a name that is not local.
 
 **A handle ending**, for an app that hands out handles of its own, as a PDS does. A third word
 claims one:
@@ -1078,7 +1078,7 @@ Under `snowglobe run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for 
 
 `scripts/https-probe.mjs` checks the whole path for any app name. It resolves an account through
 `https://plc.directory` with stock atcute at its defaults, serves a confidential client at
-`https://<PROBE_APP>.devnet.internal/`, pushes a PAR with that client_id, and pushes a raw PAR with a
+`https://<PROBE_APP>.app.<domain>/`, pushes a PAR with that client_id, and pushes a raw PAR with a
 `.test` client_id, which the PDS refuses. `ATCUTE_DIR` is required: a directory node resolves
 `@atcute/oauth-node-client` and `@atcute/identity-resolver` from.
 
@@ -1089,7 +1089,7 @@ ATCUTE_DIR=<dir> PROBE_DID=<did> bin/snowglobe.mjs run node scripts/https-probe.
 
 ```
 RESOLVED did:plc:... on https://alpha.local.snowglobe.at through plc.directory, ... off
-PAR ACCEPTED for confidential client https://probe.devnet.internal/probe-<run>/oauth-client-metadata.json
+PAR ACCEPTED for confidential client https://probe.app.local.snowglobe.at/probe-<run>/oauth-client-metadata.json
 REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must not be a local hostname
 ```
 
@@ -1102,8 +1102,8 @@ REFUSED .test client_id: HTTP 400 invalid_client_id: The client_id's TLD must no
   they fetch here sits on an RFC 1918 address.
 - **The PDSes reach each other over TLS.** Inside the compose network, nginx also answers to the
   three PDS names, and each PDS trusts the CA through `NODE_EXTRA_CA_CERTS`. Docker's DNS has no
-  wildcard names, so each PDS preloads `https/app-names.cjs`, which looks up any `.devnet.internal`
-  name as nginx. Only the address changes: the request keeps the app's name, and TLS still checks the
+  wildcard names, so each PDS preloads `https/app-names.cjs`, which looks up any name under `app.<domain>`
+  (the app names) as nginx; inside a container public DNS's 127.0.0.1 is the container itself. Only the address changes: the request keeps the app's name, and TLS still checks the
   certificate for it.
 - **nginx routes by name.** Each PDS's block takes its name and its handle wildcard, and passes Host
   through, so the PDS answers `/.well-known/atproto-did` for a handle. Of two matching wildcards nginx
@@ -1131,7 +1131,7 @@ only says whether the leaf lacks a name (exit 1) or not (exit 0). The leaf names
 `data/globe/leaf-names`: `local.snowglobe.at` itself, each PDS and its handles (`*.local.snowglobe.at` for the one
 with bare handles, `*.<name>.local.snowglobe.at` for each other), each group host and its groups' handles,
 `plc.`, `relay.`, `jetstream.`,
-`slingshot.` and `pdsls.local.snowglobe.at`, `plc.directory` and `*.devnet.internal`; and
+`slingshot.` and `pdsls.local.snowglobe.at`, `plc.directory` and `*.app.local.snowglobe.at` (the apps); and
 `*.<ending>.local.snowglobe.at` for each handle ending an app claimed. A TLS wildcard covers one label, so
 each handle domain needs its own. `snowglobe app` reissues the leaf
 when it claims an ending, and `snowglobe up` when the leaf lacks any of these names. Add deeper names
@@ -1139,8 +1139,8 @@ with `HTTPS_EXTRA_NAMES="x.mine.local.snowglobe.at"` on every run, then restart 
 under `local.snowglobe.at` is already covered. To start over, delete `data/https/ca.*` and trust the new
 `ca.crt` wherever the old one was trusted.
 
-The CA can only vouch for servers under `local.snowglobe.at` (the `SG_DOMAIN` it was made for),
-`devnet.internal` and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
+The CA can only vouch for servers under `local.snowglobe.at` (the `SG_DOMAIN` it was made for)
+and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
 when you're done with it: `bin/snowglobe.mjs trust --remove`. On Windows by hand:
 `certutil -user -delstore Root "<its name>"`, the name being the CN that `bin/snowglobe.mjs certs`
@@ -1162,8 +1162,7 @@ setting you make once, in the browser you already use. Launch flags (further dow
 
 The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
 port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
-reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at`, `*.local.snowglobe.at` and
-`*.devnet.internal` to the proxy and everything else direct, so the rest of your browsing is
+reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at` and `*.local.snowglobe.at` (apps included) to the proxy and everything else direct, so the rest of your browsing is
 untouched. The browser hands the proxy the name, and the proxy connects every devnet name to nginx,
 so a handle made a second ago works with nothing to update. It refuses any other name, any IP
 address and any port but 443.
@@ -1209,7 +1208,7 @@ address and any port but 443.
      the next page load; no restart.
 
 **Then** open `https://local.snowglobe.at/`, the network's page. Its apps link to themselves, for instance
-`https://atmo.devnet.internal` once atmo is routed (below).
+`https://atmo.app.local.snowglobe.at` once atmo is routed (below).
 
 **When you are done**, turn the setting off, or leave it: it sends only devnet names anywhere, and
 those fail anyway while the devnet is down. What a browser does when it cannot fetch the PAC itself
@@ -1240,7 +1239,7 @@ of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headle
 
    ```
    rem cmd.exe; in PowerShell, write $env:TEMP for %TEMP%
-   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP local.snowglobe.at 127.0.0.1, MAP *.local.snowglobe.at 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
+   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP local.snowglobe.at 127.0.0.1, MAP *.local.snowglobe.at 127.0.0.1, MAP plc.directory 127.0.0.1"
    ```
 
    The wildcard rule covers the PDS names and the handles; the bare `local.snowglobe.at`, the network's

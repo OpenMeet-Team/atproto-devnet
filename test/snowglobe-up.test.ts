@@ -60,12 +60,13 @@ describe('what up writes', () => {
 describe('what run maps', () => {
   it('maps the leaf\'s names but its wildcards, handles, apps and extras, each once', () => {
     const names = runNames({
-      leafNames: 'four.test\nalpha.four.test\n*.four.test\nplc.directory\n*.devnet.internal\n',
+      leafNames: 'four.test\nalpha.four.test\n*.four.test\nplc.directory\n*.app.four.test\n',
+      domain: 'four.test',
       handles: 'carol.four.test\nnot a name\nalpha.four.test\n',
       apps: [{ name: 'probe', port: 5480, ending: null }],
       extra: ' x.example  y.example ',
     });
-    expect(names).toEqual(['four.test', 'alpha.four.test', 'plc.directory', 'carol.four.test', 'probe.devnet.internal', 'x.example', 'y.example']);
+    expect(names).toEqual(['four.test', 'alpha.four.test', 'plc.directory', 'carol.four.test', 'probe.app.four.test', 'x.example', 'y.example']);
   });
 
   it('keeps the machine\'s hosts file but the lines naming one of ours', () => {
@@ -83,13 +84,14 @@ describe('what run maps', () => {
 function globeRoot() {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-up-'));
   for (const d of ['bin', 'lib', 'https/dns', 'https/proxy', 'pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
+  cpSync(join(ROOT, 'https/nginx.conf.template'), join(r, 'https/nginx.conf.template'));
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
   for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml']) cpSync(join(ROOT, f), join(r, f));
   const shim = join(r, 'shim');
   mkdirSync(shim);
   symlinkSync(process.execPath, join(shim, 'node'));
-  writeFileSync(join(shim, 'docker'), `#!/bin/sh\necho "$*" >> ${join(r, 'docker.log')}\nexit "\${SHIM_EXIT:-1}"\n`, { mode: 0o755 });
+  writeFileSync(join(shim, 'docker'), `#!/bin/sh\necho "$*" >> ${join(r, 'docker.log')}\ncase "$*" in *'ps -a --format'*) echo 'exited 0';; esac\nexit "\${SHIM_EXIT:-1}"\n`, { mode: 0o755 });
   cpSync(FOUR, join(r, 'snowglobe.yml'));
   for (const args of [['render'], ['certs']]) expect(sg(r, args).status).toBe(0);
   return r;
@@ -143,6 +145,38 @@ describe('snowglobe up and down', () => {
     expect(dockerLog(r)).toBe('');
   });
 
+  it('up refuses a saved ending named app, naming the line, and starts nothing', () => {
+    const r = globeRoot();
+    writeFileSync(state(r, 'https/apps'), 'ok 5000\nold 5173 app\n');
+    const before = readFileSync(state(r, 'globe/globe.env'), 'utf8');
+    const res = sg(r, ['up'], { SG_PROJECT: 'mine' });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain('"old 5173 app"');
+    expect(res.stderr).toContain('app --remove old');
+    expect(readFileSync(state(r, 'globe/globe.env'), 'utf8')).toBe(before);
+    expect(dockerLog(r)).toBe('');
+    // render refuses it too, so the nginx server for it is never written.
+    expect(sg(r, ['app', '--render']).status).toBe(1);
+  });
+
+  it('up restarts nginx when its template changed since it last started, even with the leaf current', () => {
+    const r = globeRoot();
+    const env = { SG_PROJECT: 'mine', SHIM_EXIT: '0', SG_NGINX_WAIT: '1' };
+    // No stamp yet, as after an upgrade: the leaf is current (render and certs ran), the template is not known.
+    expect(existsSync(state(r, 'https/nginx-template.sha256'))).toBe(false);
+    sg(r, ['up'], env);
+    const calls = () => dockerLog(r).split('\n').filter((l) => / (restart nginx|exec -T nginx nginx -s reload)$/.test(l)).map((l) => l.replace(/^.* (restart|exec) /, '$1 '));
+    expect(calls()).toEqual(['restart nginx']);
+    expect(existsSync(state(r, 'https/nginx-template.sha256'))).toBe(true);
+    // Unchanged template: a reload only.
+    sg(r, ['up'], env);
+    expect(calls()).toEqual(['restart nginx', 'exec -T nginx nginx -s reload']);
+    // A changed template: restarted again.
+    writeFileSync(join(r, 'https/nginx.conf.template'), readFileSync(join(r, 'https/nginx.conf.template'), 'utf8') + '# changed\n');
+    sg(r, ['up'], env);
+    expect(calls()).toEqual(['restart nginx', 'exec -T nginx nginx -s reload', 'restart nginx']);
+  });
+
   it('up refuses a SG_BIND that is not loopback before any docker command', () => {
     const r = globeRoot();
     expect(sg(r, ['up'], { SG_PROJECT: 'mine', SG_BIND: '0.0.0.0' }).status).toBe(1);
@@ -155,7 +189,7 @@ describe('snowglobe run', () => {
     const r = globeRoot();
     writeFileSync(state(r, 'https/apps'), 'probe 5480\n');
     writeFileSync(state(r, 'https/names'), 'carol.beta.four.test\n');
-    const names = ['four.test', 'alpha.four.test', 'beta.four.test', 'regular.four.test', 'prod.four.test', 'plc.directory', 'carol.beta.four.test', 'probe.devnet.internal', 'x.example'];
+    const names = ['four.test', 'alpha.four.test', 'beta.four.test', 'regular.four.test', 'prod.four.test', 'plc.directory', 'carol.beta.four.test', 'probe.app.four.test', 'x.example'];
     const res = sg(r, ['run', '--', 'getent', 'hosts', ...names], { SG_BIND: '127.0.0.9', HTTPS_RUN_EXTRA_NAMES: 'x.example' });
     expect(res.status, res.stderr).toBe(0);
     expect(res.stdout.trim().split('\n').map((l) => l.split(/\s+/))).toEqual(names.map((n) => ['127.0.0.9', n]));
