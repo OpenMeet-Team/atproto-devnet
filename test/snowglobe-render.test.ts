@@ -18,12 +18,14 @@ import { contextHash, loadBase, renderGlobe } from '../lib/render.mjs';
 
 const ROOT = join(__dirname, '..');
 const RENDERED = join(__dirname, 'snowglobe', 'rendered');
+// Where the fixtures say a snowglobe's state is, the same on every machine.
+const STATE = '/state/snowglobe/devnet';
 const base = loadBase(ROOT);
 
 function render(doc: object) {
   const { globe, errors } = checkGlobe(doc);
   expect(errors).toEqual([]);
-  const files: Record<string, string> = renderGlobe(globe, base);
+  const files: Record<string, string> = renderGlobe(globe, base, { stateDir: STATE });
   return { files, compose: parse(files['compose.yml']), env: envOf(files['globe.env']) };
 }
 const envOf = (text: string) =>
@@ -37,7 +39,7 @@ describe('snowglobe render', () => {
   it('writes the default globe as test/snowglobe/rendered/ has it', () => {
     const { globe, errors } = loadGlobe(join(ROOT, 'snowglobe.default.yml'));
     expect(errors).toEqual([]);
-    const files: Record<string, string> = renderGlobe(globe, base, { source: 'snowglobe.default.yml' });
+    const files: Record<string, string> = renderGlobe(globe, base, { stateDir: STATE, source: 'snowglobe.default.yml' });
     expect(Object.keys(files).sort()).toEqual(['compose.yml', 'globe.env', 'leaf-names', 'nginx/globe.conf', 'nginx/page.inc', 'page.json']);
     for (const [name, text] of Object.entries(files)) {
       const path = join(RENDERED, name);
@@ -260,7 +262,7 @@ describe('snowglobe render: group hosts', () => {
 
   it('will not render a group host with no image and no build folder', () => {
     const { globe } = checkGlobe({ ...THREE, grouphosts: [{ name: 'gh', kind: 'opensocial' }] });
-    expect(() => renderGlobe(globe, base)).toThrow(/gh/);
+    expect(() => renderGlobe(globe, base, { stateDir: STATE })).toThrow(/gh/);
   });
 
   it('builds a group host the file gives no source from SG_OPENSOCIAL_BUILD, and says how when it is unset', () => {
@@ -312,7 +314,10 @@ describe('https/app-names.cjs', () => {
     expect(lookup('mine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).toBe('127.0.0.1');
     expect(lookup('club.gh.mine.test', {})).not.toBe('127.0.0.1');
     expect(lookup('notmine.test', { SG_RESOLVE_DOMAIN: 'mine.test' })).not.toBe('127.0.0.1');
-    expect(lookup('app.devnet.internal', {})).toBe('127.0.0.1');
+    // The PDSes get app.<domain>: any app's name goes to nginx, the rest of the domain does not.
+    expect(lookup('x.app.mine.test', { SG_RESOLVE_DOMAIN: 'app.mine.test' })).toBe('127.0.0.1');
+    expect(lookup('alpha.mine.test', { SG_RESOLVE_DOMAIN: 'app.mine.test' })).not.toBe('127.0.0.1');
+    expect(lookup('x.devnet.internal', { SG_RESOLVE_DOMAIN: 'app.mine.test' })).not.toBe('127.0.0.1');
   });
 });
 

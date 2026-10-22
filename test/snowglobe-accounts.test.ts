@@ -69,6 +69,8 @@ function fakeGlobe() {
 }
 
 let root: string;
+// Where the snowglobe `g` keeps its files for the user whose HOME is root.
+const STATE = () => join(root, '.local/share/snowglobe/g');
 let server: Server;
 let globe: ReturnType<typeof fakeGlobe>;
 let bin: string;
@@ -79,9 +81,11 @@ beforeAll(async () => {
   for (const d of ['bin', 'lib']) cpSync(join(ROOT, d), join(root, d), { recursive: true });
   symlinkSync(join(ROOT, 'node_modules'), join(root, 'node_modules'));
   writeFileSync(join(root, 'package.json'), '{"type": "module"}\n');
-  mkdirSync(join(root, 'data/globe'), { recursive: true });
+  // The user's state is under HOME: ~/.local/share/snowglobe/g, and the CA beside it.
+  writeFileSync(join(root, 'snowglobe.yml'), 'globe: g\n');
+  mkdirSync(join(STATE(), 'globe'), { recursive: true });
   writeFileSync(
-    join(root, 'data/globe/globe.env'),
+    join(STATE(), 'globe/globe.env'),
     [
       `SG_DOMAIN=${D}`,
       `SG_PDS=${PDS.join(' ')}`,
@@ -93,10 +97,10 @@ beforeAll(async () => {
       '',
     ].join('\n'),
   );
-  await ensureCerts({ dir: join(root, 'data/https'), domain: D, names: [D, `*.${D}`] });
+  await ensureCerts({ dir: join(STATE(), 'https'), caDir: join(STATE(), '../ca'), domain: D, names: [D, `*.${D}`] });
   globe = fakeGlobe();
   server = createServer(
-    { key: readFileSync(join(root, 'data/https/leaf.key')), cert: readFileSync(join(root, 'data/https/leaf.crt')) },
+    { key: readFileSync(join(STATE(), 'https/leaf.key')), cert: readFileSync(join(STATE(), 'https/leaf.crt')) },
     (req, res) => {
       const chunks: Buffer[] = [];
       req.on('data', (c) => chunks.push(c));
@@ -136,7 +140,7 @@ function sg(args: string[], env: Record<string, string> = {}): Promise<{ status:
     p.on('close', (status) => done({ status: status ?? -1, stdout, stderr }));
   });
 }
-const accountsFile = () => join(root, 'data/accounts.env');
+const accountsFile = () => join(STATE(), 'accounts.env');
 const envOf = (f: string) => Object.fromEntries(readFileSync(f, 'utf8').trim().split('\n').map((l) => [l.split('=')[0], l.slice(l.indexOf('=') + 1)]));
 
 describe.skipIf(!canBind443)('snowglobe account', () => {
@@ -150,7 +154,7 @@ describe.skipIf(!canBind443)('snowglobe account', () => {
     expect(env.APP_OWNER_PASSWORD).toMatch(/^[0-9a-f]{32}$/);
     expect(r.stdout + r.stderr).not.toContain(env.APP_OWNER_PASSWORD);
     expect(statSync(accountsFile()).mode & 0o777).toBe(0o600);
-    expect(readFileSync(join(root, 'data/https/names'), 'utf8').split('\n')).toContain(`owner.${D}`);
+    expect(readFileSync(join(STATE(), 'https/names'), 'utf8').split('\n')).toContain(`owner.${D}`);
     const minted = globe.seen.filter((q) => q.nsid === 'com.atproto.server.createInviteCode');
     expect(minted.map((q) => [q.pds, q.body.useCount])).toEqual([['alpha', 1]]);
   });
@@ -161,7 +165,7 @@ describe.skipIf(!canBind443)('snowglobe account', () => {
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout.trim()).toBe(before);
     expect(r.stderr).toContain('Found');
-    expect(readFileSync(join(root, 'data/https/names'), 'utf8').split('\n').filter((l) => l === `owner.${D}`)).toHaveLength(1);
+    expect(readFileSync(join(STATE(), 'https/names'), 'utf8').split('\n').filter((l) => l === `owner.${D}`)).toHaveLength(1);
   });
 
   it('makes <name>.<pds>.<domain> on another PDS, with an invite only where invites are required', async () => {

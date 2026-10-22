@@ -7,8 +7,9 @@
 //   node scripts/smoke.mjs
 //
 // It runs on a copy of this checkout in a temporary folder (data/, .git and node_modules left out;
-// node_modules is linked), so the checkout's own data/ (its CA, logins and app routes) is never
-// touched, and the copy keeps every file as checked out, line endings and .env included. The
+// node_modules is linked), with its own state folder inside it (XDG_DATA_HOME), so your own
+// snowglobes' state (~/.local/share/snowglobe: their CA, logins and app routes) is never touched,
+// and the copy keeps every file as checked out, line endings and .env included. The
 // globe is compose project snowglobe-smoke, on its own ports and loopback address, beside any other
 // globe: SG_BIND and SG_DOMAIN come from the environment or the copied .env if set there,
 // else 127.0.0.3 and the default file's domain, and the step "devnet.env" checks up read them.
@@ -40,6 +41,8 @@ adoptOldNames({ root, env: given });
 for (const k of Object.keys(given)) if (/^(DEVNET|SNOWGLOBE)_/.test(k)) delete given[k];
 const env = {
   ...given,
+  // The state of the copy's snowglobe (the default one, devnet) and its CA, in the copy.
+  XDG_DATA_HOME: join(root, 'state'),
   SG_PROJECT: PROJECT,
   SG_PLC_PORT: '2593',
   SG_JETSTREAM_PORT: '6028',
@@ -95,13 +98,13 @@ try {
   let r = sg(['check']);
   step('check', r.status === 0, why(r));
 
-  r = sg(['up']);
+  r = sg(['up', '--default']);
   if (!step('up', r.status === 0, r.status === 0 ? '' : why(r))) {
     diagnose(r);
     throw new Error('up failed');
   }
 
-  const denv = readFileSync(join(root, 'data/devnet.env'), 'utf8');
+  const denv = readFileSync(join(root, 'state/snowglobe/devnet/devnet.env'), 'utf8');
   const fact = (k) => denv.match(new RegExp(`^${k}=(.*)$`, 'm'))?.[1];
   step('devnet.env', fact('SG_DOMAIN') === wantDomain && fact('SG_BIND') === env.SG_BIND, `SG_DOMAIN=${fact('SG_DOMAIN')} SG_BIND=${fact('SG_BIND')}`);
 
@@ -113,7 +116,7 @@ try {
   step('account rerun finds it', r.status === 0 && /^Found /m.test(r.stderr), why(r));
 
   r = sg(['invite', 'SMOKE_INVITE']);
-  const accounts = readFileSync(join(root, 'data/accounts.env'), 'utf8');
+  const accounts = readFileSync(join(root, 'state/snowglobe/devnet/accounts.env'), 'utf8');
   step('invite', r.status === 0 && /^SMOKE_INVITE=./m.test(accounts), why(r));
 
   const lex = join(root, 'smoke-lexicons');
@@ -128,14 +131,14 @@ try {
   r = sg(['app', 'smokeapp', String(APP_PORT), 'sm']);
   step('app add', r.status === 0, why(r));
 
-  const names = [wantDomain, ...['alpha', 'regular', 'prod'].map((p) => `${p}.${wantDomain}`), 'plc.directory', 'smokeapp.devnet.internal'];
+  const names = [wantDomain, ...['alpha', 'regular', 'prod'].map((p) => `${p}.${wantDomain}`), 'plc.directory', `smokeapp.app.${wantDomain}`];
   r = run(['getent', 'hosts', ...names]);
   const mapped = (r.stdout ?? '').trim().split('\n').filter((l) => l.startsWith(`${env.SG_BIND} `)).length;
   step('run maps the names', r.status === 0 && mapped === names.length, `${mapped} of ${names.length} on ${env.SG_BIND}`);
 
   // Node under run, with no flags: the names resolve and the CA is trusted.
   const fetches = `
-    const urls = ['alpha', 'regular', 'prod'].map((p) => 'https://${wantDomain}/health/' + p).concat('https://smokeapp.devnet.internal/x');
+    const urls = ['alpha', 'regular', 'prod'].map((p) => 'https://${wantDomain}/health/' + p).concat('https://smokeapp.app.${wantDomain}/x');
     Promise.all(urls.map((u) => fetch(u).then((r) => r.status, (e) => e.cause?.code ?? e.message))).then((s) => console.log(s.join(' ')));`;
   r = run([process.execPath, '-e', fetches]);
   step('run: health of each PDS, and the app', r.stdout?.trim() === '200 200 200 200', r.stdout?.trim() || why(r));
@@ -146,7 +149,7 @@ try {
   // background, so the old route can answer for a moment.
   let gone = '';
   for (let n = 0; n < 10 && gone !== '404'; n++) {
-    gone = run([process.execPath, '-e', "fetch('https://smokeapp.devnet.internal/x').then((r) => console.log(r.status), (e) => console.log(e.cause?.code ?? e.message))"], { HTTPS_RUN_EXTRA_NAMES: 'smokeapp.devnet.internal' }).stdout?.trim();
+    gone = run([process.execPath, '-e', `fetch('https://smokeapp.app.${wantDomain}/x').then((r) => console.log(r.status), (e) => console.log(e.cause?.code ?? e.message))`], { HTTPS_RUN_EXTRA_NAMES: `smokeapp.app.${wantDomain}` }).stdout?.trim();
     if (gone !== '404') spawnSync('sleep', ['1']);
   }
   step('removed app answers 404', gone === '404', gone);

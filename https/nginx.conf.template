@@ -75,7 +75,7 @@ server {
     }
 }
 
-# Apps on this machine: https://<name>.devnet.internal goes to the port that
+# Apps on this machine: https://<name>.app.${SG_DOMAIN} goes to the port that
 # bin/snowglobe.mjs app recorded for <name> (data/https/apps). It writes, into
 # data/https/nginx/ (mounted at /etc/nginx/devnet/), one upstream per app, naming
 # host.docker.internal, and one map line per name. An upstream's name is resolved
@@ -94,7 +94,7 @@ map $host $devnet_app {
 # A name no app registered gets a 404 from nginx itself and reaches nothing.
 server {
     listen 443 ssl;
-    server_name *.devnet.internal;
+    server_name *.app.${SG_DOMAIN};
     if ($devnet_app = "") {
         return 404 "No app is registered at $host (bin/snowglobe.mjs app).\n";
     }

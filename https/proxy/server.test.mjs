@@ -7,10 +7,10 @@ import { test } from 'node:test'
 import { allowed, connectTarget, pac, proxyAddress } from './server.mjs'
 
 test('only the devnet names on 443 go to nginx', () => {
-  for (const n of ['devnet.test', 'alpha.devnet.test', 'alice.devnet.test', 'x.regular.devnet.test', 'atmo.devnet.internal', 'plc.directory', 'ALPHA.devnet.test.']) {
+  for (const n of ['devnet.test', 'alpha.devnet.test', 'alice.devnet.test', 'x.regular.devnet.test', 'atmo.app.devnet.test', 'plc.directory', 'ALPHA.devnet.test.']) {
     assert.equal(allowed(n, 443, 'devnet.test'), true, n)
   }
-  for (const n of ['evil-devnet.test', 'devnet.test.example.com', 'bsky.social', 'plc.directory.evil', '127.0.0.1', 'devnet.internal']) {
+  for (const n of ['evil-devnet.test', 'devnet.test.example.com', 'bsky.social', 'plc.directory.evil', '127.0.0.1', 'atmo.devnet.internal']) {
     assert.equal(allowed(n, 443, 'devnet.test'), false, n)
   }
   assert.equal(allowed('alpha.devnet.test', 80, 'devnet.test'), false)
@@ -22,7 +22,7 @@ const runPac = (src, host) => new Function('dnsDomainIs', `${src}; return FindPr
 
 test('the PAC sends the devnet names to the proxy and the rest direct', () => {
   const src = pac('127.0.0.1:1090', 'devnet.test')
-  for (const h of ['devnet.test', 'alice.devnet.test', 'Alpha.Devnet.Test', 'atmo.devnet.internal']) assert.equal(runPac(src, h), 'PROXY 127.0.0.1:1090', h)
+  for (const h of ['devnet.test', 'alice.devnet.test', 'Alpha.Devnet.Test', 'atmo.app.devnet.test']) assert.equal(runPac(src, h), 'PROXY 127.0.0.1:1090', h)
   for (const h of ['plc.directory', 'bsky.app', 'evil-devnet.test', 'devnet.test.example.com']) assert.equal(runPac(src, h), 'DIRECT', h)
   assert.equal(runPac(pac('127.0.0.1:1090', 'devnet.test', true), 'plc.directory'), 'PROXY 127.0.0.1:1090')
 })

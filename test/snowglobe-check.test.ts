@@ -81,7 +81,7 @@ describe('snowglobe check', () => {
   });
 
   it('fails an unknown command', () => {
-    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'up'], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'frobnicate'], { encoding: 'utf8' });
     expect(r.status).toBe(2);
   });
 });
@@ -108,9 +108,14 @@ describe('the rules behind the check', () => {
   });
 
   it('keeps the domain clear of the names the network serves whatever the domain', () => {
-    for (const domain of ['devnet.internal', 'x.devnet.internal', 'plc.directory'])
+    for (const domain of ['plc.directory'])
       expect(whereOf(ok({ domain })), domain).toEqual(['domain']);
     expect(whereOf(ok({ domain: 'team.plc.directory' }))).toEqual([]); // plc.directory is one exact name
+  });
+
+  it('keeps app for the network: a PDS, group host or bare handle named app is refused', () => {
+    expect(whereOf(ok({ pds: [{ ...PDS_A, name: 'app' }] }))).toEqual(['pds[0].name']);
+    expect(whereOf(ok({ pds: [{ ...PDS_A, bare_handles: true }], accounts: ['app@alpha'] }))).toEqual(['accounts[0]']);
   });
 
   it('reports a domain that is not a string, without building names on it', () => {

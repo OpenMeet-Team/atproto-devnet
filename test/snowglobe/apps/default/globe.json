@@ -81,11 +81,11 @@
     },
     {
       "name": "atmo",
-      "url": "https://atmo.devnet.internal"
+      "url": "https://atmo.app.local.snowglobe.at"
     },
     {
       "name": "probe",
-      "url": "https://probe.devnet.internal"
+      "url": "https://probe.app.local.snowglobe.at"
     }
   ]
 }

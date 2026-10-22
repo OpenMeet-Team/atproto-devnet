@@ -100,10 +100,11 @@ services:
       PDS_LEXICON_AUTHORITY_DID: ${SG_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
+      SG_RESOLVE_DOMAIN: app.local.snowglobe.at
       NODE_OPTIONS: --require /https/app-names.cjs
     volumes:
       - pds-alpha-data:/pds/data
-      - ./data/https/ca.crt:/https/ca.crt:ro
+      - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
       - ./https/app-names.cjs:/https/app-names.cjs:ro
     networks:
       - atproto-devnet
@@ -150,10 +151,11 @@ services:
       PDS_LEXICON_AUTHORITY_DID: ${SG_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
+      SG_RESOLVE_DOMAIN: app.local.snowglobe.at
       NODE_OPTIONS: --require /https/app-names.cjs
     volumes:
       - pds-regular-data:/pds/data
-      - ./data/https/ca.crt:/https/ca.crt:ro
+      - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
       - ./https/app-names.cjs:/https/app-names.cjs:ro
     networks:
       - atproto-devnet
@@ -200,10 +202,11 @@ services:
       PDS_LEXICON_AUTHORITY_DID: ${SG_LEXICON_AUTHORITY_DID:-}
       PDS_DEV_MODE: "false"
       NODE_EXTRA_CA_CERTS: /https/ca.crt
+      SG_RESOLVE_DOMAIN: app.local.snowglobe.at
       NODE_OPTIONS: --require /https/app-names.cjs
     volumes:
       - pds-prod-data:/pds/data
-      - ./data/https/ca.crt:/https/ca.crt:ro
+      - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
       - ./https/app-names.cjs:/https/app-names.cjs:ro
     networks:
       - atproto-devnet
@@ -235,7 +238,7 @@ services:
       ENVIRONMENT: dev
     volumes:
       - relay-data:/data/relay
-      - ./data/https/ca.crt:/etc/ssl/certs/atproto-devnet-ca.pem:ro
+      - /state/snowglobe/ca/ca.crt:/etc/ssl/certs/atproto-devnet-ca.pem:ro
     healthcheck:
       test:
         - CMD
@@ -312,7 +315,7 @@ services:
         condition: service_healthy
     volumes:
       - ./scripts:/scripts:ro
-      - ./data:/devnet-data
+      - /state/snowglobe/devnet:/devnet-data
     environment:
       PDS_HOSTNAME: alpha.local.snowglobe.at
       PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
@@ -347,10 +350,10 @@ services:
       NGINX_ENVSUBST_FILTER: ^SG_
     volumes:
       - ./https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./data/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
-      - ./data/https/leaf.key:/etc/nginx/https/leaf.key:ro
-      - ./data/https/nginx:/etc/nginx/devnet:ro
-      - ./data/globe/nginx:/etc/nginx/globe:ro
+      - /state/snowglobe/devnet/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
+      - /state/snowglobe/devnet/https/leaf.key:/etc/nginx/https/leaf.key:ro
+      - /state/snowglobe/devnet/https/nginx:/etc/nginx/devnet:ro
+      - /state/snowglobe/devnet/globe/nginx:/etc/nginx/globe:ro
       - ./page/index.html:/srv/page/index.html:ro
       - ./page/fonts:/srv/page/fonts:ro
       - ./page/devnet.conf:/etc/nginx/page/devnet.conf:ro
@@ -404,7 +407,7 @@ services:
       SLINGSHOT_BIND: 0.0.0.0:8080
       SSL_CERT_FILE: /https/ca.crt
     volumes:
-      - ./data/https/ca.crt:/https/ca.crt:ro
+      - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
       - slingshot-data:/data
     ulimits:
       nofile:
@@ -419,7 +422,7 @@ services:
       retries: 10
   proxy:
     build: ./https/proxy
-    image: atproto-devnet-proxy:eded0b6aa839
+    image: atproto-devnet-proxy:c0ae9a213789
     restart: unless-stopped
     depends_on:
       nginx:
@@ -459,7 +462,7 @@ services:
       PDSLS_UPSTREAM: nginx:443
       NODE_EXTRA_CA_CERTS: /https/ca.crt
     volumes:
-      - ./data/https/ca.crt:/https/ca.crt:ro
+      - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
     networks:
       - atproto-devnet
     healthcheck:
