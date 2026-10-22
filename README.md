@@ -1153,8 +1153,9 @@ under `local.snowglobe.at` is already covered. To start over, delete `data/https
 The CA can only vouch for servers under `local.snowglobe.at` (the `SG_DOMAIN` it was made for)
 and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
 `data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
-when you're done with it. On Windows: `certutil -user -delstore Root "<its name>"`, the name being the
-CN that `bin/snowglobe.mjs certs` prints ("Keeping the existing CA: ...").
+when you're done with it: `bin/snowglobe.mjs trust --remove`. On Windows by hand:
+`certutil -user -delstore Root "<its name>"`, the name being the CN that `bin/snowglobe.mjs certs`
+prints ("Keeping the existing CA: ...").
 
 Each CA made since 2026-10-19 has a name of its own, `atproto-devnet local CA <date> <hex>`; older
 ones are all `atproto-devnet local CA`. Two CAs with one name break each other: a browser that trusts
@@ -1179,8 +1180,15 @@ address and any port but 443.
 
 **Once per computer:**
 
-1. **Trust the devnet's CA** (more in [The CA](#the-ca)). Copy `data/https/ca.crt` from the devnet
-   checkout to your computer, then:
+1. **Trust the snowglobe's CA** (more in [The CA](#the-ca)). On the machine whose browser you use:
+   `bin/snowglobe.mjs trust`. It puts your CA (`<state>/ca/ca.crt`, one per user) in the system
+   store and in the NSS databases Chrome, Edge and Firefox read on Linux, or in the login keychain
+   on macOS (not yet tried on a Mac) or the user store on Windows. It prints every command, marks
+   the ones that need sudo, and does nothing the second time. On WSL it also prints the PowerShell
+   step for the Windows store. `trust --dry-run` shows what it would do; `trust --remove` undoes it.
+
+   If the snowglobe runs on another machine (a dev container), copy its `ca.crt` over and trust it
+   there by hand:
    - Windows, for Chrome, Edge and Firefox: `certutil -user -addstore Root ca.crt` (no admin; Windows
      asks you to confirm). Firefox reads the Windows store: a Firefox on Windows set up this way
      found the trusted CA on 2026-10-19.
@@ -1188,7 +1196,7 @@ address and any port but 443.
      `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db ca.crt`.
      Firefox: Settings, Privacy & Security, View Certificates, Authorities, Import.
    - Linux: Chrome and Edge read `~/.pki/nssdb`:
-     `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n atproto-devnet -i ca.crt` (from `libnss3-tools`).
+     `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n snowglobe -i ca.crt` (from `libnss3-tools`).
      Firefox: import it as on macOS.
 
    Without this step the proxy still works, but each devnet name gets a certificate warning you click
