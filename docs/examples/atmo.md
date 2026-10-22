@@ -8,7 +8,9 @@ knows nothing about atmo, so everything below is made with the devnet's tools. T
 [tompscanlan/atmo-events](https://github.com/tompscanlan/atmo-events/tree/feat/groups-opensocial),
 checked out beside the devnet as `atmo-events/`, and the
 [opensocial.group proposal](https://tangled.org/opensocial.group/proposal) beside both as
-`opensocial-proposal/`. Start with the https devnet up.
+`opensocial-proposal/`. Start with the default snowglobe up (`bin/snowglobe.mjs up --default`), and in
+each shell set `state=~/.local/share/snowglobe/devnet`, its state folder
+([Which snowglobe, and where it lives](../globe.md#which-snowglobe-and-where-it-lives)).
 
 **Lexicons.** Every devnet PDS resolves NSIDs only from the devnet's lexicon authority. atmo's OAuth
 scope includes two permission sets, `rsvp.atmo.permissionSet` and `app.bsky.authCreatePosts`. If the
@@ -62,14 +64,14 @@ pnpm exec wrangler d1 migrations apply DB --local
 **Run atmo** under `snowglobe run`, from `atmo-events/apps/web`:
 
 ```bash
-../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev     # http://127.0.0.1:5454
+../../../snowglobe/bin/snowglobe.mjs run pnpm dev     # http://127.0.0.1:5454
 ```
 
 **Use it from a browser.** Set up a browser on your computer as in
 [From a browser on your own computer](../browser.md#from-a-browser-on-your-own-computer). Forward port 5454 to
 5454 as well, since the loopback client's redirect URI names that port. Open
 `http://127.0.0.1:5454` in that browser and sign in as `alice.local.snowglobe.at`, by handle or by DID,
-with her password from `data/accounts.env`. atmo sends you to `https://alpha.local.snowglobe.at` to sign in
+with her password from `<state>/accounts.env`. atmo sends you to `https://alpha.local.snowglobe.at` to sign in
 and approve, then back to atmo, signed in.
 
 | URL | What answers |
@@ -83,10 +85,10 @@ and approve, then back to atmo, signed in.
 `NODE_EXTRA_CA_CERTS`, so give it the CA. From the devnet checkout:
 
 ```bash
-dn() { ./bin/snowglobe.mjs run curl -s --cacert data/https/ca.crt "$@"; }
+dn() { ./bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt "$@"; }
 dn https://alpha.local.snowglobe.at/xrpc/_health                # {"version":"0.5.32"}
 dn https://alice.local.snowglobe.at/.well-known/atproto-did     # alice's DID
-did=$(sed -n 's/^ALICE_DID=//p' data/accounts.env)
+did=$(sed -n 's/^ALICE_DID=//p' "$state/accounts.env")
 dn https://plc.directory/$did                            # her DID document, alsoKnownAs at://alice.local.snowglobe.at
 dn "https://alpha.local.snowglobe.at/xrpc/com.atproto.repo.listRecords?repo=$did&collection=community.lexicon.calendar.event"
 ```
@@ -99,11 +101,11 @@ an https origin where the PDS can fetch its client metadata and keys. The devnet
 with an app route. From the devnet checkout:
 
 ```bash
-./bin/snowglobe.mjs app atmo 5454                       # https://atmo.devnet.internal -> port 5454
+./bin/snowglobe.mjs app atmo 5454                       # https://atmo.app.local.snowglobe.at -> port 5454
 ./bin/snowglobe.mjs invite GROUP_PDS_INVITE_CODE ../atmo-events/apps/web/.env
 ```
 
-Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.devnet.internal` in `.env`
+Then in `atmo-events/apps/web`, set `OAUTH_PUBLIC_URL=https://atmo.app.local.snowglobe.at` in `.env`
 in place of the empty line, and add a client key. atmo's key script prints the key, so write it
 straight into the file:
 
@@ -115,21 +117,21 @@ printf "CLIENT_ASSERTION_KEY='%s'\n" \
 Run atmo where nginx can reach it, still under `snowglobe run`:
 
 ```bash
-__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
+__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.app.local.snowglobe.at \
 HTTPS_RUN_EXTRA_NAMES=mygroup.local.snowglobe.at \
-  ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
+  ../../../snowglobe/bin/snowglobe.mjs run pnpm dev --host 172.18.0.1 --port 5454 --strictPort
 ```
 
 - `--host` replaces the `127.0.0.1` in atmo's `vite.config.ts`. Use the address that
   `host.docker.internal` has inside the containers; here it is the `docker0` address. Check with
   `docker exec <project>-nginx-1 getent hosts host.docker.internal`.
-- `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` lets vite answer requests for `atmo.devnet.internal`.
+- `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` lets vite answer requests for `atmo.app.local.snowglobe.at`.
 - `HTTPS_RUN_EXTRA_NAMES` maps, for atmo's process, the handle of the group you are about to
   create, since `snowglobe run` reads its names only at start.
 
-Open `https://atmo.devnet.internal` in the browser set up above, or from the network's page at
-`https://local.snowglobe.at/`, which links every routed app. The proxy's PAC, or the launch flags' `*.devnet.internal` rule, covers
-the name, and only the proxy's port (or 443) needs forwarding. Sign in, then create the group under groups. The form
+Open `https://atmo.app.local.snowglobe.at` in the browser set up above, or from the network's page at
+`https://local.snowglobe.at/`, which links every routed app. Public DNS answers the name with 127.0.0.1, so a browser on this machine needs only the CA. On
+another machine the proxy's PAC covers the name, and only the proxy's port (or 443) needs forwarding. Sign in, then create the group under groups. The form
 mints the group's account on the alpha, then has you sign in as the group to link it. The groups
 e2e below creates a group the same way on every run, through atmo's own create.
 
@@ -156,14 +158,14 @@ and Firefox through the proxy, with no request leaving the devnet.
    cookie secret and client key and prints neither), and its tables:
 
    ```bash
-   ../../../atproto-devnet/bin/snowglobe.mjs app atmo 5454     # from apps/web; or run it from the devnet checkout
+   ../../../snowglobe/bin/snowglobe.mjs app atmo 5454     # from apps/web; or run it from the devnet checkout
    npx tsx src/lib/atproto/scripts/setup-dev.ts
    pnpm exec wrangler d1 migrations apply DB --local
    ```
 4. Add to `.env`:
 
    ```
-   OAUTH_PUBLIC_URL=https://atmo.devnet.internal
+   OAUTH_PUBLIC_URL=https://atmo.app.local.snowglobe.at
    PUBLIC_ATPROTO_SEALED=true
    PUBLIC_ATPROTO_PLC_URL=https://plc.local.snowglobe.at
    PUBLIC_ATPROTO_SLINGSHOT_URL=https://slingshot.local.snowglobe.at
@@ -180,8 +182,8 @@ and Firefox through the proxy, with no request leaving the devnet.
 5. Run it under `snowglobe run`, on every address so nginx can reach it:
 
    ```bash
-   __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.devnet.internal \
-     ../../../atproto-devnet/bin/snowglobe.mjs run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
+   __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=atmo.app.local.snowglobe.at \
+     ../../../snowglobe/bin/snowglobe.mjs run pnpm dev --host 0.0.0.0 --port 5454 --strictPort
    ```
 
 Open `https://local.snowglobe.at/` and follow its atmo link. Signing in sends you to
@@ -200,9 +202,9 @@ unset ACCOUNTS_FILE
 ./bin/snowglobe.mjs invite E2E_INVITE_CODE data/atmo-e2e.env   # each run mints its group with one use
 # what the test reads: URLs, DIDs, the handle domain and where the secrets are; no secret
 { grep -E '^E2E_[A-Z]+_DID=' data/atmo-e2e.env
-  echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' data/devnet.env)"
-  echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' data/devnet.env)"
-  echo "E2E_HANDLE_DOMAIN=$(sed -n 's/^SG_DOMAIN=//p' data/devnet.env)"
+  echo "E2E_PDS=$(sed -n 's/^ALPHA_PDS_URL=//p' "$state/devnet.env")"
+  echo "E2E_PLC_URL=$(sed -n 's/^PLC_URL=//p' "$state/devnet.env")"
+  echo "E2E_HANDLE_DOMAIN=$(sed -n 's/^SG_DOMAIN=//p' "$state/devnet.env")"
   echo "E2E_CREDENTIALS=$PWD/data/atmo-e2e.env"; } > data/atmo-e2e.fixtures.env
 ```
 
@@ -210,8 +212,8 @@ Then from atmo's `apps/web`, under `snowglobe run`. Start it after the accounts 
 are mapped:
 
 ```bash
-../../../atproto-devnet/bin/snowglobe.mjs run sh -c \
-  'set -a; . ../../../atproto-devnet/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
+../../../snowglobe/bin/snowglobe.mjs run sh -c \
+  'set -a; . ../../../snowglobe/data/atmo-e2e.fixtures.env; set +a; node scripts/groups-e2e.mjs'
 # ...
 # SUMMARY: 49 passed, 0 failed
 ```

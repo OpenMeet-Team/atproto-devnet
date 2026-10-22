@@ -8,16 +8,22 @@ setting you make once, in the browser you already use. Launch flags (further dow
 
 The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
 port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
-reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at`, `*.local.snowglobe.at` and
-`*.devnet.internal` to the proxy and everything else direct, so the rest of your browsing is
-untouched. The browser hands the proxy the name, and the proxy connects every name in the globe to nginx,
+reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at` and `*.local.snowglobe.at` (apps included) to the proxy and
+everything else direct, so the rest of your browsing is untouched. The browser hands the proxy the name, and the proxy connects every name in the globe to nginx,
 so a handle made a second ago works with nothing to update. It refuses any other name, any IP
 address and any port but 443.
 
 **Once per computer:**
 
-1. **Trust the globe's CA** (more in [The CA](#the-ca)). Copy `data/https/ca.crt` from the snowglobe
-   checkout to your computer, then:
+1. **Trust the snowglobe's CA** (more in [The CA](#the-ca)). On the machine whose browser you use:
+   `bin/snowglobe.mjs trust`. It puts your CA (`<state root>/ca/ca.crt`, one per user) in the system
+   store and in the NSS databases Chrome, Edge and Firefox read on Linux, in the login keychain on
+   macOS (not tried on a Mac) or in the user store on Windows. It prints every command, marks the
+   ones that need sudo, and does nothing the second time. On WSL it also prints the PowerShell step
+   for the Windows store. `trust --dry-run` shows what it would do; `trust --remove` undoes it.
+
+   If the snowglobe runs on another machine (a dev container), copy its `ca.crt` over and trust it
+   there by hand:
    - Windows, for Chrome, Edge and Firefox: `certutil -user -addstore Root ca.crt` (no admin; Windows
      asks you to confirm). Firefox reads the Windows store: a Firefox on Windows set up this way
      found the trusted CA on 2026-10-19.
@@ -25,7 +31,7 @@ address and any port but 443.
      `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db ca.crt`.
      Firefox: Settings, Privacy & Security, View Certificates, Authorities, Import.
    - Linux: Chrome and Edge read `~/.pki/nssdb`:
-     `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n atproto-devnet -i ca.crt` (from `libnss3-tools`).
+     `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n snowglobe -i ca.crt` (from `libnss3-tools`).
      Firefox: import it as on macOS.
 
    Without this step the proxy still works, but each of the globe's names gets a certificate warning you click
@@ -48,7 +54,7 @@ address and any port but 443.
      the next page load; no restart.
 
 **Then** open `https://local.snowglobe.at/`, the network's page. Its apps link to themselves, for instance
-`https://atmo.devnet.internal` once atmo is routed ([Example: atmo](examples/atmo.md)).
+`https://atmo.app.local.snowglobe.at` once atmo is routed ([Example: atmo](examples/atmo.md)).
 
 **When you are done**, turn the setting off, or leave it: it sends only the globe's names anywhere, and
 those fail anyway while the globe is down. What a browser does when it cannot fetch the PAC itself
@@ -79,7 +85,7 @@ of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headle
 
    ```
    rem cmd.exe; in PowerShell, write $env:TEMP for %TEMP%
-   chrome.exe --user-data-dir=%TEMP%\devnet-https --host-resolver-rules="MAP local.snowglobe.at 127.0.0.1, MAP *.local.snowglobe.at 127.0.0.1, MAP plc.directory 127.0.0.1, MAP *.devnet.internal 127.0.0.1"
+   chrome.exe --user-data-dir=%TEMP%\snowglobe-https --host-resolver-rules="MAP local.snowglobe.at 127.0.0.1, MAP *.local.snowglobe.at 127.0.0.1, MAP plc.directory 127.0.0.1"
    ```
 
    The wildcard rule covers the PDS names and the handles; the bare `local.snowglobe.at`, the network's
@@ -91,28 +97,29 @@ of proxy. Not measured: Edge, macOS, Linux desktops. Playwright's default headle
 
 `bin/snowglobe.mjs certs` makes the CA once, in Node (no openssl needed). `snowglobe up` runs it
 when there is no leaf, or when the leaf lacks a name. Rerunning it keeps the CA and reissues the
-leaf only when it lacks a name, so a browser or OS that trusts `ca.crt` keeps trusting the devnet.
-A CA made by the old `scripts/https-ca.sh` is kept the same way. `bin/snowglobe.mjs certs --check`
+leaf only when it lacks a name, so a browser or OS that trusts `ca.crt` keeps trusting every snowglobe you run.
+`bin/snowglobe.mjs certs --check`
 only says whether the leaf lacks a name (exit 1) or not (exit 0). The leaf names what the render lists in
-`data/globe/leaf-names`: `local.snowglobe.at` itself, each PDS and its handles (`*.local.snowglobe.at` for the one
+`<state>/globe/leaf-names`: `local.snowglobe.at` itself, each PDS and its handles (`*.local.snowglobe.at` for the one
 with bare handles, `*.<name>.local.snowglobe.at` for each other), each group host and its groups' handles,
 `plc.`, `relay.`, `jetstream.`,
-`slingshot.` and `pdsls.local.snowglobe.at`, `plc.directory` and `*.devnet.internal`; and
+`slingshot.` and `pdsls.local.snowglobe.at`, `plc.directory` and `*.app.local.snowglobe.at` (the apps); and
 `*.<ending>.local.snowglobe.at` for each handle ending an app claimed. A TLS wildcard covers one label, so
 each handle domain needs its own. `snowglobe app` reissues the leaf
 when it claims an ending, and `snowglobe up` when the leaf lacks any of these names. Add deeper names
 with `HTTPS_EXTRA_NAMES="x.mine.local.snowglobe.at"` on every run, then restart nginx. A name one label
-under `local.snowglobe.at` is already covered. To start over, delete `data/https/ca.*` and trust the new
+under `local.snowglobe.at` is already covered. To start over, delete `<state>/https/ca.*` and trust the new
 `ca.crt` wherever the old one was trusted.
 
 The CA can only vouch for servers under `local.snowglobe.at` (the `SG_DOMAIN` it was made for),
-`devnet.internal` and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
-`data/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
-when you're done with it. On Windows: `certutil -user -delstore Root "<its name>"`, the name being the
-CN that `bin/snowglobe.mjs certs` prints ("Keeping the existing CA: ...").
+and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
+`<state>/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
+when you're done with it: `bin/snowglobe.mjs trust --remove`. On Windows by hand:
+`certutil -user -delstore Root "<its name>"`, the name being the CN that `bin/snowglobe.mjs certs`
+prints ("Keeping the existing CA: ...").
 
-Each CA made since 2026-10-19 has a name of its own, `atproto-devnet local CA <date> <hex>`; older
-ones are all `atproto-devnet local CA`. Two CAs with one name break each other: a browser that trusts
-one checks the other's certificates against the wrong key and rejects them as a bad signature, which
-it will not let you click through. So a second checkout's globe, with a CA of its own, gets an
-ordinary unknown-issuer warning instead, until its CA is trusted too.
+There is one CA per user, shared by all your snowglobes, so you trust it once. Each CA has a name of
+its own, `snowglobe local CA <date> <hex>`. Two CAs with one name break each other: a browser that
+trusts one checks the other's certificates against the wrong key and rejects them as a bad
+signature, which it will not let you click through. Delete the CA's `ca.*` and run `up` again only
+when you mean to start over, and remove the old one from the stores (`trust --remove` first).

@@ -36,22 +36,23 @@ also needs [bubblewrap](https://github.com/containers/bubblewrap) (on Debian or 
 git clone https://github.com/OpenMeet-Team/snowglobe.git
 cd snowglobe
 npm install
-export SG_PROJECT=mine     # the globe's Docker Compose project name; there is no default
-bin/snowglobe.mjs up       # the first run pulls and builds images, which takes a while
+bin/snowglobe.mjs up --default   # the first run pulls and builds images, which takes a while
 ```
 
 Check it from the shell. `snowglobe run` runs a command that sees the globe's names, and
 `--cacert` gives curl the globe's CA:
 
 ```bash
-bin/snowglobe.mjs run curl -s --cacert data/https/ca.crt https://local.snowglobe.at/globe.json
+bin/snowglobe.mjs run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https://local.snowglobe.at/globe.json
 ```
 
-To open the network's page, `https://local.snowglobe.at/`, in a browser on your own computer, set
-up the proxy and trust the CA first ([From a browser on your own computer](docs/browser.md)).
+To open the network's page, `https://local.snowglobe.at/`, in a browser on your own computer, run
+`bin/snowglobe.mjs trust` and set up the proxy first ([From a browser on your own computer](docs/browser.md)).
 
 Stop the globe with `bin/snowglobe.mjs down`. Add `-v` to delete its data too, every account
-included.
+included. Everything a snowglobe makes is kept in your own account, in
+`~/.local/share/snowglobe` (or under `XDG_DATA_HOME`), and nothing in the checkout
+([Which snowglobe, and where it lives](docs/globe.md#which-snowglobe-and-where-it-lives)).
 
 To run your own app against a globe, see [Your app on a globe](docs/your-app.md).
 

@@ -9,8 +9,9 @@
   `PDS_DISABLE_SSRF_PROTECTION`, because everything it fetches here sits on an RFC 1918 address.
 - **The PDSes reach each other over TLS.** Inside the compose network, nginx also answers to every
   PDS's name, and each PDS trusts the CA through `NODE_EXTRA_CA_CERTS`. Docker's DNS has no
-  wildcard names, so each PDS preloads `https/app-names.cjs`, which looks up any `.devnet.internal`
-  name as nginx. Only the address changes: the request keeps the app's name, and TLS still checks the
+  wildcard names, so each PDS preloads `https/app-names.cjs`, which looks up any name under `app.<domain>`
+  (the app names) as nginx; inside a container the public DNS answer, 127.0.0.1, would be the container
+  itself. Only the address changes: the request keeps the app's name, and TLS still checks the
   certificate for it.
 - **nginx routes by name.** Each PDS's block takes its name and its handle wildcard, and passes Host
   through, so the PDS answers `/.well-known/atproto-did` for a handle. Of two matching wildcards nginx
@@ -36,7 +37,7 @@ to the globe's PLC and Jetstream. The public Slingshot cannot see an account on 
 this one answers for it:
 
 ```sh
-bin/snowglobe.mjs run curl -sS --cacert data/https/ca.crt \
+bin/snowglobe.mjs run curl -sS --cacert ~/.local/share/snowglobe/ca/ca.crt \
   'https://slingshot.local.snowglobe.at/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.local.snowglobe.at'
 # {"did":"did:plc:...","handle":"alice.local.snowglobe.at","pds":"https://alpha.local.snowglobe.at","signing_key":"zQ3..."}
 ```

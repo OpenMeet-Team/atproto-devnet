@@ -25,7 +25,7 @@ With the default file:
 | `plc.local.snowglobe.at`, `relay.local.snowglobe.at`, `jetstream.local.snowglobe.at` | the PLC, the relay and Jetstream, as a globe names them, so an app's browser code reaches them over https too |
 | `pdsls.local.snowglobe.at` | `pdsls`, the record browser ([PDSls](https://pds.ls)) for this network (below) |
 | `local.snowglobe.at` | nginx itself: the network's page, the one a globe serves at its bare name (below) |
-| `<name>.devnet.internal` | an app on this machine, at the port `bin/snowglobe.mjs app` recorded for `<name>` |
+| `<name>.app.<domain>` | an app on this machine, at the port `bin/snowglobe.mjs app` recorded for `<name>` |
 | `*.<ending>.local.snowglobe.at` | the app that claimed `<ending>` with `bin/snowglobe.mjs app`, for the handles it hands out |
 
 Each PDS in the file is a service of its own, `pds-<name>`, at `<name>.local.snowglobe.at`; the one with
@@ -45,7 +45,7 @@ else's server. Pick another domain freely, but not one under `.test`, `.local`, 
 so nobody can sign in through a group host or PDSls. `SG_DOMAIN` replaces it. Only the globe reads it; the quick stack
 keeps `SG_PDS_HOSTNAME` and `SG_HANDLE_DOMAIN`. Set it in the environment or in `.env` and
 the same stack comes up under that domain: `alpha.<domain>` with handles at `<name>.<domain>`,
-`regular.<domain>`, `prod.<domain>`. `plc.directory` and `<name>.devnet.internal` stay as they are.
+`regular.<domain>`, `prod.<domain>`. `plc.directory` stays as it is; apps follow the domain, at `<name>.app.<domain>`.
 In `.env`, write the domain itself (quotes, `export` and a trailing comment are fine); the scripts
 refuse a `${...}` there, which compose would expand and they would not. A checkout keeps one domain,
 because its CA can vouch only for the domain it was made for ([The CA](browser.md#the-ca)); for a second
@@ -60,7 +60,7 @@ tools to make its own ([Your app on a globe](your-app.md)), and using them is op
 health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
 from Jetstream, the last week's and then live. nginx serves it with this globe's relays (`page/devnet.conf`), a fixed GET-only path per read, so the page
 asks nothing but `local.snowglobe.at`. `snowglobe render` and `snowglobe app` write what it lists into
-`data/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
+`<state>/https/nginx/globe.json`. Open it from a browser set up as in [From a browser on your own
 computer](browser.md#from-a-browser-on-your-own-computer), or `bin/snowglobe.mjs run curl -s https://local.snowglobe.at/globe.json`.
 
 ## PDSls: browsing the network's records
@@ -85,8 +85,8 @@ and atmo's permission set fail that parser, as they would on pds.ls; the record 
 
 One file says what a globe runs: `snowglobe.yml`. It belongs in an app's repo, next to the lexicons
 it publishes, and is committed. Everything the globe makes while it runs (the CA's key, passwords,
-invite codes, app routes) goes under this checkout's `data/`, which is git-ignored and never
-committed ([What it writes](#what-it-writes)).
+invite codes, app routes) goes in the snowglobe's state folder, in your own account and in no repo
+([What it writes](#what-it-writes)).
 
 ```yaml
 globe: bookclub                  # lowercase letters and digits; the globe's own name
@@ -122,7 +122,7 @@ accounts:                        # <name>@<pds>; up makes each one
 
 apps:
   - name: bookclub
-    local: { port: 5173, handles: bc }   # https://bookclub.devnet.internal and handles *.bc.<domain>
+    local: { port: 5173, handles: bc }   # https://bookclub.app.local.snowglobe.at and handles *.bc.<domain>
 ```
 
 `bin/snowglobe.mjs check` says what is wrong with a file, one line per problem, and touches
@@ -155,7 +155,7 @@ handle.
 `up` seeds what the file asks for, every run, and a rerun changes nothing that is already there:
 
 - **accounts**: each one is made with `snowglobe account` ([Tools for an app](your-app.md#tools-for-an-app)). Its login goes to
-  `data/accounts.env` as `<NAME>_*` on the PDS with bare handles (else the first), where init's
+  `<state>/accounts.env` as `<NAME>_*` on the PDS with bare handles (else the first), where init's
   `alice` and `bob` are, so `alice@alpha` is init's own alice; on any other PDS as
   `<NAME>_<PDS>_*`, so `reader@regular` is `READER_REGULAR_*`. Passwords are generated and never
   printed.
@@ -169,35 +169,48 @@ The commands, each `bin/snowglobe.mjs <command>`:
 | Command | What it does |
 | --- | --- |
 | `check [<file>]` | checks a file |
-| `render [<file>] [--out <dir>] [--domain <domain>]` | writes the globe it describes into `data/globe/`, or `<dir>` (`up` does this itself); `--domain` replaces the file's domain, for a copy beside another globe |
-| `certs [--check]` | makes the CA and the leaf nginx serves (`up` does this itself) |
-| `up [<file>]` | brings the globe up as `SG_PROJECT` and seeds it ([Up and down](#up-and-down)) |
+| `render [<file>] [--out <dir>] [--domain <domain>]` | writes the globe it describes into `<state>/globe/`, or `<dir>` (`up` does this itself); `--domain` replaces the file's domain, for a copy beside another globe |
+| `certs [--check]` | makes your CA, once, and the leaf nginx serves (`up` does this itself) |
+| `trust [--remove] [--dry-run] [--no-sudo]` | puts your CA in the system and browser trust stores, or takes it out ([From a browser on your own computer](browser.md)) |
+| `up [<file> \| --default]` | brings the globe up and seeds it ([Up and down](#up-and-down)) |
 | `down [-v]` | stops it; `-v` drops its volumes too |
 | `run [--] <cmd>` | runs a command that reaches the globe at the real network's names (Linux) |
 | `account`, `invite`, `lexicons`, `app` | make an app's own accounts, invite codes, lexicons and routes ([Tools for an app](your-app.md#tools-for-an-app)) |
 
-With no `<file>`, `up` reads `SG_FILE` if it is set; past that, each command reads
-`./snowglobe.yml` in the folder it runs in if there is one, else `snowglobe.default.yml` here:
-alpha, regular and prod, with `alice` and `bob`. Exit 2 means
+Exit 2 means
 the command was called wrong, 1 that the globe refused, 3 that `up` or `down` refused the shared
 devnet.
 
+## Which snowglobe, and where it lives
+
+A command acts on one `snowglobe.yml`: the one you name, else `SG_FILE`, else the nearest
+`snowglobe.yml` in the folder you are in or above it. `up` with none of these refuses, because
+starting something by accident is worse than asking; `up --default` runs the default file in this
+repo, `snowglobe.default.yml` (alpha, regular and prod, with `alice` and `bob`). The other commands
+fall back to that default.
+
+The file's `globe:` line names the snowglobe. The name gives its state folder, `<state>`, which is
+`<state root>/<name>` in your own account, not in the checkout: `~/.local/share/snowglobe` on Linux
+and WSL (under `XDG_DATA_HOME` if you set it), `%LOCALAPPDATA%\snowglobe` on Windows. Beside the
+snowglobes' folders is `ca/`, your one certificate authority, which they all use. The name also
+names the Docker Compose project, unless `SG_PROJECT` is set. A state folder remembers the file that
+owns it, and `up` refuses a second file that says the same `globe:`: give one of them another name.
+
 ## Up and down
 
-Every run names its compose project with `SG_PROJECT`; there is no default. The scripts refuse
-the shared project `devnet-spaces` unless `SG_RESET_OK=1`, and exit before calling docker.
+The scripts refuse the shared project `devnet-spaces` unless `SG_RESET_OK=1`, and exit before
+calling docker.
 
 ```bash
-export SG_PROJECT=devnet-mine
-bin/snowglobe.mjs up      # certificates, two-pass authority boot, data/devnet.env
-bin/snowglobe.mjs down    # stop it; -v also drops its volumes (every account and DID)
+bin/snowglobe.mjs up --default   # certificates, two-pass authority boot, <state>/devnet.env
+bin/snowglobe.mjs down           # stop it; -v also drops its volumes (every account and DID)
 ```
 
 Both run the one compose file `snowglobe up` last rendered, from the repo root:
 
 ```bash
-bin/snowglobe.mjs up ../myapp/snowglobe.yml   # another globe than the default (or SG_FILE)
-docker compose -p "$SG_PROJECT" --project-directory . -f data/globe/compose.yml ps
+bin/snowglobe.mjs up ../myapp/snowglobe.yml   # another snowglobe than the default
+docker compose -p <project> --project-directory . -f <state>/globe/compose.yml ps
 ```
 
 `snowglobe up` is safe to rerun; a rerun leaves the running services as they are, and only the
@@ -208,8 +221,8 @@ claimed with `snowglobe app`, before it writes anything. It makes the leaf certi
 none, brings the stack up, makes the lexicon authority (`lex-authority.local.snowglobe.at` on the file's
 `lexicons.authority` PDS, the alpha by default),
 brings the stack up again with `SG_LEXICON_AUTHORITY_DID` so every PDS starts with it, and writes
-`data/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
-into `data/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
+`<state>/devnet.env`. The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
+into `<state>/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
 stacks. Nothing else is seeded.
 
 Published ports, all on `127.0.0.1` only: 443 (nginx), the PLC (`SG_PLC_PORT`), Jetstream
@@ -219,33 +232,35 @@ values on every run. The PDS, relay, Tap and Postgres ports are not published: r
 https name. nginx needs port 443 itself, so a second globe also takes another loopback
 address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
 environment or `.env`; the scripts read it as compose does, `snowglobe run` maps the names to it, and
-`data/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the globe's
+`<state>/devnet.env` records it. The scripts refuse anything but a `127.x.y.z` address: the globe's
 logins are throwaway, so it is never published beyond this machine.
 
-`snowglobe down` runs `docker compose down` (with `-v` when given) and never deletes `data/`. The PLC's
+`snowglobe down` runs `docker compose down` (with `-v` when given) and never deletes the state folder. The PLC's
 database is a named volume (`plc-db`), so a `down` without `-v` keeps every DID along with the
 PDSes. After `-v`, the next `snowglobe up` starts over: init reseeds `alice` and `bob` and rewrites
-`data/accounts.env` from scratch, so the logins the tools wrote there are gone along with their
+`<state>/accounts.env` from scratch, so the logins the tools wrote there are gone along with their
 accounts (run `snowglobe account` and `snowglobe invite` again), and the authority is made again with
 a new DID.
 
 ## What it writes
 
-`data/` is git-ignored:
+Everything is kept in `<state>`, the snowglobe's own folder ([above](#which-snowglobe-and-where-it-lives)),
+and nothing in the checkout:
 
-- `data/devnet.env`: the globe's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
+- `<state>/devnet.env`: the globe's own facts, nothing secret. `<NAME>_PDS_URL` for each PDS
   (`ALPHA_PDS_URL`, `REGULAR_PDS_URL`, `PROD_PDS_URL` by default; a name starting with a digit gets a
   leading `_`, as in `_1ST_PDS_URL`), `PLC_URL` (`https://plc.directory`), `JETSTREAM_URL` (`ws://127.0.0.1:<port>`),
   `MAILDEV_URL`, `LEX_AUTHORITY_DID`, `LEX_AUTHORITY_HANDLE`, `SG_PROJECT`, `SG_DOMAIN`,
   `PAGE_URL` (`https://local.snowglobe.at/`), `PROXY_PAC_URL` (`http://127.0.0.1:<port>/proxy.pac`) and
   `SG_CA_FILE`.
-  An app can source it: `set -a; . <devnet>/data/devnet.env; set +a`.
-- `data/accounts.env` (mode 600): logins. `SG_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
+  An app can source it: `set -a; . <state>/devnet.env; set +a`.
+- `<state>/accounts.env` (mode 600): logins. `SG_INVITE_CODE`, `ALICE_*` and `BOB_*` from init,
   `LEX_AUTHORITY_*`, and whatever the [tools for an app](your-app.md#tools-for-an-app) add.
-- `data/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's and
+- `<state>/globe/`: the rendered globe, nothing secret. `compose.yml`, `nginx/` (each PDS's and
   group host's server and the page's relays to it), `leaf-names` and `globe.env` (the facts the scripts read).
   `snowglobe up` writes it again on every run; `bin/snowglobe.mjs render` writes it alone.
-- `data/https/`: `ca.crt` and `ca.key` (the CA), `leaf.crt` and `leaf.key` (what nginx serves),
+- `<state>/https/`: `leaf.crt` and `leaf.key` (what nginx serves),
   `names` (the handles `snowglobe run` maps), `apps` and `nginx/` (the app routes and the page's
   `globe.json`), and `hosts` (the
   hosts file `snowglobe run` last generated).
+- `<state root>/ca/`: `ca.crt` and `ca.key`, your CA, one for all your snowglobes ([The CA](browser.md#the-ca)).
