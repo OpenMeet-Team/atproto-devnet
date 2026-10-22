@@ -42,12 +42,19 @@ const COMMANDS = {
 };
 
 const [name, ...args] = process.argv.slice(2);
-const mod = Object.hasOwn(COMMANDS, name ?? '') ? await COMMANDS[name]() : null;
+const helped = ['--help', '-h', 'help'].includes(name ?? '');
+const mod = !helped && Object.hasOwn(COMMANDS, name ?? '') ? await COMMANDS[name]() : null;
 // A command that takes any words reads them itself.
 const parsed = mod && (mod.command.parse ? mod.command.parse(args) : readArgs(mod.command, args));
 if (!parsed) {
-  const lines = await Promise.all(Object.values(COMMANDS).map(async (load) => `bin/snowglobe.mjs ${(await load()).command.usage}`));
-  console.error(`Usage: ${lines.join('\n       ')}`);
+  const lines = await Promise.all(Object.values(COMMANDS).map(async (load) => `snowglobe ${(await load()).command.usage}`));
+  const usage = `Usage: ${lines.join('\n       ')}`;
+  // --help asked for it, so it is the answer; anything else is a mistake.
+  if (helped) {
+    console.log(usage);
+    process.exit(0);
+  }
+  console.error(usage);
   process.exit(2);
 }
 // DEVNET_* and SNOWGLOBE_* settings, the old names, become SG_* before any command reads them.
