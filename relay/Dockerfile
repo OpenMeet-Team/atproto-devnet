@@ -4,7 +4,7 @@
 # setting to turn either off: the host check (an SSRF-safe transport) and the
 # firehose dialer for wss:// hosts (an SSRF-safe dialer). Its admin requestCrawl
 # accepts localhost:<port>, but the host check then fails, so a stock relay image can
-# never crawl a devnet PDS; and a PDS at an https name behind a local TLS proxy
+# never crawl a snowglobe PDS; and a PDS at an https name behind a local TLS proxy
 # resolves to a private address, which the dialer refuses. The patch makes both honor
 # RELAY_ALLOW_PRIVATE_HOSTS=true (host_checker.go and slurper.go); nothing else changes.
 #

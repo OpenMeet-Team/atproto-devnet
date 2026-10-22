@@ -42,7 +42,7 @@ adoptOldNames({ root, env: given });
 for (const k of Object.keys(given)) if (/^(DEVNET|SNOWGLOBE)_/.test(k)) delete given[k];
 const env = {
   ...given,
-  // The state of the copy's snowglobe (the default one, devnet) and its CA, in the copy.
+  // The state of the copy's snowglobe (the default one) and its CA, in the copy.
   XDG_DATA_HOME: join(root, 'state'),
   SG_PROJECT: PROJECT,
   SG_PLC_PORT: '2593',
@@ -120,7 +120,7 @@ try {
     throw new Error('up failed');
   }
 
-  step('no devnet.env', !existsSync(join(root, 'state/snowglobe/devnet/devnet.env')));
+  step('no devnet.env', !existsSync(join(root, 'state/snowglobe/snowglobe/devnet.env')));
   r = sg(['env']);
   step(
     'env: settings, no password',
@@ -141,7 +141,7 @@ try {
   step('account rerun finds it', r.status === 0 && /^Found /m.test(r.stderr), why(r));
 
   r = sg(['invite', 'SMOKE_INVITE']);
-  const accounts = readFileSync(join(root, 'state/snowglobe/devnet/accounts.env'), 'utf8');
+  const accounts = readFileSync(join(root, 'state/snowglobe/snowglobe/accounts.env'), 'utf8');
   step('invite', r.status === 0 && /^SMOKE_INVITE=./m.test(accounts), why(r));
 
   const lex = join(root, 'smoke-lexicons');

@@ -1,4 +1,4 @@
-// A way into the https devnet for a browser on another computer, with no launch flags and no
+// A way into the https snowglobe for a browser on another computer, with no launch flags and no
 // hosts file: a proxy and the PAC file that points a browser at it, on one port. The browser asks the
 // PAC which names go through the proxy; for those it hands the proxy the name itself, and the proxy
 // connects every one of them to nginx. So every handle works the moment its account exists, and
@@ -7,12 +7,12 @@
 // The PAC names an HTTP proxy (CONNECT), the kind every PAC reader understands, Windows' own
 // included. SOCKS5 is answered on the same port too, for a client set to it directly.
 //
-// The proxy reaches nginx and nothing else: a name outside the devnet, an IP address, a port other
+// The proxy reaches nginx and nothing else: a name outside the snowglobe, an IP address, a port other
 // than 443, or anything but a CONNECT is refused. On the one port:
 //
-//   GET /proxy.pac           the devnet's names: <domain>, *.<domain>
-//   GET /proxy-with-plc.pac  the same plus plc.directory, for a browser used only for the devnet:
-//                            plc.directory then means this devnet's PLC for every page in it
+//   GET /proxy.pac           the snowglobe's names: <domain>, *.<domain>
+//   GET /proxy-with-plc.pac  the same plus plc.directory, for a browser used only for the snowglobe:
+//                            plc.directory then means this snowglobe's PLC for every page in it
 //   GET /_health             200, for the container's healthcheck (not logged)
 //   CONNECT <name>:443       an HTTP proxy tunnel
 //   anything starting 0x05   SOCKS5
@@ -20,7 +20,7 @@
 // The PAC names the proxy by the Host its request came in on, so it is right whatever port the
 // browser's machine forwards. Settings:
 //
-//   PROXY_DOMAIN    the devnet's domain (SG_DOMAIN)
+//   PROXY_DOMAIN    the snowglobe's domain (SG_DOMAIN)
 //   PROXY_UPSTREAM  host:port every allowed name goes to (default nginx:443)
 //   PROXY_BIND      host:port to listen on (default 0.0.0.0:1080)
 import http from 'node:http'
@@ -38,11 +38,11 @@ export function allowed(name, port, domain = DOMAIN) {
   return n === domain || n.endsWith(`.${domain}`) || n === 'plc.directory'
 }
 
-/** The PAC file: the devnet's names go to the proxy at `proxy` (host:port), the rest direct. */
+/** The PAC file: the snowglobe's names go to the proxy at `proxy` (host:port), the rest direct. */
 export function pac(proxy, domain = DOMAIN, withPlc = false) {
   const names = [`host == ${JSON.stringify(domain)}`, `dnsDomainIs(host, ${JSON.stringify(`.${domain}`)})`]
   if (withPlc) names.push('host == "plc.directory"')
-  return `// The https devnet at ${domain}: its names through its proxy, which resolves them; the rest direct.
+  return `// The https snowglobe at ${domain}: its names through its proxy, which resolves them; the rest direct.
 function FindProxyForURL(url, host) {
   host = host.toLowerCase();
   if (${names.join(' ||\n      ')}) {

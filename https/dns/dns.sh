@@ -1,5 +1,5 @@
 #!/bin/sh
-# dnsmasq for the https devnet. Every name under $SG_DOMAIN answers nginx's address
+# dnsmasq for the https snowglobe. Every name under $SG_DOMAIN answers nginx's address
 # (A only; other record types get no answer, and nothing under the domain is asked of any
 # other server). It is the container's `dns:` server, which Docker's embedded DNS asks for
 # any name it does not know itself, so service names keep working and nothing else is

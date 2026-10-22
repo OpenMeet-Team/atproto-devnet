@@ -19,7 +19,7 @@ import { loadBase, renderGlobe } from '../lib/render.mjs';
 const ROOT = join(__dirname, '..');
 const base = loadBase(ROOT);
 // Where the fixtures say a snowglobe's state is, the same on every machine.
-const STATE = '/state/snowglobe/devnet';
+const STATE = '/state/snowglobe/snowglobe';
 const APPS = 'atmo 5173 ev\nprobe 5480\n';
 const GLOBES = { default: join(ROOT, 'snowglobe.default.yml'), four: join(ROOT, 'test/snowglobe/four.yml') };
 
@@ -109,7 +109,7 @@ describe('snowglobe app', () => {
     expect(res.status, res.stderr).toBe(0);
     expect(res.stderr).toContain('loads the route when snowglobe up starts');
     expect(appsFile(r)).toBe('probe 5480\n');
-    expect(readFileSync(st(r, 'https/nginx/apps.map'), 'utf8')).toContain('probe.app.four.test devnet_app_probe;');
+    expect(readFileSync(st(r, 'https/nginx/apps.map'), 'utf8')).toContain('probe.app.four.test snowglobe_app_probe;');
     expect(page(r).apps.map((a: { name: string }) => a.name)).toEqual(['pdsls', 'probe']);
     expect(page(r).services.filter((s: string[]) => s[0] === 'PDS')).toHaveLength(4);
   });

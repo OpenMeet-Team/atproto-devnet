@@ -1,4 +1,4 @@
-# nginx for the https devnet (the globe's compose.yml, bin/snowglobe.mjs render). One leaf
+# nginx for the https snowglobe (the globe's compose.yml, bin/snowglobe.mjs render). One leaf
 # certificate names every host below; data/https/ca.crt is the CA that signed it (bin/snowglobe.mjs certs).
 # A template: at start the image writes it to conf.d/default.conf with the SG_DOMAIN
 # setting filled in, so this is the http block's whole server list. The comments below
@@ -55,14 +55,14 @@ server {
 }
 
 # The network's own page at the bare name, as a globe serves it at <globe>.snowglobe.at: the same
-# page/index.html, with this stack's relays (page/devnet.conf) and a globe.json naming its
+# page/index.html, with this stack's relays (page/snowglobe.conf) and a globe.json naming its
 # services, which bin/snowglobe.mjs up and snowglobe app write.
 server {
     listen 443 ssl;
     server_name ${SG_DOMAIN};
     server_tokens off;
     root /srv/page;
-    include /etc/nginx/page/devnet.conf;
+    include /etc/nginx/page/snowglobe.conf;
 }
 
 # This stack's PLC, standing in for the real directory.
@@ -77,28 +77,28 @@ server {
 
 # Apps on this machine: https://<name>.app.${SG_DOMAIN} goes to the port that
 # bin/snowglobe.mjs app recorded for <name> (data/https/apps). It writes, into
-# data/https/nginx/ (mounted at /etc/nginx/devnet/), one upstream per app, naming
+# data/https/nginx/ (mounted at /etc/nginx/snowglobe/), one upstream per app, naming
 # host.docker.internal, and one map line per name. An upstream's name is resolved
 # once, when nginx loads it, through the container's hosts file (extra_hosts), which
 # Docker's DNS does not serve. Neither file has to exist. An app that claimed a handle
 # ending (bin/snowglobe.mjs app <name> <port> <ending>) also gets a server there for
 # *.<ending>.local.snowglobe.at, which wins over a PDS's *.local.snowglobe.at as the
 # longer wildcard.
-include /etc/nginx/devnet/*.conf;
+include /etc/nginx/snowglobe/*.conf;
 
-map $host $devnet_app {
+map $host $snowglobe_app {
     default "";
-    include /etc/nginx/devnet/*.map;
+    include /etc/nginx/snowglobe/*.map;
 }
 
 # A name no app registered gets a 404 from nginx itself and reaches nothing.
 server {
     listen 443 ssl;
     server_name *.app.${SG_DOMAIN};
-    if ($devnet_app = "") {
+    if ($snowglobe_app = "") {
         return 404 "No app is registered at $host (bin/snowglobe.mjs app).\n";
     }
     location / {
-        proxy_pass http://$devnet_app;
+        proxy_pass http://$snowglobe_app;
     }
 }
