@@ -18,15 +18,24 @@ says more about the project.
 One file, `snowglobe.yml`, says what a snowglobe runs. [`snowglobe.default.yml`](snowglobe.default.yml)
 is the one to start from. It gives you:
 
-- one current PDS, at `https://main.local.snowglobe.at`, with two test accounts, `alice` and `bob`;
-- a PLC directory, which also answers as `plc.directory` for your app;
-- Jetstream, for the stream of writes;
-- Slingshot, for handle and DID lookups inside the network;
+- one current PDS (personal data server, where an account's records live and where it signs in), at
+  `https://main.local.snowglobe.at`, with two test accounts, `alice` and `bob`;
+- a PLC directory, the phone book that says which PDS holds each `did:plc` account; it also answers as
+  `plc.directory` for your app;
+- Jetstream, a simple stream of every write on the network, for apps that follow it;
+- Slingshot, which looks up a handle's DID and PDS inside the network;
 - PDSls, to browse the network's records;
 - the network's own page, with its services, accounts and live activity.
 
-The file also holds commented examples for adding more, up to a full setup: more PDSes (a relay turns
-on by itself), the permissioned-spaces alpha, a lexicon authority, Tap, a group host, and your own app.
+The file also holds commented examples for adding more, up to a full setup:
+- more PDSes. With more than one, a relay turns on by itself: it merges every PDS's writes into one
+  stream, which Jetstream then follows;
+- the permissioned-spaces alpha, a PDS build with shared spaces;
+- a lexicon authority, the one account every PDS reads record type definitions (lexicons) from;
+- Tap, which follows the stream and fetches whole repos for an app that keeps its own copy of the data;
+- a group host, a server that runs groups as accounts of their own, each with a handle under the host's name;
+- your own app.
+
 [`docs/examples/atmo.yml`](docs/examples/atmo.yml) is a larger file, with three PDSes, a relay and a
 lexicon authority, that [Example: atmo](docs/examples/atmo.md) builds on.
 
