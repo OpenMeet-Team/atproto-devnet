@@ -26,12 +26,12 @@ jobs:
 
   snowglobe:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
@@ -55,3 +55,17 @@ jobs:
             echo "=== $(docker inspect -f '{{.Name}} {{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' $c)"
             docker logs --tail 30 $c 2>&1 | cut -c1-300
           done
+
+  # GitHub's macOS runners have no Docker, so this is the tests and the type check only, not the smoke.
+  snowglobe-mac:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run test/snowglobe
