@@ -174,8 +174,9 @@ The commands, each `snowglobe <command>`:
 | `render [<file>] [--out <dir>] [--domain <domain>]` | writes the snowglobe it describes into `<state>/globe/`, or `<dir>` (`up` does this itself); `--domain` replaces the file's domain, for a copy beside another snowglobe |
 | `certs [--check]` | makes your CA, once, and the leaf nginx serves (`up` does this itself) |
 | `trust [--remove] [--dry-run] [--no-sudo]` | puts your CA in the system and browser trust stores, or takes it out ([From a browser on your own computer](browser.md)) |
-| `up [<file> \| --default]` | brings the snowglobe up and seeds it ([Up and down](#up-and-down)) |
-| `down [-v]` | stops it; `-v` drops its volumes too |
+| `ls` | lists the snowglobes on this machine: name, domain, up or down, and the file that owns each |
+| `up [<file> \| <name>] [-f <file>] [--default]` | brings the snowglobe up and seeds it ([Up and down](#up-and-down)) |
+| `down [<file> \| <name>] [-f <file>] [-v]` | stops it; `-v` drops its volumes too |
 | `env [--app <name>] [--secrets] [--dotenv]` | prints the settings an app is handed ([An app's settings](your-app.md#snowglobe-env-know-where-things-are)) |
 | `run [--app <name>] [--] <cmd>` | runs a command that reaches the snowglobe at the real network's names (Linux) |
 | `account`, `invite`, `lexicons`, `app` | make an app's own accounts, invite codes, lexicons and routes ([Tools for an app](your-app.md#tools-for-an-app)) |
@@ -198,6 +199,12 @@ and WSL (under `XDG_DATA_HOME` if you set it), `%LOCALAPPDATA%\snowglobe` on Win
 snowglobes' folders is `ca/`, your one certificate authority, which they all use. The name also
 names the Docker Compose project, unless `SG_PROJECT` is set. A state folder remembers the file that
 owns it, and `up` refuses a second file that says the same `globe:`: give one of them another name.
+`snowglobe ls` lists them, and `up` and `down` take one by its name from any folder; `down` works
+even when the file that owned the snowglobe is gone, `up` needs a file (`up -f <file>`).
+The name is the file's `globe:` line, so `up <name>` finds the file that owns it. If you have since
+changed that line, `up <name>` stops before it starts anything and says what the file calls itself
+now: put the old name back to bring the old snowglobe up, or run `snowglobe up <file>` to start the
+renamed one as a new snowglobe.
 
 Docker keeps each snowglobe's data (the PDS, the PLC directory) in volumes named after the project,
 and `snowglobe down` leaves them, so the next `up` finds the same accounts. If the volumes outlive
@@ -218,9 +225,24 @@ snowglobe down           # stop it; -v also drops its volumes (every account and
 Both run the one compose file `snowglobe up` last rendered, from the repo root:
 
 ```bash
-snowglobe up ../myapp/snowglobe.yml   # another snowglobe than the default
+snowglobe up ../myapp/snowglobe.yml   # another snowglobe than the default (or -f ../myapp/snowglobe.yml)
+snowglobe down -f ../myapp/snowglobe.yml   # -f works the same on down
+snowglobe ls                          # every snowglobe on this machine, and which are running
+snowglobe up myapp                    # one of them by its name, from any folder
+snowglobe down myapp                  # and stop it the same way
 docker compose -p <project> --project-directory . -f <state>/globe/compose.yml ps
 ```
+
+`-f <file>` and a file's path name the same thing: the `snowglobe.yml` to act on, from any folder. Use
+`-f` when you want it to read plainly in a script, and when the snowglobe's file has moved: `up` by
+name needs the file that owns it, and `up -f <new path>` hands the snowglobe to the file at its new
+place. With neither, `up` and `down` read the nearest `snowglobe.yml` in the folder you are in or
+above. Give one or the other, not both.
+
+`snowglobe down -v` drops the snowglobe's volumes, and with them the fixed secrets (`secrets.env`)
+an older snowglobe kept for its data, so the next `up` starts over with random ones. A plain `down`
+keeps both, and so does a `down -v` that fails. If Docker cannot say whether a snowglobe has data,
+`up` stops before it saves any secret; start Docker and run it again.
 
 `snowglobe up` is safe to rerun; a rerun leaves the running services as they are, and only the
 one-shot `init` and `relay-init` run again. A rerun on a changed file stops what the file no longer

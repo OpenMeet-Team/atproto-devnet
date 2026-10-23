@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}
-      POSTGRES_PASSWORD: ${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}
+      POSTGRES_PASSWORD: ${SG_DB_PASSWORD:?snowglobe up makes it}
       POSTGRES_DB: ${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
     ports:
       - "${SG_POSTGRES_PORT:-${DEVNET_POSTGRES_PORT:-5433}}:5432"

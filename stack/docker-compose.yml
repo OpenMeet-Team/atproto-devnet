@@ -25,11 +25,11 @@ services:
     environment:
       PORT: 2582
       DEVNET_DB_USER: ${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}
-      DEVNET_DB_PASSWORD: ${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}
+      DEVNET_DB_PASSWORD: ${SG_DB_PASSWORD:?snowglobe up makes it}
       DEVNET_DB_HOST: ${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}
       DEVNET_DB_PORT: ${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}
       DEVNET_DB_NAME: ${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}
-      DATABASE_URL: "postgres://${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}:${SG_DB_PASSWORD:-${DEVNET_DB_PASSWORD:-postgres}}@${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}:${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}/${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}"
+      DATABASE_URL: "postgres://${SG_DB_USER:-${DEVNET_DB_USER:-postgres}}:${SG_DB_PASSWORD:?snowglobe up makes it}@${SG_DB_HOST:-${DEVNET_DB_HOST:-postgres}}:${SG_DB_PORT:-${DEVNET_DB_PORT:-5432}}/${SG_DB_NAME:-${DEVNET_DB_NAME:-plc}}"
       ENABLE_MIGRATIONS: "true"
       LOG_ENABLED: "true"
       LOG_LEVEL: info
@@ -78,8 +78,8 @@ services:
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "true"
       PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:?snowglobe up makes it}
-      PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
-      PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      PDS_JWT_SECRET: ${SG_PDS_JWT_SECRET:?snowglobe up makes it}
+      PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: ${SG_PLC_ROTATION_KEY:?snowglobe up makes it}
       PDS_EMAIL_SMTP_URL: ${SG_SMTP_URL:-${DEVNET_SMTP_URL:-smtp://maildev:1025}}
       PDS_EMAIL_FROM_ADDRESS: noreply@devnet.test
       PDS_HANDLE_DOMAINS: ${SG_HANDLE_DOMAIN:-${DEVNET_HANDLE_DOMAIN:-.devnet.test}}
