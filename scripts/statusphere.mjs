@@ -143,6 +143,12 @@ try {
   r = sg(['check']);
   must('check', r.status === 0, why(r));
   r = sg(['up']);
+  if (r.status !== 0) {
+    // The end of what up printed, less compose's progress lines: the line that names the failure.
+    const PROGRESS = /^\s*(Container|Network|Volume|Image) \S+ +(Waiting|Healthy|Starting|Started|Stopping|Stopped|Creating|Created|Running|Recreate|Recreated|Pulling|Pulled|Removing|Removed)\s*$/;
+    const tail = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').filter((l) => l.trim() && !PROGRESS.test(l)).slice(-15);
+    console.log(tail.map((l) => `       ${l}`).join('\n'));
+  }
   must('up', r.status === 0, why(r));
 
   const log = openSync(appLog, 'a');
