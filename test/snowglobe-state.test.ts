@@ -11,7 +11,9 @@ import { dirname, join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
 import { oldDataNotice, renamedDefaultNotice, stateRoot } from '../lib/env.mjs';
 // @ts-expect-error: a plain .mjs module, without types
-import { findFile } from '../lib/state.mjs';
+import { findFile, pointedAt } from '../lib/state.mjs';
+// @ts-expect-error: a plain .mjs module, without types
+import { list, stateWord } from '../lib/commands/ls.mjs';
 
 const ROOT = join(__dirname, '..');
 const FOUR = join(ROOT, 'test/snowglobe/four.yml');
@@ -283,5 +285,128 @@ describe('a snowglobe is found from the folder you are in', () => {
     expect(tree(join(r, 'data'))).toEqual(before);
     expect(dockerLog(r)).toBe('');
     expect(existsSync(join(r, '.local'))).toBe(false);
+  });
+});
+
+describe('ls', () => {
+  it('says so when there are no snowglobes, and asks Docker nothing', () => {
+    const r = box();
+    const res = sg(r, r, ['ls']);
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.stdout).toContain('No snowglobes');
+    expect(dockerLog(r)).not.toContain('up');
+  });
+
+  it('lists each snowglobe in the state root with its domain and its file, and "unknown" when Docker does not answer', () => {
+    const r = box();
+    cpSync(FOUR, join(r, 'snowglobe.yml'));
+    expect(sg(r, r, ['render']).status).toBe(0);
+    mkdirSync(join(r, '.local/share/snowglobe/ca'), { recursive: true });
+    const res = sg(r, r, ['ls']);
+    expect(res.status, res.stderr).toBe(0);
+    const rows = res.stdout.trimEnd().split('\n');
+    expect(rows[0].split(/\s+/)).toEqual(['NAME', 'DOMAIN', 'STATE', 'FILE']);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toMatch(/^four\s+\S+\s+unknown\s+/);
+    expect(rows[1]).toContain(join(r, 'snowglobe.yml'));
+  });
+
+  it('reads up, partly up and down off compose\'s status, and shows a file that is gone', () => {
+    const r = box();
+    const base = join(r, 'sg');
+    for (const n of ['a', 'b', 'c', 'd']) mkdirSync(join(base, 'snowglobe', n), { recursive: true });
+    mkdirSync(join(base, 'snowglobe/ca'));
+    writeFileSync(join(base, 'snowglobe/d/owner'), '/no/such/snowglobe.yml\n');
+    const statuses = new Map([
+      ['a', 'running(5)'],
+      ['b', 'running(2), exited(1)'],
+      ['c', 'exited(5)'],
+    ]);
+    const rows = list({ root: r, env: { XDG_DATA_HOME: base }, statuses });
+    expect(rows.map((x: { name: string; state: string }) => [x.name, x.state])).toEqual([
+      ['a', 'up'],
+      ['b', 'partly up'],
+      ['c', 'down'],
+      ['d', 'down'],
+    ]);
+    expect(rows[3].file).toBe('/no/such/snowglobe.yml (gone)');
+    expect(stateWord(undefined)).toBe('down');
+  });
+});
+
+describe('up and down by file or name', () => {
+  const rendered = () => {
+    const r = box();
+    mkdirSync(join(r, 'proj'));
+    cpSync(FOUR, join(r, 'proj/snowglobe.yml'));
+    expect(sg(r, join(r, 'proj'), ['render']).status).toBe(0);
+    return r;
+  };
+
+  it('takes a snowglobe by name from any folder', () => {
+    const r = rendered();
+    mkdirSync(join(r, 'elsewhere'));
+    const res = sg(r, join(r, 'elsewhere'), ['down', 'four']);
+    expect(res.stderr).not.toContain('no snowglobe.yml');
+    expect(dockerLog(r)).toMatch(/compose -p four .* down --remove-orphans/);
+  });
+
+  it('takes a file by -f, or by its path, from any folder', () => {
+    const r = rendered();
+    mkdirSync(join(r, 'elsewhere'));
+    for (const args of [['-f', join(r, 'proj/snowglobe.yml')], [join(r, 'proj/snowglobe.yml')]]) {
+      const res = sg(r, join(r, 'elsewhere'), ['down', ...args]);
+      expect(res.stderr, args.join(' ')).not.toContain('no snowglobe.yml');
+    }
+    expect(dockerLog(r).match(/-p four .* down /g)).toHaveLength(2);
+  });
+
+  it('stops a snowglobe by name even when its file is gone', () => {
+    const r = rendered();
+    spawnSync('rm', ['-r', join(r, 'proj')]);
+    sg(r, r, ['down', '-v', 'four']);
+    expect(dockerLog(r)).toMatch(/-p four .* down --remove-orphans -v/);
+  });
+
+  it('refuses up by name when its file is gone, and says how to give one', () => {
+    const r = rendered();
+    spawnSync('rm', ['-r', join(r, 'proj')]);
+    const before = dockerLog(r);
+    const res = sg(r, r, ['up', 'four']);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain('is gone');
+    expect(res.stderr).toContain('up -f <file>');
+    expect(dockerLog(r)).toBe(before);
+  });
+
+  it('refuses a name nobody has, and a file and a name together, before docker', () => {
+    const r = rendered();
+    const res = sg(r, r, ['down', 'nothing']);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain('snowglobe ls');
+    const both = sg(r, r, ['down', 'four', '-f', join(r, 'proj/snowglobe.yml')]);
+    expect(both.status).toBe(1);
+    expect(both.stderr).toContain('not both');
+    expect(dockerLog(r)).toBe('');
+  });
+
+  it('refuses --default with a file or -f', () => {
+    const r = rendered();
+    expect(sg(r, r, ['up', '--default', '-f', FOUR]).status).toBe(2);
+    expect(sg(r, r, ['up', '--default', FOUR]).status).toBe(2);
+  });
+});
+
+describe('pointedAt', () => {
+  it('is a file that exists before a name, a name when a state folder has it, else an error', () => {
+    const base = mkdtempSync(join(tmpdir(), 'snowglobe-point-'));
+    mkdirSync(join(base, 'snowglobe/mine'), { recursive: true });
+    const env = { XDG_DATA_HOME: base };
+    expect(pointedAt({ env })).toEqual({});
+    expect(pointedAt({ file: 'x.yml', env })).toEqual({ file: 'x.yml' });
+    expect(pointedAt({ word: FOUR, env })).toEqual({ file: FOUR });
+    expect(pointedAt({ word: 'mine', env })).toEqual({ name: 'mine' });
+    expect(() => pointedAt({ word: 'other', env })).toThrow(/snowglobe ls/);
+    expect(() => pointedAt({ word: '../mine', env })).toThrow(/is not a file/);
   });
 });

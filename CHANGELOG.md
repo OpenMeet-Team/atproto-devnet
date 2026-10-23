@@ -4,6 +4,11 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **`snowglobe ls` lists your snowglobes, and `up` and `down` can name one.** `ls` shows each
+  snowglobe's name, domain, whether it is running, and the file that owns it. `up` and `down` take a
+  file (`-f <file>`, or the path as before) or a snowglobe's name from `ls`, from any folder, so one
+  checkout can bring up and take down any snowglobe you run. `down <name>` also works when the
+  file is gone.
 - **The network page says its activity feed covers the last 24 hours.** It asked Jetstream for a week,
   but Jetstream keeps a day of events (`JETSTREAM_EVENT_TTL`, 24 hours by default), so older writes
   were never listed. The page now asks for a day and says so.
