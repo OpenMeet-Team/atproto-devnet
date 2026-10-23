@@ -21,6 +21,9 @@ const RENDERED = join(__dirname, 'snowglobe', 'rendered');
 // Where the fixtures say a snowglobe's state is, the same on every machine.
 const STATE = '/state/snowglobe/snowglobe';
 const base = loadBase(ROOT);
+// The CLI claims a globe's state folder by name, so the cases that run it keep that folder in their
+// own temp dir, not the user's ~/.local/share/snowglobe.
+const inDir = (dir: string, env: Record<string, string | undefined> = process.env) => ({ ...env, XDG_DATA_HOME: join(dir, 'xdg') });
 
 function render(doc: object) {
   const { globe, errors } = checkGlobe(doc);
@@ -198,7 +201,7 @@ describe('snowglobe render', () => {
 
   it('takes a domain from the command line in place of the file\'s', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
-    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'docs/examples/atmo.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'docs/examples/atmo.yml'), '--out', dir, '--domain', 'other.test'], { encoding: 'utf8', env: inDir(dir) });
     expect(r.status, r.stderr).toBe(0);
     expect(envOf(readFileSync(join(dir, 'globe.env'), 'utf8')).SG_DOMAIN).toBe('other.test');
     expect(readFileSync(join(dir, 'leaf-names'), 'utf8')).toContain('alpha.other.test');
@@ -207,7 +210,7 @@ describe('snowglobe render', () => {
   const docker = spawnSync('docker', ['compose', 'version']).status === 0;
   it.skipIf(!docker)('writes a compose file that docker compose reads', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
-    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'docs/examples/atmo.yml'), '--out', dir], { encoding: 'utf8' });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'docs/examples/atmo.yml'), '--out', dir], { encoding: 'utf8', env: inDir(dir) });
     expect(r.status, r.stderr).toBe(0);
     const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
     expect(c.status, c.stderr).toBe(0);
@@ -299,7 +302,7 @@ describe('snowglobe render: group hosts', () => {
     writeFileSync(join(dir, 'snowglobe.yml'), 'globe: mine\npds: [{name: alpha, image: spaces-alpha}]\ngrouphosts: [{name: gh, kind: opensocial}]\n');
     const env = { ...process.env };
     delete env.SG_OPENSOCIAL_BUILD;
-    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(dir, 'snowglobe.yml'), '--out', join(dir, 'out')], { encoding: 'utf8', env });
+    const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(dir, 'snowglobe.yml'), '--out', join(dir, 'out')], { encoding: 'utf8', env: inDir(dir, env) });
     expect(r.status).toBe(1);
     expect(r.stderr).toContain('SG_OPENSOCIAL_BUILD');
     expect(existsSync(join(dir, 'out'))).toBe(false);
@@ -311,7 +314,7 @@ describe('snowglobe render: group hosts', () => {
     writeFileSync(join(dir, 'snowglobe.yml'), 'globe: mine\npds: [{name: alpha, image: spaces-alpha}]\ngrouphosts: [{name: gh, kind: opensocial}, {name: gh2, kind: opensocial, image: "ghcr.io/example/grouphost:1"}]\n');
     const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(dir, 'snowglobe.yml'), '--out', join(dir, 'out')], {
       encoding: 'utf8',
-      env: { ...process.env, SG_OPENSOCIAL_BUILD: BUILD },
+      env: inDir(dir, { ...process.env, SG_OPENSOCIAL_BUILD: BUILD }),
     });
     expect(r.status, r.stderr).toBe(0);
     const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
