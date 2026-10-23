@@ -10,6 +10,12 @@ Changes to the default stack that existing setups will notice:
   checkout can bring up and take down any snowglobe you run. `down <name>` also works when the
   file is gone. `up <name>` stops, before starting anything, if the file's `globe:` line has been
   renamed since, and says what it is called now.
+- **`up` pulls Slingshot, PDSls and the relay instead of building them.** A first `up` built them
+  from source, about four minutes on one machine (Slingshot 137 s, the relay 78 s, PDSls 27 s).
+  They are published on each release tag to `ghcr.io/openmeet-team`, and `up` uses one only when
+  its label matches the files in your checkout, so an edited `stack/` folder or another
+  `SG_SLINGSHOT_COMMIT` is still built. `SG_PREBUILT=0` turns the pull off; `SG_IMAGE_REGISTRY`
+  moves it ([Configuration](docs/configuration.md)).
 - **The network page says its activity feed covers the last 24 hours.** It asked Jetstream for a week,
   but Jetstream keeps a day of events (`JETSTREAM_EVENT_TTL`, 24 hours by default), so older writes
   were never listed. The page now asks for a day and says so.
