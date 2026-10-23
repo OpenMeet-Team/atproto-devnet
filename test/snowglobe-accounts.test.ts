@@ -139,7 +139,7 @@ function sg(args: string[], env: Record<string, string> = {}): Promise<{ status:
   return new Promise((done) => {
     const p = spawn(join(bin, 'node'), [join(root, 'bin/snowglobe.mjs'), ...args], {
       cwd: root,
-      env: { PATH: bin, HOME: root, SG_BIND: BIND, ...env },
+      env: { PATH: bin, HOME: root, SG_BIND: BIND, SG_PDS_ADMIN_PASSWORD: 'snowglobe-admin-password', ...env },
     });
     let stdout = '';
     let stderr = '';

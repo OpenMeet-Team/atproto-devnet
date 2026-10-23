@@ -51,6 +51,8 @@ const env = {
   SG_MAILDEV_WEB_PORT: '1092',
   SG_MAILDEV_SMTP_PORT: '1037',
   SG_PROXY_PORT: '1093',
+  // account and invite send it to the PDSes, so the run names the one the PDSes start with.
+  SG_PDS_ADMIN_PASSWORD: given.SG_PDS_ADMIN_PASSWORD ?? 'snowglobe-admin-password',
   SG_BIND: setting('SG_BIND', { root, env: given }) || '127.0.0.3',
 };
 for (const k of ['SG_FILE', 'ACCOUNTS_FILE', 'SG_PUBLIC', 'SG_RESET_OK']) delete env[k];
