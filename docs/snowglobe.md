@@ -56,7 +56,7 @@ tools to make its own ([Your app in a snowglobe](your-app.md)), and using them i
 
 `https://local.snowglobe.at/` is the network's own page (`page/index.html`): every service and its
 health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
-from Jetstream, the last week's and then live. nginx serves it with this snowglobe's relays (`stack/page/snowglobe.conf`), a fixed GET-only path per read, so the page
+from Jetstream, the last 24 hours (Jetstream's default event TTL), then live. nginx serves it with this snowglobe's relays (`stack/page/snowglobe.conf`), a fixed GET-only path per read, so the page
 asks nothing but `local.snowglobe.at`. `snowglobe up` and `snowglobe app` write what it lists into
 `<state>/https/nginx/snowglobe.json`. Open it from a browser set up as in [From a browser on your own
 computer](browser.md#from-a-browser-on-your-own-computer), or read the facts it shows from a script: `snowglobe run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https://local.snowglobe.at/snowglobe.json`

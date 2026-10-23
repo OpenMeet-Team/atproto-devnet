@@ -4,6 +4,9 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **The network page says its activity feed covers the last 24 hours.** It asked Jetstream for a week,
+  but Jetstream keeps a day of events (`JETSTREAM_EVENT_TTL`, 24 hours by default), so older writes
+  were never listed. The page now asks for a day and says so.
 - **The compose files and the folders they build from are under `stack/`.** `docker-compose*.yml`,
   `pdsls/`, `relay/`, `slingshot/`, `https/`, `page/` and the init script moved there; they are
   the pieces `snowglobe up` renders, not files to run. Nothing in your state folder changes.
