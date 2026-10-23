@@ -15,6 +15,11 @@ import { parse } from 'yaml';
 import { checkGlobe, loadGlobe, withGroupHostSources } from '../lib/config.mjs';
 // @ts-expect-error: a plain .mjs module, without types
 import { contextHash, loadBase, renderGlobe } from '../lib/render.mjs';
+// @ts-expect-error: a plain .mjs module, without types
+import { SECRETS } from '../lib/env.mjs';
+
+// compose refuses to read the file without the secrets up makes.
+const SECRET_ENV = Object.fromEntries(Object.keys(SECRETS).map((n) => [n, 'x']));
 
 const ROOT = join(__dirname, '..');
 const RENDERED = join(__dirname, 'snowglobe', 'rendered');
@@ -212,7 +217,7 @@ describe('snowglobe render', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
     const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'docs/examples/atmo.yml'), '--out', dir], { encoding: 'utf8', env: inDir(dir) });
     expect(r.status, r.stderr).toBe(0);
-    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
+    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, ...SECRET_ENV } });
     expect(c.status, c.stderr).toBe(0);
   });
 });
@@ -317,7 +322,7 @@ describe('snowglobe render: group hosts', () => {
       env: inDir(dir, { ...process.env, SG_OPENSOCIAL_BUILD: BUILD }),
     });
     expect(r.status, r.stderr).toBe(0);
-    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
+    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, ...SECRET_ENV } });
     expect(c.status, c.stderr).toBe(0);
   });
 });

@@ -4,17 +4,31 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **`snowglobe ls` lists your snowglobes, and `up` and `down` can name one.** `ls` shows each
+  snowglobe's name, domain, whether it is running, and the file that owns it. `up` and `down` take a
+  file (`-f <file>`, or the path as before) or a snowglobe's name from `ls`, from any folder, so one
+  checkout can bring up and take down any snowglobe you run. `down <name>` also works when the
+  file is gone. `up <name>` stops, before starting anything, if the file's `globe:` line has been
+  renamed since, and says what it is called now.
 - **The network page says its activity feed covers the last 24 hours.** It asked Jetstream for a week,
   but Jetstream keeps a day of events (`JETSTREAM_EVENT_TTL`, 24 hours by default), so older writes
   were never listed. The page now asks for a day and says so.
 - **The compose files and the folders they build from are under `stack/`.** `docker-compose*.yml`,
   `pdsls/`, `relay/`, `slingshot/`, `https/`, `page/` and the init script moved there; they are
   the pieces `snowglobe up` renders, not files to run. Nothing in your state folder changes.
-- **Each snowglobe has its own random PDS admin password.** There is no default any more. The
-  first `up` makes one and keeps it in `admin.env` (mode 600) in the snowglobe's state folder, and
-  `account` and `invite` read it from there. `SG_PDS_ADMIN_PASSWORD`, if you set it, is used
-  instead. A snowglobe from before gets one at its next `up`, which recreates its PDSes with it
-  (unchecked: that compose recreates them for a changed password). `.env.example` now shows
+- **Each snowglobe has its own random secrets.** There are no defaults any more for the PDSes'
+  admin password, JWT secret and PLC rotation key, the relay's admin password, or the PLC
+  database's password. The first `up` makes them and keeps them in `secrets.env` (mode 600) in the
+  snowglobe's state folder, and `account` and `invite` read the admin password from there. A
+  setting of the same name (`SG_PDS_ADMIN_PASSWORD`, `SG_PDS_JWT_SECRET`, `SG_PLC_ROTATION_KEY`,
+  `SG_RELAY_ADMIN_PASSWORD`, `SG_DB_PASSWORD`) is used instead. A snowglobe that already has
+  data keeps the old fixed values of the last four, since its database and its DIDs were made with
+  them, and `up` says so; `snowglobe down -v` and `up` start it over with random ones (`down -v`
+  drops the fixed values from `secrets.env` once Docker has removed the volumes; if it fails, they
+  stay). If Docker cannot say whether the snowglobe has data, `up` stops and asks you to start
+  Docker and run it again, rather than choose the secrets blind. A snowglobe
+  whose admin password is already in `admin.env` (from the release before this one) keeps it:
+  `account` and `invite` read it from there, and `up` leaves it. `.env.example` now shows
   `local.snowglobe.at`, the default domain, not `devnet.test`.
 - **The default snowglobe is one PDS now.** `snowglobe.default.yml` runs one current PDS, `main`,
   with the PLC, Jetstream, Slingshot, PDSls and the accounts `alice` and `bob`, and holds commented

@@ -2,6 +2,7 @@
 // snowglobe: run the globe a snowglobe.yml describes.
 //
 //   check     checks a snowglobe.yml
+//   ls        lists the snowglobes on this machine
 //   render    writes the https globe it describes into its state folder
 //   certs     makes your CA, once, and the leaf nginx serves
 //   trust     puts your CA in the system and browser trust stores (--remove takes it out)
@@ -10,8 +11,8 @@
 //   invite    mints an invite code on one of its PDSes
 //   lexicons  publishes lexicons into its lexicon authority
 //   app       routes https://<name>.app.<domain> to a port on this machine
-//   up        brings the globe up, as the compose project named for its file
-//   down      stops it
+//   up        brings the globe up, as the compose project named for its file (or <name>, -f <file>)
+//   down      stops it (the same ways)
 //   run       runs a command with the app's settings, and plc.directory pointed at the snowglobe
 //
 // A snowglobe is the snowglobe.yml in the folder you are in or the nearest one above (else
@@ -30,6 +31,7 @@ import { Refused, UsageError, adoptOldNames } from '../lib/env.mjs';
 // Loaded when it runs, so check and render do without the certificate library.
 const COMMANDS = {
   check: () => import('../lib/commands/check.mjs'),
+  ls: () => import('../lib/commands/ls.mjs'),
   render: () => import('../lib/commands/render.mjs'),
   certs: () => import('../lib/commands/certs.mjs'),
   trust: () => import('../lib/commands/trust.mjs'),
