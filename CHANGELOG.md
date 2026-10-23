@@ -4,6 +4,12 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **A second snowglobe on the same machine starts with no settings.** Every port a snowglobe publishes
+  (nginx, the proxy, the PLC, Jetstream, MailDev) is on its own loopback address now, not always
+  `127.0.0.1`, so two snowglobes no longer fight over MailDev's port. The first `up` picks the address
+  (`127.0.0.1` if nothing answers there, else the next `127.0.0.N`) and keeps it in the `bind` file in the
+  snowglobe's state folder. `SG_BIND` still sets it by hand. A snowglobe that is running from before keeps `127.0.0.1`.
+  `snowglobe env` reports MailDev's page at the snowglobe's own address.
 - **`snowglobe ls` lists your snowglobes, and `up` and `down` can name one.** `ls` shows each
   snowglobe's name, domain, whether it is running, and the file that owns it. `up` and `down` take a
   file (`-f <file>`, or the path as before) or a snowglobe's name from `ls`, from any folder, so one
