@@ -4,6 +4,11 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **A first `up` with one PDS and no relay no longer fails on a slow machine.** The default file is
+  one. `up` recreates the PDSes once the lexicon authority exists, and Jetstream, which reads the PDS
+  itself when there is no relay, could still be restarting when compose checked it ("jetstream is
+  unhealthy"). It is now stopped first and started again once the PDS is healthy. CI runs the
+  [Statusphere example](docs/examples/statusphere.md)'s whole flow, which found it.
 - **A second snowglobe on the same machine starts with no settings.** Every port a snowglobe publishes
   (nginx, the proxy, the PLC, Jetstream, MailDev) is on its own loopback address now, not always
   `127.0.0.1`, so two snowglobes no longer fight over MailDev's port. The first `up` picks the address
