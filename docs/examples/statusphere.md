@@ -1,10 +1,10 @@
-# Statusphere (run by hand, not yet in CI)
+# Statusphere
 
-> **Run by hand in a headless browser, not yet by CI.** The whole flow worked on 2026-10-23: sign in
-> through the PDS's consent page, pick an emoji, see it in the feed with alice's handle, and see a
-> status bob wrote outside the app arrive through Tap. It has not been run in a browser on your own
-> machine through the proxy, and nothing runs it on a change to the snowglobe
-> (see [What is left](#what-is-left)).
+> **CI runs the whole flow on every change** ([`scripts/statusphere.mjs`](../../scripts/statusphere.mjs)):
+> sign in as alice through her PDS's sign-in and consent pages, pick an emoji, see the record on her
+> PDS and in the feed, and see a status bob wrote outside the app arrive through Tap. It runs in
+> headless Chromium on the machine that runs Docker; it has not been run in a browser on your own
+> machine through the proxy (see [What is left](#what-is-left)).
 
 [Statusphere](https://github.com/bluesky-social/statusphere-example-app) is the atproto example app:
 sign in with a handle, pick an emoji, and the app writes an `xyz.statusphere.status` record to your
@@ -13,7 +13,8 @@ the app. The rest is the snowglobe's own tools.
 
 ## The snowglobe
 
-Start from [`snowglobe.default.yml`](../../snowglobe.default.yml) and add the app:
+Start from [`snowglobe.default.yml`](../../snowglobe.default.yml) and add the app
+([`statusphere.yml`](statusphere.yml) is the whole file):
 
 ```yaml
 services:
@@ -39,7 +40,8 @@ that names an app the file does not have.
 
 ## Two changes to the app
 
-Run `snowglobe up`, then in a clone of the app:
+Run `snowglobe up`, then in a clone of the app (the same changes as a patch:
+[`statusphere.patch`](statusphere.patch), for `git apply`):
 
 ```diff
 --- a/lib/auth/client.ts
@@ -116,5 +118,4 @@ whole repo and the app receives its events. This happens with a Tap you start fr
 - **Your own browser.** The sign-in and the click ran in headless Chromium on the machine that runs
   Docker, with certificate errors ignored and the snowglobe's names mapped to its loopback address.
   They have not been run in a browser on your own machine through the [proxy](../browser.md).
-- **CI.** Nothing runs this page's flow on a change to the snowglobe yet.
 - **The key.** The app's `pnpm gen-key` still fails on its locked dependencies, hence the Node command above.

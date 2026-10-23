@@ -1,0 +1,27 @@
+# The Statusphere example (docs/examples/statusphere.md): the default snowglobe, Tap sending the app
+# its statuses, and the app. scripts/statusphere.mjs runs the whole flow against this file in CI.
+
+globe: statusphere
+domain: local.snowglobe.at
+
+pds:
+  - name: main
+    image: ghcr.io/bluesky-social/pds:0.4.5037
+    bare_handles: true
+
+services:
+  tap:
+    webhook: ${apps.statusphere.url}/api/webhook
+    signal_collection: xyz.statusphere.status
+
+accounts:
+  - alice@main
+  - bob@main
+
+apps:
+  - name: statusphere
+    local: { port: 3000 }          # where `pnpm dev` listens; Next picks 3001 if 3000 is busy
+    env:
+      PUBLIC_URL: ${apps.statusphere.url}
+      HANDLE_RESOLVER_URL: ${pds.main.url}
+      TAP_URL: ${services.tap.url}
