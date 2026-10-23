@@ -11,11 +11,11 @@ the snowglobe checkout. Every setting has a default.
 | `SG_FILE` | none | The `snowglobe.yml` a command reads when no file is named. Without it, the nearest `snowglobe.yml` in the folder you run from or above ([Which snowglobe](snowglobe.md#which-snowglobe-and-where-it-lives)) |
 | `XDG_DATA_HOME` | unset | Where snowglobes keep their state, in `snowglobe/` under it. Without it, `~/.local/share/snowglobe` (`%LOCALAPPDATA%\snowglobe` on Windows) |
 | `SG_DOMAIN` | `local.snowglobe.at` | The domain every name in the snowglobe sits under, in place of the file's `domain` ([The snowglobe](snowglobe.md)) |
-| `SG_BIND` | `127.0.0.1` | The loopback address nginx listens on, port 443. A second snowglobe on the same machine takes another, such as `127.0.0.2` |
-| `SG_PLC_PORT` | `2582` | The PLC, on `127.0.0.1` |
-| `SG_JETSTREAM_PORT` / `SG_JETSTREAM_METRICS_PORT` | `6008` / `6009` | Jetstream and its metrics, on `127.0.0.1` |
-| `SG_MAILDEV_WEB_PORT` / `SG_MAILDEV_SMTP_PORT` | `1081` / `1026` | MailDev, on `127.0.0.1` |
-| `SG_PROXY_PORT` | `1080` | The browser proxy and its PAC file, on `127.0.0.1` ([From a browser on your own computer](browser.md)) |
+| `SG_BIND` | chosen by `up` | The loopback address nginx (443) and every port below are published on. `up` picks one for each snowglobe the first time (`127.0.0.1` if free, else the next `127.0.0.N` nothing answers on) and keeps it in the `bind` file in the snowglobe's state folder; set `SG_BIND` to choose it yourself |
+| `SG_PLC_PORT` | `2582` | The PLC, on the snowglobe's address |
+| `SG_JETSTREAM_PORT` / `SG_JETSTREAM_METRICS_PORT` | `6008` / `6009` | Jetstream and its metrics, on the snowglobe's address |
+| `SG_MAILDEV_WEB_PORT` / `SG_MAILDEV_SMTP_PORT` | `1081` / `1026` | MailDev, on the snowglobe's address |
+| `SG_PROXY_PORT` | `1080` | The browser proxy and its PAC file, on the snowglobe's address ([From a browser on your own computer](browser.md)) |
 | `SG_OPENSOCIAL_BUILD` | none | A checkout of atproto-group-host, for a group host the file lists with no `build` or `image` |
 | `SG_PDS_ADMIN_PASSWORD`, `SG_PDS_JWT_SECRET`, `SG_PLC_ROTATION_KEY`, `SG_RELAY_ADMIN_PASSWORD`, `SG_DB_PASSWORD` | random, made by `up` | The secrets the services start with: the PDSes' admin password, JWT secret and PLC rotation key, the relay's admin password, and the PLC database's password. Unset, `up` makes each one and keeps it in `secrets.env` (mode 600) in the snowglobe's state folder, where `account` and `invite` read the admin password; set, the value is used instead and not written. A snowglobe whose data was made before they were random keeps the old fixed JWT secret, rotation key, relay and database passwords (a database keeps the password it first started with, and a DID names the key that made it), and `up` says so once; `snowglobe down -v` and `up` start it over with random ones (`down -v` drops the fixed values from `secrets.env` only after Docker has removed the volumes). If Docker cannot say whether there is data, `up` stops and asks you to run it again once Docker answers |
 | `SG_RELAY_INDIGO_COMMIT` | `b2619d8...` | The indigo commit the relay image is built from ([The relay, built locally](how-it-works.md#the-relay-built-locally)) |
@@ -24,8 +24,10 @@ the snowglobe checkout. Every setting has a default.
 | `SG_IMAGE_REGISTRY` | `ghcr.io/openmeet-team` | Where `up` looks for those published images; empty skips the pull. An image is used only when its label matches the files in your checkout, so an edited `stack/` folder is built |
 | `SG_RESET_OK` | unset | `1` lets `up` and `down` act on the shared project `devnet-spaces` |
 
-To run a second snowglobe beside another, give it a file with its own `globe:` name, and its own `SG_BIND` and ports, and pass
-the same values on every run.
+To run a second snowglobe beside another, give it a file with its own `globe:` name and run `snowglobe up`. It takes its own
+address, so the ports above do not clash and nothing needs setting. (On macOS only `127.0.0.1` exists until you add
+more, for example `sudo ifconfig lo0 alias 127.0.0.2`.) A name in a browser still goes to `127.0.0.1` through public DNS, so a
+second snowglobe's pages need the [proxy](browser.md) or `snowglobe run`.
 
 ## Variables the tools read
 

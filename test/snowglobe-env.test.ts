@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { adoptOldNames, envCompose, envGet, envPut, makePrivate, resolveBind, resolveDomain } from '../lib/env.mjs';
+import { adoptOldNames, chooseBind, envCompose, envGet, envPut, makePrivate, resolveBind, resolveDomain } from '../lib/env.mjs';
 
 // A snowglobe's state folder is not in the checkout.
 const state = (r: string) => join(r, 'state', 'g');
@@ -158,5 +158,57 @@ describe('env files with logins', () => {
     expect(statSync(f).mode & 0o777).toBe(0o600);
     expect(readFileSync(f, 'utf8')).toBe('{}\n');
     expect(() => makePrivate(join(r, 'missing'))).not.toThrow();
+  });
+});
+
+describe('chooseBind', () => {
+  // A user's snowglobes sit side by side: <top>/<name>/, each with its own bind file.
+  const top = () => mkdtempSync(join(tmpdir(), 'snowglobe-bind-'));
+  const globe = (t: string, name: string, bind?: string) => {
+    const d = join(t, name);
+    mkdirSync(d, { recursive: true });
+    if (bind) writeFileSync(join(d, 'bind'), `${bind}\n`);
+    return d;
+  };
+  const none = async () => false;
+  const mine = (t: string, name: string, extra = {}) => ({ root: root(), state: globe(t, name), project: name, env: {}, listening: none, ownUp: () => false, ...extra });
+
+  it('gives a first snowglobe 127.0.0.1 and keeps it', async () => {
+    const t = top();
+    const o = mine(t, 'one');
+    expect(await chooseBind(o)).toBe('127.0.0.1');
+    expect(readFileSync(join(o.state, 'bind'), 'utf8')).toBe('127.0.0.1\n');
+    expect(resolveBind({ root: o.root, state: o.state, env: {} })).toBe('127.0.0.1');
+  });
+
+  it('gives a second snowglobe the next address no other one has kept', async () => {
+    const t = top();
+    globe(t, 'one', '127.0.0.1');
+    globe(t, 'three', '127.0.0.2');
+    expect(await chooseBind(mine(t, 'two'))).toBe('127.0.0.3');
+  });
+
+  it('skips an address something answers on, even one no snowglobe kept', async () => {
+    const t = top();
+    expect(await chooseBind(mine(t, 'two', { listening: async (a: string) => a === '127.0.0.1' }))).toBe('127.0.0.2');
+  });
+
+  it('keeps a running snowglobe from before on 127.0.0.1, though something answers there: it is itself', async () => {
+    const t = top();
+    expect(await chooseBind(mine(t, 'old', { listening: async () => true, ownUp: () => true }))).toBe('127.0.0.1');
+  });
+
+  it('leaves a kept address alone, and writes nothing when SG_BIND is set', async () => {
+    const t = top();
+    const kept = mine(t, 'kept');
+    writeFileSync(join(kept.state, 'bind'), '127.0.0.7\n');
+    expect(await chooseBind(kept)).toBe('127.0.0.7');
+    const set = mine(t, 'set', { env: { SG_BIND: '127.0.0.9' } });
+    expect(await chooseBind(set)).toBe('127.0.0.9');
+    expect(() => readFileSync(join(set.state, 'bind'))).toThrow();
+  });
+
+  it('says so when no address from 127.0.0.1 to 127.0.0.50 is free', async () => {
+    await expect(chooseBind(mine(top(), 'x', { listening: async () => true }))).rejects.toThrow(/SG_BIND/);
   });
 });

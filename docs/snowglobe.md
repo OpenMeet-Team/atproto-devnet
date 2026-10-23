@@ -257,14 +257,14 @@ The base init still seeds `alice` and `bob` and a 100-use `SG_INVITE_CODE`
 into `<state>/accounts.env`, on the PDS with bare handles (else the first), as it does for the http
 stacks. Nothing else is seeded.
 
-Published ports, all on `127.0.0.1` only: 443 (nginx), the proxy (`SG_PROXY_PORT`, 1080), the PLC (`SG_PLC_PORT`), Jetstream
+Published ports, all on the snowglobe's own loopback address: 443 (nginx), the proxy (`SG_PROXY_PORT`, 1080), the PLC (`SG_PLC_PORT`), Jetstream
 (`SG_JETSTREAM_PORT`, `SG_JETSTREAM_METRICS_PORT`) and maildev (`SG_MAILDEV_WEB_PORT`,
-`SG_MAILDEV_SMTP_PORT`). Set those to run a second snowglobe beside another; pass the same
-values on every run. The PDS, relay, Tap and Postgres ports are not published: reach a PDS by its
-https name. nginx needs port 443 itself, so a second snowglobe also takes another loopback
-address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
-environment or `.env`; the scripts read it as compose does, and `snowglobe run` maps the names to it.
-The scripts refuse anything but a `127.x.y.z` address: the snowglobe's
+`SG_MAILDEV_SMTP_PORT`). The PDS, relay, Tap and Postgres ports are not published: reach a PDS by its
+https name. The first `up` of a snowglobe picks its address, `127.0.0.1` if nothing answers there, else the
+next `127.0.0.N` that no other snowglobe has kept and nothing answers on, and keeps it in the `bind` file in the
+snowglobe's state folder. That is why a second snowglobe starts beside the first with no settings. Set `SG_BIND`
+(in the environment or `.env`; the scripts read it as compose does) to choose the address yourself;
+`snowglobe run` maps the names to it. The scripts refuse anything but a `127.x.y.z` address: the snowglobe's
 logins are throwaway, so it is never published beyond this machine.
 
 `snowglobe down` runs `docker compose down` (with `-v` when given) and never deletes the state folder. The PLC's
