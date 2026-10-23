@@ -20,6 +20,8 @@ the snowglobe checkout. Every setting has a default.
 | `SG_PDS_ADMIN_PASSWORD` | random, made by `up` | Every PDS's admin password. Unset, `up` makes one and keeps it in `admin.env` (mode 600) in the snowglobe's state folder, where `account` and `invite` read it; set, it is used instead |
 | `SG_RELAY_INDIGO_COMMIT` | `b2619d8...` | The indigo commit the relay image is built from ([The relay, built locally](how-it-works.md#the-relay-built-locally)) |
 | `SG_SLINGSHOT_COMMIT` | `3137b07...` | The microcosm-rs commit Slingshot is built from ([Slingshot](how-it-works.md#slingshot-handles-and-dids-inside-the-network)) |
+| `SG_PREBUILT` | unset | `0` makes `up` build Slingshot, PDSls and the relay itself, never pulling a published image |
+| `SG_IMAGE_REGISTRY` | `ghcr.io/openmeet-team` | Where `up` looks for those published images; empty skips the pull. An image is used only when its label matches the files in your checkout, so an edited `stack/` folder is built |
 | `SG_RESET_OK` | unset | `1` lets `up` and `down` act on the shared project `devnet-spaces` |
 
 To run a second snowglobe beside another, give it a file with its own `globe:` name, and its own `SG_BIND` and ports, and pass
