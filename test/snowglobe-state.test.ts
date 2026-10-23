@@ -311,7 +311,7 @@ describe('ls', () => {
     expect(rows[1]).toContain(join(r, 'snowglobe.yml'));
   });
 
-  it('reads up, partly up and down off compose\'s status, and shows a file that is gone', () => {
+  it('reads up and down off compose\'s status, one-shots that exited aside, and shows a file that is gone', () => {
     const r = box();
     const base = join(r, 'sg');
     for (const n of ['a', 'b', 'c', 'd']) mkdirSync(join(base, 'snowglobe', n), { recursive: true });
@@ -319,13 +319,13 @@ describe('ls', () => {
     writeFileSync(join(base, 'snowglobe/d/owner'), '/no/such/snowglobe.yml\n');
     const statuses = new Map([
       ['a', 'running(5)'],
-      ['b', 'running(2), exited(1)'],
+      ['b', 'exited(1), running(10)'],
       ['c', 'exited(5)'],
     ]);
     const rows = list({ root: r, env: { XDG_DATA_HOME: base }, statuses });
     expect(rows.map((x: { name: string; state: string }) => [x.name, x.state])).toEqual([
       ['a', 'up'],
-      ['b', 'partly up'],
+      ['b', 'up'],
       ['c', 'down'],
       ['d', 'down'],
     ]);

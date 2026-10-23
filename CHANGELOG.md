@@ -15,10 +15,15 @@ Changes to the default stack that existing setups will notice:
 - **The compose files and the folders they build from are under `stack/`.** `docker-compose*.yml`,
   `pdsls/`, `relay/`, `slingshot/`, `https/`, `page/` and the init script moved there; they are
   the pieces `snowglobe up` renders, not files to run. Nothing in your state folder changes.
-- **Each snowglobe has its own random PDS admin password.** There is no default any more. The
-  first `up` makes one and keeps it in `admin.env` (mode 600) in the snowglobe's state folder, and
-  `account` and `invite` read it from there. `SG_PDS_ADMIN_PASSWORD`, if you set it, is used
-  instead. A snowglobe from before gets one at its next `up`, which recreates its PDSes with it
+- **Each snowglobe has its own random secrets.** There are no defaults any more for the PDSes'
+  admin password, JWT secret and PLC rotation key, the relay's admin password, or the PLC
+  database's password. The first `up` makes them and keeps them in `secrets.env` (mode 600) in the
+  snowglobe's state folder, and `account` and `invite` read the admin password from there. A
+  setting of the same name (`SG_PDS_ADMIN_PASSWORD`, `SG_PDS_JWT_SECRET`, `SG_PLC_ROTATION_KEY`,
+  `SG_RELAY_ADMIN_PASSWORD`, `SG_DB_PASSWORD`) is used instead. A snowglobe that already has
+  data keeps the old fixed values of the last four, since its database and its DIDs were made with
+  them, and `up` says so; `snowglobe down -v` and `up` start it over with random ones. A snowglobe
+  from before gets a new admin password at its next `up`, which recreates its PDSes with it
   (unchecked: that compose recreates them for a changed password). `.env.example` now shows
   `local.snowglobe.at`, the default domain, not `devnet.test`.
 - **The default snowglobe is one PDS now.** `snowglobe.default.yml` runs one current PDS, `main`,

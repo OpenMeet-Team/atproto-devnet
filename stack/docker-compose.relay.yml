@@ -14,7 +14,7 @@
 # A relay only adds localhost hosts through its admin API, so a PDS cannot register
 # itself with requestCrawl. relay-init adds each PDS once the relay is up.
 
-x-relay-admin-password: &relay-admin-password ${SG_RELAY_ADMIN_PASSWORD:-${DEVNET_RELAY_ADMIN_PASSWORD:-devnet-relay-admin}}
+x-relay-admin-password: &relay-admin-password ${SG_RELAY_ADMIN_PASSWORD:?snowglobe up makes it}
 
 services:
   pds:
