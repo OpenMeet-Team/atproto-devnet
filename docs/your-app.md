@@ -56,16 +56,15 @@ address (`PUBLIC_ATPROTO_PLC_URL`) and the PDS people sign up on (`PUBLIC_ATPROT
 the real network they are Bluesky's. In a snowglobe they must be the snowglobe's. The steps below
 use the pieces described further down.
 
-1. **Get the `snowglobe` command.** In the snowglobe checkout, run `npm link`. It puts `snowglobe`
-   on your `PATH`, so you can run it from the app's folder. (When snowglobe is packaged, this step
-   becomes an install.)
+1. **Get the `snowglobe` command.** Install it once for your user, or add it to the app's repo.
 
    ```bash
-   cd snowglobe && npm link
+   npm install -g @openmeet/snowglobe        # the command, on your PATH
+   npm install --save-dev @openmeet/snowglobe  # or: with the app; run it as npx snowglobe
    ```
 
 2. **Describe the snowglobe the app needs.** Put a `snowglobe.yml` in the app's repo. It can start as a
-   copy of the checkout's `snowglobe.default.yml` with a new `globe:` name (two files cannot share one), the app added, and the settings it reads:
+   copy of the package's `snowglobe.default.yml` (in the checkout, or under `npm root -g`) with a new `globe:` name (two files cannot share one), the app added, and the settings it reads:
 
    ```yaml
    apps:

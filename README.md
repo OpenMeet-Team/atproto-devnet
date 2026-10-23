@@ -80,13 +80,13 @@ keeps the https names, and they are what make an app run unchanged.
 ## Quick start
 
 ```bash
-git clone https://github.com/OpenMeet-Team/snowglobe.git
-cd snowglobe
-npm install
-npm link                                 # puts the snowglobe command on your PATH
-cp snowglobe.default.yml snowglobe.yml   # the file says what your snowglobe runs; edit it freely
-snowglobe up                     # the first run pulls and builds images, which takes a while
+npm install -g @openmeet/snowglobe       # puts the snowglobe command on your PATH
+snowglobe up --default                   # the first run pulls and builds images, which takes a while
 ```
+
+To change what it runs, copy the default file into your folder and edit it: `cp "$(npm root -g)/@openmeet/snowglobe/snowglobe.default.yml" snowglobe.yml`, then `snowglobe up`.
+To keep the command with one project instead, `npm install --save-dev @openmeet/snowglobe` and run
+`npx snowglobe up`, or put `snowglobe up` in a `package.json` script.
 
 Now try it. `snowglobe run` runs a command that can reach the snowglobe by name, and `--cacert`
 gives curl the snowglobe's certificate authority (CA), so it trusts the snowglobe's https:
