@@ -1,5 +1,5 @@
-# Test overlay: adds Postgres + MailDev so devnet tests can run standalone.
-# Usage: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
+# Postgres and MailDev, which the PLC server and the PDS's email verification need. Read by
+# lib/render.mjs; not meant to be run directly (see docker-compose.yml).
 
 services:
   postgres:

@@ -1,4 +1,4 @@
-// node --test https/proxy/server.test.mjs
+// node --test stack/https/proxy/server.test.mjs
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import net from 'node:net'

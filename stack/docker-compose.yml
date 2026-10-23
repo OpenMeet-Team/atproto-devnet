@@ -1,12 +1,10 @@
-# atproto-devnet: Standalone ATProto development network
+# The service definitions snowglobe starts from (lib/render.mjs reads this file and
+# docker-compose.test.yml and docker-compose.relay.yml, and writes the compose file a snowglobe
+# runs). Not meant to be run directly: its paths are relative to the repository root, so use
+# `bin/snowglobe.mjs up`.
 #
-# Requires consumer to provide:
-#   - PostgreSQL (for PLC server)
-#   - SMTP server (for PDS email verification)
-#
-# Usage:
-#   Standalone testing: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
-#   Consumer include:   include: [{ path: ../atproto-devnet/docker-compose.yml }]
+# Needs from the rendered file: PostgreSQL (for the PLC server) and an SMTP server (for the
+# PDS's email verification), which docker-compose.test.yml supplies.
 
 services:
   # ── DID Registry ─────────────────────────────────────────────────
@@ -79,7 +77,7 @@ services:
       # SSRF-protected fetch, which refuses the local PLC's http:// URL.
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "true"
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       PDS_EMAIL_SMTP_URL: ${SG_SMTP_URL:-${DEVNET_SMTP_URL:-smtp://maildev:1025}}
@@ -158,11 +156,11 @@ services:
       plc:
         condition: service_healthy
     volumes:
-      - ./scripts:/scripts:ro
+      - ./stack/init:/scripts:ro
       - ./data:/devnet-data
     environment:
       PDS_HOSTNAME: ${SG_PDS_HOSTNAME:-${DEVNET_PDS_HOSTNAME:-devnet.test}}
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
       HANDLE_DOMAIN: ${SG_HANDLE_DOMAIN:-${DEVNET_HANDLE_DOMAIN:-.devnet.test}}
       SEED_ACCOUNTS: ${SG_SEED_ACCOUNTS:-${DEVNET_SEED_ACCOUNTS:-true}}
     entrypoint: /bin/sh

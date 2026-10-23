@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
 import { oldDataNotice, renamedDefaultNotice, stateRoot } from '../lib/env.mjs';
 // @ts-expect-error: a plain .mjs module, without types
@@ -146,10 +146,10 @@ describe('renamedDefaultNotice', () => {
 // fails, and HOME (so the state) inside it.
 function box() {
   const r = mkdtempSync(join(tmpdir(), 'snowglobe-box-'));
-  for (const d of ['bin', 'lib', 'https/dns', 'https/proxy', 'pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
+  for (const d of ['bin', 'lib', 'stack/https/dns', 'stack/https/proxy', 'stack/pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
-  for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml']) cpSync(join(ROOT, f), join(r, f));
+  for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml', 'init/init.sh']) { mkdirSync(dirname(join(r, 'stack', f)), { recursive: true }); cpSync(join(ROOT, 'stack', f), join(r, 'stack', f)); }
   cpSync(join(ROOT, 'snowglobe.default.yml'), join(r, 'snowglobe.default.yml'));
   const shim = join(r, 'shim');
   mkdirSync(shim);

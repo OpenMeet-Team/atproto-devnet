@@ -17,7 +17,7 @@ the snowglobe checkout. Every setting has a default.
 | `SG_MAILDEV_WEB_PORT` / `SG_MAILDEV_SMTP_PORT` | `1081` / `1026` | MailDev, on `127.0.0.1` |
 | `SG_PROXY_PORT` | `1080` | The browser proxy and its PAC file, on `127.0.0.1` ([From a browser on your own computer](browser.md)) |
 | `SG_OPENSOCIAL_BUILD` | none | A checkout of atproto-group-host, for a group host the file lists with no `build` or `image` |
-| `SG_PDS_ADMIN_PASSWORD` | `devnet-admin-password` | Every PDS's admin password. `invite` uses it to mint codes |
+| `SG_PDS_ADMIN_PASSWORD` | `snowglobe-admin-password` | Every PDS's admin password. `invite` uses it to mint codes |
 | `SG_RELAY_INDIGO_COMMIT` | `b2619d8...` | The indigo commit the relay image is built from ([The relay, built locally](how-it-works.md#the-relay-built-locally)) |
 | `SG_SLINGSHOT_COMMIT` | `3137b07...` | The microcosm-rs commit Slingshot is built from ([Slingshot](how-it-works.md#slingshot-handles-and-dids-inside-the-network)) |
 | `SG_RESET_OK` | unset | `1` lets `up` and `down` act on the shared project `devnet-spaces` |

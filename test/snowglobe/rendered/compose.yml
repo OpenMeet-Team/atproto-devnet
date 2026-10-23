@@ -87,7 +87,7 @@ services:
       PDS_CRAWLERS: ""
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "true"
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
@@ -105,7 +105,7 @@ services:
     volumes:
       - pds-alpha-data:/pds/data
       - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
-      - ./https/app-names.cjs:/https/app-names.cjs:ro
+      - ./stack/https/app-names.cjs:/https/app-names.cjs:ro
     networks:
       - snowglobe
     healthcheck:
@@ -138,7 +138,7 @@ services:
       PDS_CRAWLERS: ""
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "false"
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
@@ -156,7 +156,7 @@ services:
     volumes:
       - pds-regular-data:/pds/data
       - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
-      - ./https/app-names.cjs:/https/app-names.cjs:ro
+      - ./stack/https/app-names.cjs:/https/app-names.cjs:ro
     networks:
       - snowglobe
     healthcheck:
@@ -189,7 +189,7 @@ services:
       PDS_CRAWLERS: ""
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "false"
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
@@ -207,7 +207,7 @@ services:
     volumes:
       - pds-prod-data:/pds/data
       - /state/snowglobe/ca/ca.crt:/https/ca.crt:ro
-      - ./https/app-names.cjs:/https/app-names.cjs:ro
+      - ./stack/https/app-names.cjs:/https/app-names.cjs:ro
     networks:
       - snowglobe
     healthcheck:
@@ -222,7 +222,7 @@ services:
       retries: 10
   relay:
     build:
-      context: ./relay
+      context: ./stack/relay
       args:
         INDIGO_COMMIT: ${SG_RELAY_INDIGO_COMMIT:-${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}}
     image: snowglobe-relay:https-${SG_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}
@@ -314,11 +314,11 @@ services:
       plc:
         condition: service_healthy
     volumes:
-      - ./scripts:/scripts:ro
+      - ./stack/init:/scripts:ro
       - /state/snowglobe/snowglobe:/devnet-data
     environment:
       PDS_HOSTNAME: alpha.local.snowglobe.at
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-devnet-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
       HANDLE_DOMAIN: .local.snowglobe.at
       SEED_ACCOUNTS: ${SG_SEED_ACCOUNTS:-${DEVNET_SEED_ACCOUNTS:-true}}
       SG_DOMAIN: local.snowglobe.at
@@ -349,14 +349,14 @@ services:
       SG_DOMAIN: local.snowglobe.at
       NGINX_ENVSUBST_FILTER: ^SG_
     volumes:
-      - ./https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./stack/https/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - /state/snowglobe/snowglobe/https/leaf.crt:/etc/nginx/https/leaf.crt:ro
       - /state/snowglobe/snowglobe/https/leaf.key:/etc/nginx/https/leaf.key:ro
       - /state/snowglobe/snowglobe/https/nginx:/etc/nginx/snowglobe:ro
       - /state/snowglobe/snowglobe/globe/nginx:/etc/nginx/globe:ro
-      - ./page/index.html:/srv/page/index.html:ro
-      - ./page/fonts:/srv/page/fonts:ro
-      - ./page/snowglobe.conf:/etc/nginx/page/snowglobe.conf:ro
+      - ./stack/page/index.html:/srv/page/index.html:ro
+      - ./stack/page/fonts:/srv/page/fonts:ro
+      - ./stack/page/snowglobe.conf:/etc/nginx/page/snowglobe.conf:ro
     networks:
       snowglobe:
         aliases:
@@ -373,7 +373,7 @@ services:
       timeout: 3s
       retries: 10
   slingshot-dns:
-    build: ./https/dns
+    build: ./stack/https/dns
     image: snowglobe-dns:6fb1e99ad6c9
     restart: unless-stopped
     environment:
@@ -387,7 +387,7 @@ services:
       - snowglobe
   slingshot:
     build:
-      context: ./slingshot
+      context: ./stack/slingshot
       args:
         MICROCOSM_COMMIT: ${SG_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
     image: snowglobe-slingshot:${SG_SLINGSHOT_COMMIT:-3137b07d5268812d2de0f3177664be92196994d8}
@@ -421,7 +421,7 @@ services:
       timeout: 3s
       retries: 10
   proxy:
-    build: ./https/proxy
+    build: ./stack/https/proxy
     image: snowglobe-proxy:5eefb13d6284
     restart: unless-stopped
     depends_on:
@@ -446,7 +446,7 @@ services:
       timeout: 3s
       retries: 10
   pdsls:
-    build: ./pdsls
+    build: ./stack/pdsls
     image: snowglobe-pdsls:12c414a749ef
     restart: unless-stopped
     depends_on:

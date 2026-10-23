@@ -40,7 +40,7 @@ function fakeGlobe() {
     const required = r.pds === 'alpha' || r.pds === 'beta';
     switch (r.nsid) {
       case 'com.atproto.server.createInviteCode': {
-        if (r.auth !== `Basic ${Buffer.from('admin:devnet-admin-password').toString('base64')}`) return [401, { error: 'AuthRequired' }];
+        if (r.auth !== `Basic ${Buffer.from('admin:snowglobe-admin-password').toString('base64')}`) return [401, { error: 'AuthRequired' }];
         const code = `${r.pds}-code-${++n}`;
         invites.set(code, { pds: r.pds, left: r.body.useCount });
         return [200, { code }];

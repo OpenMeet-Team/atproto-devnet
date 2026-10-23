@@ -75,7 +75,7 @@ you make once, in the browser you already use. Launch flags (further down) are t
 
 ### Through the snowglobe's proxy (Chrome, Edge, Firefox)
 
-The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC (proxy auto-config) file, a small script that tells the browser which names to send to a proxy, on one
+The `proxy` service (`stack/https/proxy/server.mjs`) is a proxy and the PAC (proxy auto-config) file, a small script that tells the browser which names to send to a proxy, on one
 port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
 reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at` and `*.local.snowglobe.at` (apps included) to the proxy and
 everything else direct, so the rest of your browsing is untouched. The browser hands the proxy the name, and the proxy connects every name in the snowglobe to nginx,

@@ -4,6 +4,13 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **The compose files and the folders they build from are under `stack/`.** `docker-compose*.yml`,
+  `pdsls/`, `relay/`, `slingshot/`, `https/`, `page/` and the init script moved there; they are
+  the pieces `snowglobe up` renders, not files to run. Nothing in your state folder changes.
+- **The default PDS admin password is `snowglobe-admin-password`, not `devnet-admin-password`.**
+  A snowglobe brought up before this keeps the old one in its running PDSes until `up` recreates
+  them (unchecked: whether `up` does for an existing one); set `SG_PDS_ADMIN_PASSWORD` to keep the
+  old value. `.env.example` now shows `local.snowglobe.at`, the default domain, not `devnet.test`.
 - **The default snowglobe is one PDS now.** `snowglobe.default.yml` runs one current PDS, `main`,
   with the PLC, Jetstream, Slingshot, PDSls and the accounts `alice` and `bob`, and holds commented
   examples for adding more. The old default (the permissioned-spaces alpha, a current release and an

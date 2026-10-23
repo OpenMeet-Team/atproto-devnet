@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
 import { accountPrefixes, endingClash, mergeRoutes } from '../lib/up.mjs';
 // @ts-expect-error: a plain .mjs module, without types
@@ -51,11 +51,11 @@ describe('what run maps', () => {
 function globeRoot() {
   // realpath: on macOS tmpdir() is under /var, a link to /private/var, which is what a command's cwd reports.
   const r = mkdtempSync(join(realpathSync(tmpdir()), 'snowglobe-up-'));
-  for (const d of ['bin', 'lib', 'https/dns', 'https/proxy', 'pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
-  cpSync(join(ROOT, 'https/nginx.conf.template'), join(r, 'https/nginx.conf.template'));
+  for (const d of ['bin', 'lib', 'stack/https/dns', 'stack/https/proxy', 'stack/pdsls']) cpSync(join(ROOT, d), join(r, d), { recursive: true });
+  cpSync(join(ROOT, 'stack/https/nginx.conf.template'), join(r, 'stack/https/nginx.conf.template'));
   symlinkSync(join(ROOT, 'node_modules'), join(r, 'node_modules'));
   writeFileSync(join(r, 'package.json'), '{"type": "module"}\n');
-  for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml']) cpSync(join(ROOT, f), join(r, f));
+  for (const f of ['docker-compose.yml', 'docker-compose.test.yml', 'docker-compose.relay.yml', 'init/init.sh']) { mkdirSync(dirname(join(r, 'stack', f)), { recursive: true }); cpSync(join(ROOT, 'stack', f), join(r, 'stack', f)); }
   const shim = join(r, 'shim');
   mkdirSync(shim);
   symlinkSync(process.execPath, join(shim, 'node'));
@@ -142,7 +142,7 @@ describe('snowglobe up and down', () => {
     sg(r, ['up'], env);
     expect(calls()).toEqual(['restart nginx', 'exec -T nginx nginx -s reload']);
     // A changed template: restarted again.
-    writeFileSync(join(r, 'https/nginx.conf.template'), readFileSync(join(r, 'https/nginx.conf.template'), 'utf8') + '# changed\n');
+    writeFileSync(join(r, 'stack/https/nginx.conf.template'), readFileSync(join(r, 'stack/https/nginx.conf.template'), 'utf8') + '# changed\n');
     sg(r, ['up'], env);
     expect(calls()).toEqual(['restart nginx', 'exec -T nginx nginx -s reload', 'restart nginx']);
   });
