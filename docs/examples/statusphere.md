@@ -1,9 +1,10 @@
-# Statusphere (not yet run in CI)
+# Statusphere (run by hand, not yet in CI)
 
-> **Run by hand, not yet by CI.** Sign-in, posting a status and the feed of other people's statuses
-> work, in the steps below, run once in a headless browser with the statuses written by password
-> sessions. A sign-in and a click through the app in a real browser, and a CI run of the whole
-> flow, are not done yet (see [What is left](#what-is-left)).
+> **Run by hand in a headless browser, not yet by CI.** The whole flow worked on 2026-10-23: sign in
+> through the PDS's consent page, pick an emoji, see it in the feed with alice's handle, and see a
+> status bob wrote outside the app arrive through Tap. It has not been run in a browser on your own
+> machine through the proxy, and nothing runs it on a change to the snowglobe
+> (see [What is left](#what-is-left)).
 
 [Statusphere](https://github.com/bluesky-social/statusphere-example-app) is the atproto example app:
 sign in with a handle, pick an emoji, and the app writes an `xyz.statusphere.status` record to your
@@ -105,13 +106,15 @@ event to the app's `/api/webhook`. In a clean snowglobe, alice's and bob's statu
 app's Recent list with their handles. Tap runs in a small DNS container's network, so it reaches the app's
 https name and can check a handle ([How it works](../how-it-works.md)).
 
+An account that wrote before Tap started is not found until it writes again: Tap's own crawl of the
+collection gets `HTTP 401 AuthMissing` from the PDS every minute. After a new write, Tap fetches the
+whole repo and the app receives its events. This happens with a Tap you start fresh, such as after
+`down -v`, if accounts already have statuses.
+
 ## What is left
 
-- **A real browser.** The steps ran in headless Chromium inside `snowglobe run`, with certificate
-  errors ignored, and the statuses in the feed were written with a password session, not by clicking in
-  the app. They have not been run in a browser on your own machine through the [proxy](../browser.md).
-- **An account that wrote before Tap started.** Tap finds an account when it writes, so a repo with
-  statuses from before Tap started may not show in the feed until it next writes. Whether Tap's resync
-  reads such a repo is unchecked.
+- **Your own browser.** The sign-in and the click ran in headless Chromium on the machine that runs
+  Docker, with certificate errors ignored and the snowglobe's names mapped to its loopback address.
+  They have not been run in a browser on your own machine through the [proxy](../browser.md).
 - **CI.** Nothing runs this page's flow on a change to the snowglobe yet.
 - **The key.** The app's `pnpm gen-key` still fails on its locked dependencies, hence the Node command above.

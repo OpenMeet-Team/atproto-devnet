@@ -20,7 +20,8 @@
   handle (`alice.<domain>`) at its own name. Tap's port is published on `127.0.0.1:<SG_TAP_PORT>` (2480)
   from that container. Tap finds an account when it writes in the signal collection; its crawl of
   that collection's repos is refused by the PDS (HTTP 401), so a repo written before Tap started is
-  found when it next writes (unchecked: whether Tap's resync reads such a repo).
+  found when it next writes, and then its whole repo is fetched (measured 2026-10-23 with the Tap image
+  `tap:latest` at digest `sha256:5e20bfe4…`, indigo revision `4f47add4`, built 2026-03-11).
 - **Jetstream** is at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the Docker network (or, with one PDS, that PDS).
 
 ## Slingshot: handles and DIDs inside the network
