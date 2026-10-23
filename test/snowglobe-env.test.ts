@@ -2,7 +2,7 @@
 // compose reads .env, the refusals, and the env files that hold logins. No Docker needed; run
 // them alone with `npx vitest run snowglobe-env`.
 import { describe, it, expect } from 'vitest';
-import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
@@ -206,6 +206,23 @@ describe('chooseBind', () => {
     const set = mine(t, 'set', { env: { SG_BIND: '127.0.0.9' } });
     expect(await chooseBind(set)).toBe('127.0.0.9');
     expect(() => readFileSync(join(set.state, 'bind'))).toThrow();
+  });
+
+  it('gives two first starts at once different addresses', async () => {
+    const t = top();
+    const slow = async () => (await new Promise((r) => setTimeout(r, 20)), false);
+    const [a, b, c] = await Promise.all(['a', 'b', 'c'].map((n) => chooseBind(mine(t, n, { listening: slow }))));
+    expect(new Set([a, b, c]).size).toBe(3);
+    expect(existsSync(join(t, '.bind-lock'))).toBe(false);
+  });
+
+  it('takes over a lock left by a process that died', async () => {
+    const t = top();
+    const lock = join(t, '.bind-lock');
+    mkdirSync(lock);
+    const old = new Date(Date.now() - 120000);
+    utimesSync(lock, old, old);
+    expect(await chooseBind(mine(t, 'one'))).toBe('127.0.0.1');
   });
 
   it('says so when no address from 127.0.0.1 to 127.0.0.50 is free', async () => {

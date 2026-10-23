@@ -76,7 +76,7 @@ you make once, in the browser you already use. Launch flags (further down) are t
 ### Through the snowglobe's proxy (Chrome, Edge, Firefox)
 
 The `proxy` service (`stack/https/proxy/server.mjs`) is a proxy and the PAC (proxy auto-config) file, a small script that tells the browser which names to send to a proxy, on one
-port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
+port, `1080` (`SG_PROXY_PORT`) on the snowglobe's own address: `127.0.0.1` for the first snowglobe on a machine, `127.0.0.2` or the next for one started beside it (step 2 finds it). The PAC names it as an HTTP proxy, which every PAC
 reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at` and `*.local.snowglobe.at` (apps included) to the proxy and
 everything else direct, so the rest of your browsing is untouched. The browser hands the proxy the name, and the proxy connects every name in the snowglobe to nginx,
 so a handle made a second ago works with nothing to update. It refuses any other name, any IP
@@ -99,14 +99,21 @@ address and any port but 443.
 
    Without this step the proxy still works, but each of the snowglobe's names gets a certificate warning you click
    through once, and an app's own calls from the page to a PDS fail where no one can click.
-2. **Forward the proxy's port.** (Docker on the same computer as the browser: skip this, the proxy is
-   already on `127.0.0.1:1080`.) In VS Code's Ports view, forward port 1080 of the dev container
-   (`SG_PROXY_PORT`, if you set one). Any local port will do: the PAC names the address it was
+2. **Find the snowglobe's address.** With two snowglobes on one machine, the proxy at `127.0.0.1` is the
+   first one's. From the second one's folder, `snowglobe env services.mail.url` prints
+   `http://127.0.0.2:1081`; the address in it (`127.0.0.2` here) is the snowglobe's, and is used for
+   `127.0.0.1` in the steps below.
+3. **Forward the proxy's port.** (Docker on the same computer as the browser: skip this, the proxy is
+   already on your snowglobe's address, port 1080.) For the first snowglobe, forward port 1080 in
+   VS Code's Ports view (`SG_PROXY_PORT`, if you set one). That view forwards to `localhost` on the
+   remote side, which is the first snowglobe's address, so for any other snowglobe use ssh and name
+   its address: `ssh -L 1080:127.0.0.2:1080 <the machine that runs Docker>` (the address from step 2;
+   pick another local port first if 1080 is taken). Any local port will do: the PAC names the address it was
    fetched from. The proxy asks no one to sign in, so whoever can reach the forwarded port reaches
    the whole snowglobe: every PDS, the PLC, the network page, and every app of yours routed with
    `snowglobe app`, each behind only its own sign-in. Keep the forwarded port on your computer's
    loopback address and don't open it to a network.
-3. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` (the forwarded port):
+4. **Point the browser at the PAC**, `http://127.0.0.1:1080/proxy.pac` for the first snowglobe, or `http://127.0.0.2:1080/proxy.pac` (your snowglobe's address) when Docker is on the same computer; through a forward, the local address and port you forwarded to:
    - Windows, for Chrome, Edge and Firefox: Settings, Network & internet, Proxy, "Use setup script",
      with the URL as the script address.
    - macOS: System Settings, Network, your connection, Details, Proxies, "Automatic proxy
@@ -129,7 +136,7 @@ separate Firefox profile for the snowglobe keeps everyday browsing from dependin
 `proxy.pac` leaves `plc.directory` alone, so the setting never moves the real directory for your
 everyday browsing; apps on the snowglobe use `https://plc.local.snowglobe.at`. For an app that insists on
 `plc.directory` in the browser, a profile used only for the snowglobe can take
-`http://127.0.0.1:1080/proxy-with-plc.pac`, where it is this snowglobe's PLC.
+`http://127.0.0.1:1080/proxy-with-plc.pac` (your snowglobe's address, as in step 4), where it is this snowglobe's PLC.
 
 ### With launch flags (Chrome, Edge)
 
