@@ -216,13 +216,16 @@ describe('chooseBind', () => {
     expect(existsSync(join(t, '.bind-lock'))).toBe(false);
   });
 
-  it('takes over a lock left by a process that died', async () => {
+  it('stops at a lock left by a process that died, and leaves it: two starts taking it over at once could both hold it', async () => {
     const t = top();
     const lock = join(t, '.bind-lock');
     mkdirSync(lock);
     const old = new Date(Date.now() - 120000);
     utimesSync(lock, old, old);
-    expect(await chooseBind(mine(t, 'one'))).toBe('127.0.0.1');
+    const one = mine(t, 'one');
+    await expect(chooseBind(one)).rejects.toThrow();
+    expect(existsSync(lock)).toBe(true);
+    expect(existsSync(join(one.state, 'bind'))).toBe(false);
   });
 
   it('says so when no address from 127.0.0.1 to 127.0.0.50 is free', async () => {

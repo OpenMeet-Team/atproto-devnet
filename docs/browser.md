@@ -100,9 +100,10 @@ address and any port but 443.
    Without this step the proxy still works, but each of the snowglobe's names gets a certificate warning you click
    through once, and an app's own calls from the page to a PDS fail where no one can click.
 2. **Find the snowglobe's address.** With two snowglobes on one machine, the proxy at `127.0.0.1` is the
-   first one's. From the second one's folder, `snowglobe env services.mail.url` prints
-   `http://127.0.0.2:1081`; the address in it (`127.0.0.2` here) is the snowglobe's, and is used for
-   `127.0.0.1` in the steps below.
+   first one's. On the machine that runs Docker, `cat ~/.local/share/snowglobe/<name>/bind` prints the
+   second one's (`127.0.0.2`, say; `<name>` as `snowglobe ls` lists it), and that address is used for
+   `127.0.0.1` in the steps below. A snowglobe with no `bind` file is on `127.0.0.1`, or on `SG_BIND`
+   where that is set.
 3. **Forward the proxy's port.** (Docker on the same computer as the browser: skip this, the proxy is
    already on your snowglobe's address, port 1080.) For the first snowglobe, forward port 1080 in
    VS Code's Ports view (`SG_PROXY_PORT`, if you set one). That view forwards to `localhost` on the
