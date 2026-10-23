@@ -1,7 +1,7 @@
 // Preloaded into each PDS (NODE_OPTIONS=--require, in the globe bin/snowglobe.mjs render writes), so a PDS can
 // reach an app at https://<name>.app.<domain>: it fetches a confidential client's
 // metadata and keys from there. Docker's DNS has no wildcard names, so every such name is
-// looked up as nginx instead, which routes it by name (https/nginx.conf.template). Only
+// looked up as nginx instead, which routes it by name (stack/https/nginx.conf.template). Only
 // the address lookup changes: the request still carries the app's name, and TLS still
 // checks the certificate for it against the snowglobe CA. Every other name resolves as usual.
 //

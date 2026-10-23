@@ -46,15 +46,8 @@
   "files": [
     "bin/",
     "lib/",
-    "https/",
-    "!https/**/*.test.mjs",
-    "page/",
-    "relay/",
-    "slingshot/",
-    "pdsls/",
-    "!pdsls/*.test.mjs",
-    "scripts/init.sh",
-    "docker-compose*.yml",
+    "stack/",
+    "!stack/**/*.test.mjs",
     "snowglobe.default.yml",
     ".env.example"
   ],

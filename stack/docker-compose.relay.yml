@@ -1,9 +1,6 @@
-# Overlay: a local relay that crawls every devnet PDS, so Jetstream and TAP see one
-# merged stream, as they would in production. Stack it last:
-#
-#   docker compose -f docker-compose.yml -f docker-compose.test.yml \
-#     -f docker-compose.spaces.yml -f docker-compose.multi-pds.yml \
-#     -f docker-compose.relay.yml up -d --wait
+# A local relay that crawls every PDS, so Jetstream and TAP see one merged stream, as they would
+# in production. Read by lib/render.mjs when the relay is on; not meant to be run directly (see
+# docker-compose.yml).
 #
 #   PDSes --> relay (:2470) --> Jetstream (:6008)
 #                          \--> TAP (:2480)
@@ -33,7 +30,7 @@ services:
     # relay/Dockerfile. SG_RELAY_INDIGO_COMMIT picks the indigo commit (it needs
     # a published relay-<commit> image, and the patch has to apply).
     build:
-      context: ./relay
+      context: ./stack/relay
       args:
         INDIGO_COMMIT: ${SG_RELAY_INDIGO_COMMIT:-${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}}
     image: atproto-devnet-relay:${SG_RELAY_INDIGO_COMMIT:-${DEVNET_RELAY_INDIGO_COMMIT:-b2619d864df00a66455bd9f5f0c83c1ac13ad73d}}

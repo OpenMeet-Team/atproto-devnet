@@ -22,7 +22,7 @@
 ## Slingshot: handles and DIDs inside the network
 
 `slingshot` is [Slingshot](https://tangled.org/jola.dev/microcosm-rs/tree/main/slingshot) from
-microcosm-rs, built from a pinned commit (`slingshot/Dockerfile`; upstream publishes no image), set
+microcosm-rs, built from a pinned commit (`stack/slingshot/Dockerfile`; upstream publishes no image), set
 to the snowglobe's PLC and Jetstream. The public Slingshot cannot see an account on a snowglobe;
 this one answers for it:
 
@@ -47,7 +47,7 @@ the source and names the image.
 checks every host through an SSRF-safe transport that refuses loopback and private addresses, with
 no setting to turn it off. Its admin `requestCrawl` accepts `localhost:<port>`, and the host check
 then fails with `unsafe network address`, so the published image can never crawl a PDS on a snowglobe.
-`relay/Dockerfile` builds the same upstream commit with `relay/allow-private-hosts.patch`, which
+`stack/relay/Dockerfile` builds the same upstream commit with `stack/relay/allow-private-hosts.patch`, which
 adds one opt-in setting, `RELAY_ALLOW_PRIVATE_HOSTS`, and copies the binary into the published
 image. The setting covers both places the relay refuses those addresses: the host check, and the
 firehose dialer for `wss://` hosts, which [a snowglobe](snowglobe.md) needs because its

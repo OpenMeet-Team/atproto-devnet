@@ -56,7 +56,7 @@ tools to make its own ([Your app in a snowglobe](your-app.md)), and using them i
 
 `https://local.snowglobe.at/` is the network's own page (`page/index.html`): every service and its
 health, every account on each PDS, the apps `snowglobe app` routed, and the network's writes
-from Jetstream, the last week's and then live. nginx serves it with this snowglobe's relays (`page/snowglobe.conf`), a fixed GET-only path per read, so the page
+from Jetstream, the last week's and then live. nginx serves it with this snowglobe's relays (`stack/page/snowglobe.conf`), a fixed GET-only path per read, so the page
 asks nothing but `local.snowglobe.at`. `snowglobe up` and `snowglobe app` write what it lists into
 `<state>/https/nginx/snowglobe.json`. Open it from a browser set up as in [From a browser on your own
 computer](browser.md#from-a-browser-on-your-own-computer), or read the facts it shows from a script: `snowglobe run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt https://local.snowglobe.at/snowglobe.json`
@@ -69,9 +69,9 @@ are without a copy of the snowglobe's file.
 `https://pdsls.local.snowglobe.at/` is [PDSls](https://github.com/notjuliet/pdsls), the record browser at
 pds.ls, for this network: `https://pdsls.local.snowglobe.at/at://alice.local.snowglobe.at` shows her repo, its
 collections and records, as `https://pds.ls/at://...` does on the real network. Apps that link to
-pds.ls point their links here on a snowglobe. `pdsls/` builds it from a pinned upstream commit
-with `pdsls/network.patch`, which lets the page that loads it give it a network's addresses (unset,
-it is the public network's, unchanged), and `pdsls/server.mjs` serves it with this network's: the PLC
+pds.ls point their links here on a snowglobe. `stack/pdsls/` builds it from a pinned upstream commit
+with `stack/pdsls/network.patch`, which lets the page that loads it give it a network's addresses (unset,
+it is the public network's, unchanged), and `stack/pdsls/server.mjs` serves it with this network's: the PLC
 at `plc.local.snowglobe.at`, Jetstream and the relay as the stream page's defaults, and the lexicon authority
 for every NSID. It looks up handles and `did:web` documents for names under `local.snowglobe.at` only, and
 turns off what has no stand-in here: DNS lookups, Bluesky search and avatars, backlinks, Spacedust,

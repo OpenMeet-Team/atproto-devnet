@@ -1,4 +1,4 @@
-// node --test pdsls/server.test.mjs
+// node --test stack/pdsls/server.test.mjs
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'

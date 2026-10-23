@@ -63,10 +63,10 @@ describe('snowglobe render', () => {
     const { compose } = render(THREE);
     const mounts: string[] = compose.services.nginx.volumes.filter((v: string) => v.includes('/etc/nginx/snowglobe'));
     expect(mounts.length).toBeGreaterThan(0);
-    const page = readFileSync(join(ROOT, 'page/snowglobe.conf'), 'utf8');
+    const page = readFileSync(join(ROOT, 'stack/page/snowglobe.conf'), 'utf8');
     expect(page).toContain('alias /etc/nginx/snowglobe/snowglobe.json;');
     expect(page).not.toContain('/etc/nginx/devnet');
-    expect(readFileSync(join(ROOT, 'https/nginx.conf.template'), 'utf8')).toContain('include /etc/nginx/snowglobe/*.conf;');
+    expect(readFileSync(join(ROOT, 'stack/https/nginx.conf.template'), 'utf8')).toContain('include /etc/nginx/snowglobe/*.conf;');
   });
 
   it('runs one service per PDS, each on the plain network under its own name', () => {
@@ -136,7 +136,7 @@ describe('snowglobe render', () => {
   });
 
   it('refuses a PDS named for one of the page\'s own health routes, which nginx would see twice', () => {
-    const fixed = [...readFileSync(join(ROOT, 'page/snowglobe.conf'), 'utf8').matchAll(/location = \/health\/([a-z0-9-]+) /g)].map((m) => m[1]);
+    const fixed = [...readFileSync(join(ROOT, 'stack/page/snowglobe.conf'), 'utf8').matchAll(/location = \/health\/([a-z0-9-]+) /g)].map((m) => m[1]);
     expect(fixed.length).toBeGreaterThan(0);
     for (const name of [...fixed, 'pds']) {
       expect(checkGlobe({ ...THREE, pds: [PDS(name)] }).errors.map((e: string) => e.split(': ')[0]), name).toContain('pds[0].name');
@@ -209,7 +209,7 @@ describe('snowglobe render', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
     const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'docs/examples/atmo.yml'), '--out', dir], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);
-    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8' });
+    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
     expect(c.status, c.stderr).toBe(0);
   });
 });
@@ -314,15 +314,15 @@ describe('snowglobe render: group hosts', () => {
       env: { ...process.env, SG_OPENSOCIAL_BUILD: BUILD },
     });
     expect(r.status, r.stderr).toBe(0);
-    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8' });
+    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
     expect(c.status, c.stderr).toBe(0);
   });
 });
 
-describe('https/app-names.cjs', () => {
+describe('stack/https/app-names.cjs', () => {
   // SG_APP_PROXY_HOST stands in for nginx, so the lookup answers here.
   const lookup = (name: string, env: object) =>
-    spawnSync('node', ['--require', join(ROOT, 'https/app-names.cjs'), '-e', `require('dns').lookup(${JSON.stringify(name)}, { family: 4 }, (e, a) => console.log(e ? e.code : a))`], {
+    spawnSync('node', ['--require', join(ROOT, 'stack/https/app-names.cjs'), '-e', `require('dns').lookup(${JSON.stringify(name)}, { family: 4 }, (e, a) => console.log(e ? e.code : a))`], {
       encoding: 'utf8',
       env: { ...process.env, SG_APP_PROXY_HOST: 'localhost', ...env },
     }).stdout.trim();
