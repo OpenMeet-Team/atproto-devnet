@@ -5,11 +5,11 @@ PDS, PLC directory and Jetstream (and a relay, once there is more than one PDS),
 https and the real network's sign-in (OAuth), so an app built for the real network runs against it
 with no test-only code.
 
-**Why?** I use it for developing features against the spaces alpha PDS, a group host, and atmo.rsvp.
-If you are developing and experimenting with atproto apps, lexicons, OAuth, that might impact the users of the atproto network, 
-this is a safe way to run such experiments.
+**Why?** Some things worth trying on atproto can hurt real users if they go wrong: a change to a lexicon,
+a new OAuth flow, an app that writes records in a new way. A snowglobe is a network of your own, where a
+mistake touches nobody. We use it to build against the spaces alpha PDS, a group host and atmo.rsvp.
 
-**How?** Run a snowglobe on your machine with this repo, or open the one we host,
+**How?** Run one on your machine from this repo, or open the one we host,
 [lighthouse.snowglobe.at](https://lighthouse.snowglobe.at). [snowglobe.at](https://snowglobe.at)
 says more about the project.
 
