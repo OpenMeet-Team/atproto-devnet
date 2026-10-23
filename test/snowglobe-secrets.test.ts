@@ -2,7 +2,7 @@
 // once per snowglobe, kept private in its state folder, overridden by the environment, and kept
 // at the old fixed value where the snowglobe's data was made under it.
 import { describe, it, expect } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
@@ -104,5 +104,16 @@ describe('the services\' secrets', () => {
     const next = ensureSecrets({ root, state, env: {}, hasData: () => false });
     expect(next.values.SG_PDS_ADMIN_PASSWORD).toBe(first.values.SG_PDS_ADMIN_PASSWORD);
     expect(next.values.SG_DB_PASSWORD).not.toBe('postgres');
+  });
+
+  it('keep the admin password an older up made in admin.env: account and invite read it, and up does not replace it', () => {
+    const { root, state } = fresh();
+    mkdirSync(state, { recursive: true });
+    writeFileSync(paths(root, state).admin, 'SG_PDS_ADMIN_PASSWORD=made-before\n');
+    expect(adminPassword({ root, state, env: {} })).toBe('made-before');
+    const got = ensureSecrets({ root, state, env: {}, hasData: () => true });
+    expect(got.values.SG_PDS_ADMIN_PASSWORD).toBe('made-before');
+    // secrets.env, when it has one, wins; and a setting wins over both.
+    expect(adminPassword({ root, state, env: { SG_PDS_ADMIN_PASSWORD: 'set' } })).toBe('set');
   });
 });
