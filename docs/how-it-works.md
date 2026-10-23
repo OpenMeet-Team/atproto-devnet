@@ -17,7 +17,7 @@
   locally](#the-relay-built-locally)). Its `listHosts` shows a host only once it has sent an event.
 - **Tap runs in the DNS container's network** (`tap-dns`), whose DNS answers every name under the
   domain with nginx. That is how Tap reaches an app's https name to send it events, and checks a
-  handle (`alice.<domain>`) at its own name. Tap's port is published on `127.0.0.1:<SG_TAP_PORT>` (2480)
+  handle (`alice.<domain>`) at its own name. Tap's port is published on the snowglobe's address, `SG_BIND`, at `<SG_TAP_PORT>` (2480)
   from that container. Tap finds an account when it writes in the signal collection; its crawl of
   that collection's repos is refused by the PDS (HTTP 401), so a repo written before Tap started is
   found when it next writes, and then its whole repo is fetched (measured 2026-10-23 with the Tap image

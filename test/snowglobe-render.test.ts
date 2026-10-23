@@ -389,7 +389,7 @@ describe('TAP with settings', () => {
     expect(compose.services.tap.network_mode).toBe('service:tap-dns');
     expect(compose.services.tap).not.toHaveProperty('networks');
     expect(compose.services.tap).not.toHaveProperty('ports');
-    expect(compose.services['tap-dns'].ports).toEqual(['127.0.0.1:${SG_TAP_PORT:-2480}:2480']);
+    expect(compose.services['tap-dns'].ports).toEqual(['${SG_BIND:-127.0.0.1}:${SG_TAP_PORT:-2480}:2480']);
     expect(compose.services['tap-dns'].environment.SG_DOMAIN).toBe('one.test');
   });
 

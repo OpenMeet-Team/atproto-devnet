@@ -34,7 +34,7 @@ apps:
 A PDS in Docker will not fetch a loopback client ID (`http://127.0.0.1:3000`), which is the one the app
 uses without it. `HANDLE_RESOLVER_URL` is the change below. `services.tap` turns Tap on and tells it to send
 the app the events of `xyz.statusphere.status` at the app's `/api/webhook`; the app reads Tap at `TAP_URL`
-(`http://127.0.0.1:2480`, on loopback; `SG_TAP_PORT` changes the port). `snowglobe check` refuses a webhook
+(`http://127.0.0.1:2480` with the default `SG_BIND`; `SG_BIND` changes the address and `SG_TAP_PORT` the port). `snowglobe check` refuses a webhook
 that names an app the file does not have.
 
 ## Two changes to the app
