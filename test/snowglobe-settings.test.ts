@@ -99,7 +99,8 @@ describe('the names are checked with the file', () => {
       'apps[0].env.R: services.relay is off in this file, so it has no address',
     ]);
     expect(errorsOf({ R: '${services.jetstream.ws}' }, { services: { jetstream: false, slingshot: false } })[0]).toContain('services.jetstream is off');
-    expect(errorsOf({ R: '${services.tap.url}' })[0]).toContain('services.tap');
+    expect(errorsOf({ R: '${services.tap.url}' })[0]).toContain('services.tap is off');
+    expect(errorsOf({ R: '${services.tap.url}' }, { services: { tap: true } })).toEqual([]);
   });
 
   it('teaches the pattern on a wrong field or section', () => {

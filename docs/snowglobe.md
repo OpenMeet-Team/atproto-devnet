@@ -109,7 +109,9 @@ grouphosts:                      # optional; each is grouphost-<name> at https:/
 services:                        # each true or false; these are the defaults
   relay: auto                    # auto: on when there is more than one PDS
   jetstream: true
-  tap: false                     # off by default; it syncs and backfills repos for an app that attaches to it
+  tap: false                     # off by default. true, or a map for an app that takes events from it:
+                                 #   tap: { webhook: ${apps.myapp.url}/api/webhook, signal_collection: com.example.thing }
+                                 # the app reads Tap at ${services.tap.url}
   slingshot: true                # needs jetstream
   pdsls: true
 
@@ -260,7 +262,7 @@ stacks. Nothing else is seeded.
 Published ports, all on `127.0.0.1` only: 443 (nginx), the proxy (`SG_PROXY_PORT`, 1080), the PLC (`SG_PLC_PORT`), Jetstream
 (`SG_JETSTREAM_PORT`, `SG_JETSTREAM_METRICS_PORT`) and maildev (`SG_MAILDEV_WEB_PORT`,
 `SG_MAILDEV_SMTP_PORT`). Set those to run a second snowglobe beside another; pass the same
-values on every run. The PDS, relay, Tap and Postgres ports are not published: reach a PDS by its
+values on every run. Tap's port (`SG_TAP_PORT`, 2480) is published when Tap is on. The PDS, relay and Postgres ports are not published: reach a PDS by its
 https name. nginx needs port 443 itself, so a second snowglobe also takes another loopback
 address, `SG_BIND` (for example `127.0.0.2`; the default is `127.0.0.1`). Set it in the
 environment or `.env`; the scripts read it as compose does, and `snowglobe run` maps the names to it.

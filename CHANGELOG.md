@@ -4,6 +4,11 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **Tap can send an app its events.** `services.tap` takes a map: `webhook` (a URL; it may hold
+  `${apps.<name>.url}`), `signal_collection` and `collection_filters`. An app reads Tap at
+  `${services.tap.url}` (`http://127.0.0.1:2480`, `SG_TAP_PORT`), which is now published on loopback.
+  Tap runs in a DNS container's network (`tap-dns`) so it reaches the app's https name and checks
+  handles; run `snowglobe up` again to recreate it. `tap: true` still works and sets none of it.
 - **`snowglobe ls` lists your snowglobes, and `up` and `down` can name one.** `ls` shows each
   snowglobe's name, domain, whether it is running, and the file that owns it. `up` and `down` take a
   file (`-f <file>`, or the path as before) or a snowglobe's name from `ls`, from any folder, so one

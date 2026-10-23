@@ -15,8 +15,12 @@
   sign-in metadata.
 - **The relay dials wss**, which is why it is built locally (see [The relay, built
   locally](#the-relay-built-locally)). Its `listHosts` shows a host only once it has sent an event.
-- **Tap resync is not supported.** Tap fetches a repo to resync through an SSRF-safe transport that
-  refuses nginx's address, so a resync fails here.
+- **Tap runs in the DNS container's network** (`tap-dns`), whose DNS answers every name under the
+  domain with nginx. That is how Tap reaches an app's https name to send it events, and checks a
+  handle (`alice.<domain>`) at its own name. Tap's port is published on `127.0.0.1:<SG_TAP_PORT>` (2480)
+  from that container. Tap finds an account when it writes in the signal collection; its crawl of
+  that collection's repos is refused by the PDS (HTTP 401), so a repo written before Tap started is
+  found when it next writes (unchecked: whether Tap's resync reads such a repo).
 - **Jetstream** is at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the Docker network (or, with one PDS, that PDS).
 
 ## Slingshot: handles and DIDs inside the network
