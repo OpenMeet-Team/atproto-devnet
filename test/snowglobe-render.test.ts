@@ -209,7 +209,7 @@ describe('snowglobe render', () => {
     const dir = mkdtempSync(join(tmpdir(), 'snowglobe-render-'));
     const r = spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), 'render', join(ROOT, 'docs/examples/atmo.yml'), '--out', dir], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);
-    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8' });
+    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
     expect(c.status, c.stderr).toBe(0);
   });
 });
@@ -314,7 +314,7 @@ describe('snowglobe render: group hosts', () => {
       env: { ...process.env, SG_OPENSOCIAL_BUILD: BUILD },
     });
     expect(r.status, r.stderr).toBe(0);
-    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8' });
+    const c = spawnSync('docker', ['compose', '-p', 'snowglobe-render-test', '--project-directory', ROOT, '-f', join(dir, 'out', 'compose.yml'), 'config', '-q'], { encoding: 'utf8', env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' } });
     expect(c.status, c.stderr).toBe(0);
   });
 });

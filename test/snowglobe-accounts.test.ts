@@ -40,7 +40,7 @@ function fakeGlobe() {
     const required = r.pds === 'alpha' || r.pds === 'beta';
     switch (r.nsid) {
       case 'com.atproto.server.createInviteCode': {
-        if (r.auth !== `Basic ${Buffer.from('admin:snowglobe-admin-password').toString('base64')}`) return [401, { error: 'AuthRequired' }];
+        if (r.auth !== `Basic ${Buffer.from('admin:test-admin-password').toString('base64')}`) return [401, { error: 'AuthRequired' }];
         const code = `${r.pds}-code-${++n}`;
         invites.set(code, { pds: r.pds, left: r.body.useCount });
         return [200, { code }];
@@ -139,7 +139,7 @@ function sg(args: string[], env: Record<string, string> = {}): Promise<{ status:
   return new Promise((done) => {
     const p = spawn(join(bin, 'node'), [join(root, 'bin/snowglobe.mjs'), ...args], {
       cwd: root,
-      env: { PATH: bin, HOME: root, SG_BIND: BIND, SG_PDS_ADMIN_PASSWORD: 'snowglobe-admin-password', ...env },
+      env: { PATH: bin, HOME: root, SG_BIND: BIND, SG_PDS_ADMIN_PASSWORD: 'test-admin-password', ...env },
     });
     let stdout = '';
     let stderr = '';

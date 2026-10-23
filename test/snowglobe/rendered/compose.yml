@@ -87,7 +87,7 @@ services:
       PDS_CRAWLERS: ""
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "true"
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:?snowglobe up makes it}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
@@ -138,7 +138,7 @@ services:
       PDS_CRAWLERS: ""
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "false"
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:?snowglobe up makes it}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
@@ -189,7 +189,7 @@ services:
       PDS_CRAWLERS: ""
       PDS_DISABLE_SSRF_PROTECTION: "true"
       PDS_INVITE_REQUIRED: "false"
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:?snowglobe up makes it}
       PDS_JWT_SECRET: devnet-jwt-secret-not-for-production
       PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       PDS_EMAIL_SMTP_URL: smtp://maildev:1025
@@ -318,7 +318,7 @@ services:
       - /state/snowglobe/snowglobe:/devnet-data
     environment:
       PDS_HOSTNAME: alpha.local.snowglobe.at
-      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:-${DEVNET_PDS_ADMIN_PASSWORD:-snowglobe-admin-password}}
+      PDS_ADMIN_PASSWORD: ${SG_PDS_ADMIN_PASSWORD:?snowglobe up makes it}
       HANDLE_DOMAIN: .local.snowglobe.at
       SEED_ACCOUNTS: ${SG_SEED_ACCOUNTS:-${DEVNET_SEED_ACCOUNTS:-true}}
       SG_DOMAIN: local.snowglobe.at
