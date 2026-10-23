@@ -36,8 +36,8 @@ const BARE_A = { ...PDS_A, bare_handles: true };
 const ok = (extra: object = {}) => ({ globe: 'mine', pds: [PDS_A], ...extra });
 
 describe('snowglobe check', () => {
-  it('passes the default globe, which is today\'s https devnet', () => {
-    const r = check(join(ROOT, 'snowglobe.default.yml'));
+  it('passes the atmo example globe, with three PDSes', () => {
+    const r = check(join(ROOT, 'docs/examples/atmo.yml'));
     expect(r.err).toBe('');
     expect(r.code).toBe(0);
     expect(r.out).toContain('PDSs alpha regular prod');
@@ -47,6 +47,7 @@ describe('snowglobe check', () => {
     const r = check();
     expect(r.code).toBe(0);
     expect(r.out).toContain('snowglobe.default.yml: ok');
+    expect(r.out).toContain('PDSs main');
   });
 
   it('passes a file that uses every setting', () => {
