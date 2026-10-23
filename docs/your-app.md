@@ -59,8 +59,8 @@ use the pieces described further down.
 1. **Get the `snowglobe` command.** Install it once for your user, or add it to the app's repo.
 
    ```bash
-   npm install -g @openmeet/snowglobe        # the command, on your PATH
-   npm install --save-dev @openmeet/snowglobe  # or: with the app; run it as npx snowglobe
+   npm install -g @openmeet/snowglobe@0.3.0                        # the command, on your PATH
+   npm install --save-dev --save-exact @openmeet/snowglobe@0.3.0   # or: with the app; run it as npx snowglobe
    ```
 
 2. **Describe the snowglobe the app needs.** Put a `snowglobe.yml` in the app's repo. It can start as a

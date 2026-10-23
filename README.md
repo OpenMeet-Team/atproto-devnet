@@ -80,15 +80,15 @@ keeps the https names, and they are what make an app run unchanged.
 ## Quick start
 
 ```bash
-npm install -g @openmeet/snowglobe       # puts the snowglobe command on your PATH
-snowglobe up --default                   # the first run pulls and builds images, which takes a while
+npm install -g @openmeet/snowglobe@0.3.0       # puts the snowglobe command on your PATH
+snowglobe up --default                       # the first run pulls and builds images, which takes a while
 ```
 
 To change what it runs, copy the default file into your folder, give it a name of its own on the
 `globe:` line (`snowglobe` is the default file's, and a snowglobe belongs to the file that first
 brought it up), edit it, and run `snowglobe up`:
 `cp "$(npm root -g)/@openmeet/snowglobe/snowglobe.default.yml" snowglobe.yml`.
-To keep the command with one project instead, run `npm install --save-dev @openmeet/snowglobe`, then
+To keep the command with one project instead, run `npm install --save-dev --save-exact @openmeet/snowglobe@0.3.0`, then
 `npx snowglobe up --default` for the default, or `npx snowglobe up` once the folder has a
 `snowglobe.yml` (copy it from `node_modules/@openmeet/snowglobe/snowglobe.default.yml`). Either
 command also fits in a `package.json` script.
