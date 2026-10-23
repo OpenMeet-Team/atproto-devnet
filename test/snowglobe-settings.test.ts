@@ -99,7 +99,8 @@ describe('the names are checked with the file', () => {
       'apps[0].env.R: services.relay is off in this file, so it has no address',
     ]);
     expect(errorsOf({ R: '${services.jetstream.ws}' }, { services: { jetstream: false, slingshot: false } })[0]).toContain('services.jetstream is off');
-    expect(errorsOf({ R: '${services.tap.url}' })[0]).toContain('services.tap');
+    expect(errorsOf({ R: '${services.tap.url}' })[0]).toContain('services.tap is off');
+    expect(errorsOf({ R: '${services.tap.url}' }, { services: { tap: true } })).toEqual([]);
   });
 
   it('teaches the pattern on a wrong field or section', () => {
@@ -138,8 +139,8 @@ function folder(yml: string, accountsEnv?: string) {
   }
   return { dir, data };
 }
-function sg(f: { dir: string; data: string }, args: string[]) {
-  const env = { PATH: process.env.PATH, HOME: f.dir, XDG_DATA_HOME: f.data };
+function sg(f: { dir: string; data: string }, args: string[], extra: Record<string, string> = {}) {
+  const env = { PATH: process.env.PATH, HOME: f.dir, XDG_DATA_HOME: f.data, ...extra };
   return spawnSync('node', [join(ROOT, 'bin/snowglobe.mjs'), ...args], { cwd: f.dir, env, encoding: 'utf8' });
 }
 
@@ -323,6 +324,38 @@ apps:
     expect(r.stdout).toContain(`export CREDS='${join(f.data, 'snowglobe/setg/accounts.env')}'`);
     expect(r.stdout).toContain(`export CA='${join(f.data, 'snowglobe/ca/ca.crt')}'`);
     expect(r.stdout).toContain("export MAIL='http://127.0.0.1:1081'");
+  });
+});
+
+describe('services.tap.url', () => {
+  const yml = `globe: setg
+pds: [{ name: alpha, image: spaces-alpha }]
+services: { tap: true }
+apps:
+  - name: web
+    env:
+      TAP: \${services.tap.url}
+`;
+  const started = () => {
+    const f = folder(yml);
+    mkdirSync(join(f.data, 'snowglobe/setg/globe'), { recursive: true });
+    writeFileSync(join(f.data, 'snowglobe/setg/globe/compose.yml'), 'x');
+    return f;
+  };
+
+  it('is on the snowglobe\'s own address, at the Tap port', () => {
+    expect(sg(started(), ['env']).stdout).toContain("export TAP='http://127.0.0.1:2480'");
+    const r = sg(started(), ['env'], { SG_BIND: '127.0.0.4', SG_TAP_PORT: '2490' });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain("export TAP='http://127.0.0.4:2490'");
+  });
+
+  it('is on the address the first up chose and kept, when SG_BIND is not set', () => {
+    const f = started();
+    writeFileSync(join(f.data, 'snowglobe/setg/bind'), '127.0.0.7\n');
+    const r = sg(f, ['env']);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain("export TAP='http://127.0.0.7:2480'");
   });
 });
 

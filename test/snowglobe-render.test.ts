@@ -366,3 +366,36 @@ describe('snowglobe images built from this repo', () => {
     expect(contextHash(dir, 'ctx', ['Dockerfile'])).not.toBe(before);
   });
 });
+
+describe('TAP with settings', () => {
+  const tapGlobe = (t: object | boolean) => ({ globe: 'one', domain: 'one.test', pds: [PDS('solo')], apps: [{ name: 'web', local: { port: 3000 } }], services: { tap: t } });
+
+  it('sends its events to the webhook and follows the signal collection', () => {
+    const { compose } = render(tapGlobe({ webhook: '${apps.web.url}/api/webhook', signal_collection: 'xyz.statusphere.status' }));
+    const env = compose.services.tap.environment;
+    expect(env.TAP_WEBHOOK_URL).toBe('https://web.app.one.test/api/webhook');
+    expect(env.TAP_SIGNAL_COLLECTION).toBe('xyz.statusphere.status');
+    expect(env.TAP_COLLECTION_FILTERS).toBe('xyz.statusphere.status');
+  });
+
+  it('sets none of them for plain true', () => {
+    const env = render({ ...tapGlobe(true) }).compose.services.tap.environment;
+    expect(env).not.toHaveProperty('TAP_WEBHOOK_URL');
+    expect(env).not.toHaveProperty('TAP_SIGNAL_COLLECTION');
+  });
+
+  it('runs in tap-dns, which answers every name with nginx, and publishes its port on loopback', () => {
+    const { compose } = render(tapGlobe(true));
+    expect(compose.services.tap.network_mode).toBe('service:tap-dns');
+    expect(compose.services.tap).not.toHaveProperty('networks');
+    expect(compose.services.tap).not.toHaveProperty('ports');
+    expect(compose.services['tap-dns'].ports).toEqual(['${SG_BIND:-127.0.0.1}:${SG_TAP_PORT:-2480}:2480']);
+    expect(compose.services['tap-dns'].environment.SG_DOMAIN).toBe('one.test');
+  });
+
+  it('adds neither when TAP is off', () => {
+    const { compose } = render(tapGlobe(false));
+    expect(compose.services).not.toHaveProperty('tap');
+    expect(compose.services).not.toHaveProperty('tap-dns');
+  });
+});

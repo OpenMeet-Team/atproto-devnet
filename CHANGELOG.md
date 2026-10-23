@@ -10,6 +10,11 @@ Changes to the default stack that existing setups will notice:
   (`127.0.0.1` if nothing answers there, else the next `127.0.0.N`) and keeps it in the `bind` file in the
   snowglobe's state folder. `SG_BIND` still sets it by hand. A snowglobe that is running from before keeps `127.0.0.1`.
   `snowglobe env` reports MailDev's page at the snowglobe's own address.
+- **Tap can send an app its events.** `services.tap` takes a map: `webhook` (a URL; it may hold
+  `${apps.<name>.url}`), `signal_collection` and `collection_filters`. An app reads Tap at
+  `${services.tap.url}` (`http://<the snowglobe's address>:2480`; `SG_TAP_PORT` changes the port), which is now published on the snowglobe's own address.
+  Tap runs in a DNS container's network (`tap-dns`) so it reaches the app's https name and checks
+  handles; run `snowglobe up` again to recreate it. The Tap image is pinned by digest, not `latest`. `tap: true` still works and sets none of it.
 - **`snowglobe ls` lists your snowglobes, and `up` and `down` can name one.** `ls` shows each
   snowglobe's name, domain, whether it is running, and the file that owns it. `up` and `down` take a
   file (`-f <file>`, or the path as before) or a snowglobe's name from `ls`, from any folder, so one

@@ -285,3 +285,31 @@ describe('the rules behind the check', () => {
     expect(whereOf(ok({ apps: [{ name: 'atmo', hosted: { service: 'atmo:65535' } }] }))).toEqual([]);
   });
 });
+
+describe('services.tap as a map', () => {
+  const tap = (t: object) => ok({ services: { tap: t } });
+  it('takes a webhook and a signal collection, and follows that collection alone by default', () => {
+    const { globe, errors } = checkGlobe(tap({ webhook: 'https://app.test/hook', signal_collection: 'xyz.statusphere.status' }));
+    expect(errors).toEqual([]);
+    expect(globe.services.tap).toBe(true);
+    expect(globe.tap).toEqual({ webhook: 'https://app.test/hook', signal_collection: 'xyz.statusphere.status', collection_filters: ['xyz.statusphere.status'] });
+  });
+
+  it('has no settings for plain true, and none for false', () => {
+    expect(checkGlobe(ok({ services: { tap: true } })).globe.tap).toBeNull();
+    expect(checkGlobe(ok({ services: { tap: false } })).globe.services.tap).toBe(false);
+  });
+
+  it('names the setting that is wrong', () => {
+    expect(whereOf(tap({ webhook: 5 }))).toEqual(['services.tap.webhook']);
+    expect(whereOf(tap({ signal_collection: 'status' }))).toEqual(['services.tap.signal_collection']);
+    expect(whereOf(tap({ collection_filters: 'xyz.a.b' }))).toEqual(['services.tap.collection_filters']);
+    expect(whereOf(tap({ hook: 'x' }))).toEqual(['services.tap.hook']);
+  });
+
+  it('checks the names in the webhook against the file', () => {
+    expect(whereOf(tap({ webhook: '${apps.nope.url}/hook' }))).toEqual(['services.tap.webhook']);
+    expect(whereOf(tap({ webhook: '${accounts.alice.did}' }))).toEqual(['services.tap.webhook']);
+    expect(whereOf({ ...tap({ webhook: '${apps.web.url}/hook' }), apps: [{ name: 'web', local: { port: 3000 } }] })).toEqual([]);
+  });
+});

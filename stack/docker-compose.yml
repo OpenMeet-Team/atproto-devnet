@@ -124,7 +124,8 @@ services:
 
   # ── TAP (repo sync + backfill) ───────────────────────────────────
   tap:
-    image: ghcr.io/bluesky-social/indigo/tap:latest
+    # Pinned by digest (indigo revision 4f47add4, built 2026-03-11): the one the Statusphere flow was run against.
+    image: ghcr.io/bluesky-social/indigo/tap@sha256:5e20bfe416d29fcd215ed8bf99f10b2ab825a6de4e5599846dd33967ade2abeb
     restart: unless-stopped
     depends_on:
       pds:

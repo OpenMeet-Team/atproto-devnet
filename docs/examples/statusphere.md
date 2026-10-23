@@ -1,8 +1,10 @@
-# Statusphere (a draft, not finished)
+# Statusphere (run by hand, not yet in CI)
 
-> **Draft.** Sign-in and posting a status work. The feed of other people's statuses does not yet,
-> and the steps have been run once, by hand, in a headless browser. This page is a place to finish
-> the example, not a recipe to trust.
+> **Run by hand in a headless browser, not yet by CI.** The whole flow worked on 2026-10-23: sign in
+> through the PDS's consent page, pick an emoji, see it in the feed with alice's handle, and see a
+> status bob wrote outside the app arrive through Tap. It has not been run in a browser on your own
+> machine through the proxy, and nothing runs it on a change to the snowglobe
+> (see [What is left](#what-is-left)).
 
 [Statusphere](https://github.com/bluesky-social/statusphere-example-app) is the atproto example app:
 sign in with a handle, pick an emoji, and the app writes an `xyz.statusphere.status` record to your
@@ -14,17 +16,26 @@ the app. The rest is the snowglobe's own tools.
 Start from [`snowglobe.default.yml`](../../snowglobe.default.yml) and add the app:
 
 ```yaml
+services:
+  tap:
+    webhook: ${apps.statusphere.url}/api/webhook
+    signal_collection: xyz.statusphere.status
+
 apps:
   - name: statusphere
     local: { port: 3000 }          # where `pnpm dev` listens; Next picks 3001 if 3000 is busy
     env:
       PUBLIC_URL: ${apps.statusphere.url}
       HANDLE_RESOLVER_URL: ${pds.main.url}
+      TAP_URL: ${services.tap.url}
 ```
 
 `PUBLIC_URL` makes the app use an https client ID, `https://statusphere.app.local.snowglobe.at/oauth-client-metadata.json`.
 A PDS in Docker will not fetch a loopback client ID (`http://127.0.0.1:3000`), which is the one the app
-uses without it. `HANDLE_RESOLVER_URL` is the change below.
+uses without it. `HANDLE_RESOLVER_URL` is the change below. `services.tap` turns Tap on and tells it to send
+the app the events of `xyz.statusphere.status` at the app's `/api/webhook`; the app reads Tap at `TAP_URL`
+(`http://127.0.0.1:2480` with the default `SG_BIND`; `SG_BIND` changes the address and `SG_TAP_PORT` the port). `snowglobe check` refuses a webhook
+that names an app the file does not have.
 
 ## Two changes to the app
 
@@ -76,6 +87,9 @@ pnpm install
 PRIVATE_KEY="$(cat key.jwk)" snowglobe run pnpm dev
 ```
 
+If port 3000 is taken on your machine, pick a free one: set it as the app's `local` port in the file and run the app with `PORT=<that port>`.
+A snowglobe brought up before `services.tap` was set needs `snowglobe up` again, which recreates Tap.
+
 Open `https://statusphere.app.local.snowglobe.at`, sign in as `alice.local.snowglobe.at` (her password
 is `ALICE_PASSWORD` in `<state>/accounts.env`), authorize, and pick an emoji. The record is on her PDS:
 
@@ -84,14 +98,23 @@ snowglobe run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt \
   'https://main.local.snowglobe.at/xrpc/com.atproto.repo.listRecords?repo=alice.local.snowglobe.at&collection=xyz.statusphere.status'
 ```
 
+## The feed
+
+"Recent" fills from [Tap](https://github.com/bluesky-social/indigo/tree/main/cmd/tap). Tap finds an
+account when it writes a `xyz.statusphere.status` record, fetches the account's repo, and posts each
+event to the app's `/api/webhook`. In a clean snowglobe, alice's and bob's statuses both appeared in the
+app's Recent list with their handles. Tap runs in a small DNS container's network, so it reaches the app's
+https name and can check a handle ([How it works](../how-it-works.md)).
+
+An account that wrote before Tap started is not found until it writes again: Tap's own crawl of the
+collection gets `HTTP 401 AuthMissing` from the PDS every minute. After a new write, Tap fetches the
+whole repo and the app receives its events. This happens with a Tap you start fresh, such as after
+`down -v`, if accounts already have statuses.
+
 ## What is left
 
-- **The feed.** "Recent" fills from [Tap](https://github.com/bluesky-social/indigo/tree/main/cmd/tap),
-  which the app reaches at `TAP_URL` and which calls the app's `/api/webhook`. A snowglobe's own Tap
-  (`services: { tap: true }`) has no https name and no published port, and the app's
-  `docker-compose.yml` starts a Tap for the real network. Giving the app a Tap that follows the
-  snowglobe is the open work. Posting works without it: the app saves your own status as it writes it.
-- **The handle in the header.** The page shows `@did:plc:...` where a handle should be.
-- **A real browser.** The steps ran in headless Chromium inside `snowglobe run`, with certificate
-  errors ignored. They have not been run in a browser on your own machine through the
-  [proxy](../browser.md).
+- **Your own browser.** The sign-in and the click ran in headless Chromium on the machine that runs
+  Docker, with certificate errors ignored and the snowglobe's names mapped to its loopback address.
+  They have not been run in a browser on your own machine through the [proxy](../browser.md).
+- **CI.** Nothing runs this page's flow on a change to the snowglobe yet.
+- **The key.** The app's `pnpm gen-key` still fails on its locked dependencies, hence the Node command above.

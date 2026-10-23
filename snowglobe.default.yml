@@ -26,7 +26,7 @@ services:                      # these are the defaults, each true or false
   jetstream: true
   slingshot: true              # answers a handle's DID and PDS inside the network; needs jetstream
   pdsls: true                  # https://pdsls.local.snowglobe.at, a browser for the network's records
-  tap: false                   # syncs and backfills repos for an app that attaches to it
+  tap: false                   # sends an app the events of one collection (true, or a map; see docs/snowglobe.md)
   # relay: auto                # auto: on when there is more than one PDS
 
 # Where every PDS resolves lexicons (NSIDs) from. Name a PDS that is in this file.
