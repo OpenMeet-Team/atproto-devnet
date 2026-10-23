@@ -18,6 +18,7 @@ import { PUBLISHED, REGISTRY, SOURCE_LABEL, sourceHash } from '../lib/prebuilt.m
 import { loadBase, renderGlobe } from '../lib/render.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const SECRET_NAMES = ['SG_PDS_ADMIN_PASSWORD', 'SG_PDS_JWT_SECRET', 'SG_PLC_ROTATION_KEY', 'SG_RELAY_ADMIN_PASSWORD', 'SG_DB_PASSWORD'];
 const push = process.argv.includes('--push');
 const dry = process.argv.includes('--dry-run');
 const registry = process.env.SG_IMAGE_REGISTRY ?? REGISTRY;
@@ -30,7 +31,9 @@ writeFileSync(file, renderGlobe(globe, loadBase(ROOT), { stateDir: '/state/snowg
 // Compose fills in the ${...} defaults, so the tag and build args are the ones `up` would use.
 const config = spawnSync('docker', ['compose', '-f', file, '--project-directory', ROOT, 'config', '--format', 'json'], {
   encoding: 'utf8',
-  env: { ...process.env, SG_PDS_ADMIN_PASSWORD: 'x' },
+  // The file takes every secret as ${SG_...:?}, and compose refuses to read it without one; a
+  // build needs none of them, so each gets a placeholder (a name the file does not use is harmless).
+  env: { ...process.env, ...Object.fromEntries(SECRET_NAMES.map((n) => [n, 'x'])) },
 });
 if (config.status !== 0) throw new Error(config.stderr);
 
