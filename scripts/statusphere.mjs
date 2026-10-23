@@ -85,6 +85,9 @@ function call(url, { method = 'GET', headers = {}, body } = {}) {
       res.setEncoding('utf8');
       res.on('data', (c) => (text += c));
       res.on('end', () => done({ status: res.statusCode, text }));
+      // A connection closed partway through the body ends neither in 'end' nor in a timeout.
+      res.on('error', (e) => done({ status: 0, text: e.code ?? e.message }));
+      res.on('aborted', () => done({ status: 0, text: 'aborted' }));
     });
     req.on('timeout', () => req.destroy(new Error('timeout')));
     req.on('error', (e) => done({ status: 0, text: e.code ?? e.message }));
