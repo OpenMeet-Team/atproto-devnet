@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: a plain .mjs module, without types
-import { SECRETS, adminPassword, ensureSecrets, paths } from '../lib/env.mjs';
+import { SECRETS, adminPassword, dropLegacySecrets, ensureSecrets, paths } from '../lib/env.mjs';
 
 const fresh = () => {
   const root = mkdtempSync(join(tmpdir(), 'snowglobe-secrets-root-'));
@@ -76,5 +76,33 @@ describe('the services\' secrets', () => {
     const next = ensureSecrets({ root, state, env: {}, hasData: () => { throw new Error('asked'); } });
     expect(next.values).toEqual(got.values);
     expect(next.kept).toEqual([]);
+  });
+
+  it('are not chosen while Docker cannot say whether there is data, and nothing is written', () => {
+    const { root, state } = fresh();
+    expect(() => ensureSecrets({ root, state, env: {}, hasData: () => null })).toThrow(/did not say/);
+    expect(existsSync(paths(root, state).secrets)).toBe(false);
+    // Docker back, and a fresh snowglobe: random, not the fixed ones.
+    const got = ensureSecrets({ root, state, env: {}, hasData: () => false });
+    expect(got.kept).toEqual([]);
+    expect(got.values.SG_DB_PASSWORD).not.toBe('postgres');
+  });
+
+  it('do not ask Docker when only the admin password is missing', () => {
+    const { root, state } = fresh();
+    const env = Object.fromEntries(NAMES.filter((n) => n !== 'SG_PDS_ADMIN_PASSWORD').map((n) => [n, 'x']));
+    expect(() => ensureSecrets({ root, state, env, hasData: () => null })).not.toThrow();
+  });
+
+  it('lose the fixed values, and only those, when down -v drops them; the next up makes random ones', () => {
+    const { root, state } = fresh();
+    const first = ensureSecrets({ root, state, env: {}, hasData: () => true });
+    dropLegacySecrets({ root, state });
+    const file = readFileSync(paths(root, state).secrets, 'utf8');
+    expect(file).toContain(`SG_PDS_ADMIN_PASSWORD=${first.values.SG_PDS_ADMIN_PASSWORD}`);
+    expect(file).not.toMatch(/postgres|devnet-|0123456789abcdef/);
+    const next = ensureSecrets({ root, state, env: {}, hasData: () => false });
+    expect(next.values.SG_PDS_ADMIN_PASSWORD).toBe(first.values.SG_PDS_ADMIN_PASSWORD);
+    expect(next.values.SG_DB_PASSWORD).not.toBe('postgres');
   });
 });

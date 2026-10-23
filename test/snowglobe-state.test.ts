@@ -368,6 +368,36 @@ describe('up and down by file or name', () => {
     expect(dockerLog(r)).toMatch(/-p four .* down --remove-orphans -v/);
   });
 
+  it('refuses up by name, before docker, when its file now says another globe: name', () => {
+    const r = rendered();
+    const file = join(r, 'proj/snowglobe.yml');
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/^globe: four$/m, 'globe: renamed'));
+    const before = dockerLog(r);
+    const res = sg(r, r, ['up', 'four']);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain('says globe: renamed now, not four');
+    expect(res.stderr).toContain('globe: four back');
+    expect(dockerLog(r)).toBe(before);
+    expect(existsSync(join(r, '.local/share/snowglobe/renamed'))).toBe(false);
+  });
+
+  it('down -v drops the fixed secrets only when compose succeeded; a plain down keeps them', () => {
+    const r = rendered();
+    const secrets = join(r, '.local/share/snowglobe/four/secrets.env');
+    const fixed = 'SG_DB_PASSWORD=postgres\nSG_PDS_ADMIN_PASSWORD=keepme\n';
+    for (const [args, env, kept] of [
+      [['down', 'four'], { SHIM_EXIT: '0' }, true],
+      [['down', '-v', 'four'], {}, true],
+      [['down', '-v', 'four'], { SHIM_EXIT: '0' }, false],
+    ] as [string[], Record<string, string>, boolean][]) {
+      writeFileSync(secrets, fixed);
+      sg(r, r, args, env);
+      const now = readFileSync(secrets, 'utf8');
+      expect(now.includes('SG_DB_PASSWORD=postgres'), `${args.join(' ')} ${JSON.stringify(env)}`).toBe(kept);
+      expect(now).toContain('SG_PDS_ADMIN_PASSWORD=keepme');
+    }
+  });
+
   it('refuses up by name when its file is gone, and says how to give one', () => {
     const r = rendered();
     spawnSync('rm', ['-r', join(r, 'proj')]);
