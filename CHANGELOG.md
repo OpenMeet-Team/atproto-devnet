@@ -23,7 +23,10 @@ Changes to the default stack that existing setups will notice:
   setting of the same name (`SG_PDS_ADMIN_PASSWORD`, `SG_PDS_JWT_SECRET`, `SG_PLC_ROTATION_KEY`,
   `SG_RELAY_ADMIN_PASSWORD`, `SG_DB_PASSWORD`) is used instead. A snowglobe that already has
   data keeps the old fixed values of the last four, since its database and its DIDs were made with
-  them, and `up` says so; `snowglobe down -v` and `up` start it over with random ones. A snowglobe
+  them, and `up` says so; `snowglobe down -v` and `up` start it over with random ones (`down -v`
+  drops the fixed values from `secrets.env` once Docker has removed the volumes; if it fails, they
+  stay). If Docker cannot say whether the snowglobe has data, `up` stops and asks you to start
+  Docker and run it again, rather than choose the secrets blind. A snowglobe
   from before gets a new admin password at its next `up`, which recreates its PDSes with it
   (unchecked: that compose recreates them for a changed password). `.env.example` now shows
   `local.snowglobe.at`, the default domain, not `devnet.test`.

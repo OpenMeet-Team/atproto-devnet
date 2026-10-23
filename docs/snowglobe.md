@@ -226,11 +226,23 @@ Both run the one compose file `snowglobe up` last rendered, from the repo root:
 
 ```bash
 snowglobe up ../myapp/snowglobe.yml   # another snowglobe than the default (or -f ../myapp/snowglobe.yml)
+snowglobe down -f ../myapp/snowglobe.yml   # -f works the same on down
 snowglobe ls                          # every snowglobe on this machine, and which are running
 snowglobe up myapp                    # one of them by its name, from any folder
 snowglobe down myapp                  # and stop it the same way
 docker compose -p <project> --project-directory . -f <state>/globe/compose.yml ps
 ```
+
+`-f <file>` and a file's path name the same thing: the `snowglobe.yml` to act on, from any folder. Use
+`-f` when you want it to read plainly in a script, and when the snowglobe's file has moved: `up` by
+name needs the file that owns it, and `up -f <new path>` hands the snowglobe to the file at its new
+place. With neither, `up` and `down` read the nearest `snowglobe.yml` in the folder you are in or
+above. Give one or the other, not both.
+
+`snowglobe down -v` drops the snowglobe's volumes, and with them the fixed secrets (`secrets.env`)
+an older snowglobe kept for its data, so the next `up` starts over with random ones. A plain `down`
+keeps both, and so does a `down -v` that fails. If Docker cannot say whether a snowglobe has data,
+`up` stops before it saves any secret; start Docker and run it again.
 
 `snowglobe up` is safe to rerun; a rerun leaves the running services as they are, and only the
 one-shot `init` and `relay-init` run again. A rerun on a changed file stops what the file no longer
