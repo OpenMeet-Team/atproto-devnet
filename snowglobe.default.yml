@@ -10,7 +10,7 @@ domain: local.snowglobe.at     # every name below is under it
 pds:
   - name: main                 # https://main.local.snowglobe.at
     image: ghcr.io/bluesky-social/pds:0.4.5037    # a current release
-    bare_handles: true         # its handles are <name>.local.snowglobe.at
+    bare_handles: true         # its handles are <account>.local.snowglobe.at
   # A second PDS, with handles <name>.other.local.snowglobe.at. With more than one PDS the
   # relay turns on, so Jetstream sees every PDS's writes.
   # - name: other

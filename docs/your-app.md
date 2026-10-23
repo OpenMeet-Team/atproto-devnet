@@ -65,7 +65,7 @@ use the pieces described further down.
    ```
 
 2. **Describe the snowglobe the app needs.** Put a `snowglobe.yml` in the app's repo. It can start as a
-   copy of the checkout's `snowglobe.default.yml`, with the app added and the settings it reads:
+   copy of the checkout's `snowglobe.default.yml` with a new `globe:` name (two files cannot share one), the app added, and the settings it reads:
 
    ```yaml
    apps:
@@ -171,8 +171,8 @@ starts a name, since Vite would expand it; use the `export` form for that one. A
 over replaces the same name already in the environment, and `run` prints one line naming the ones it
 replaced.
 
-The names follow the file: the section, the name you gave it, then the field. Every server has
-`.url` (`https://<host>`) and `.host`:
+The names follow the file: the section, the name you gave it, then the field. Every PDS, group host and app has
+`.url` (`https://<host>`) and `.host`; a service has the fields in the table:
 
 | Name | Value |
 |---|---|
@@ -306,7 +306,7 @@ its handles, and they resolve from anywhere on the snowglobe. The leaf certifica
 the ending drops it. Under `snowglobe run`, list each such handle in `HTTPS_RUN_EXTRA_NAMES`, as for
 any handle.
 
-### Check the OAuth path
+### Check the OAuth path (optional)
 
 `scripts/https-probe.mjs` checks the whole path for any app name. It resolves an account through
 `https://plc.directory` with stock atcute at its defaults, serves a confidential client at
@@ -316,7 +316,7 @@ any handle.
 
 ```bash
 snowglobe app probe 5480
-ATCUTE_DIR=<dir> PROBE_DID=<did> snowglobe run node scripts/https-probe.mjs
+ATCUTE_DIR=<dir> PROBE_DID=<did> PROBE_PDS=https://main.local.snowglobe.at snowglobe run node scripts/https-probe.mjs
 ```
 
 ```

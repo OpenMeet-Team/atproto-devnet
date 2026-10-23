@@ -17,7 +17,7 @@
   locally](#the-relay-built-locally)). Its `listHosts` shows a host only once it has sent an event.
 - **Tap resync is not supported.** Tap fetches a repo to resync through an SSRF-safe transport that
   refuses nginx's address, so a resync fails here.
-- **Jetstream** is at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the Docker network.
+- **Jetstream** is at `ws://127.0.0.1:<SG_JETSTREAM_PORT>`, reading the relay over the Docker network (or, with one PDS, that PDS).
 
 ## Slingshot: handles and DIDs inside the network
 
@@ -29,7 +29,7 @@ this one answers for it:
 ```sh
 snowglobe run curl -sS --cacert ~/.local/share/snowglobe/ca/ca.crt \
   'https://slingshot.local.snowglobe.at/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.local.snowglobe.at'
-# {"did":"did:plc:...","handle":"alice.local.snowglobe.at","pds":"https://alpha.local.snowglobe.at","signing_key":"zQ3..."}
+# {"did":"did:plc:...","handle":"alice.local.snowglobe.at","pds":"https://main.local.snowglobe.at","signing_key":"zQ3..."}
 ```
 
 It checks a handle both ways, which means it fetches `https://<handle>/.well-known/atproto-did`
@@ -37,7 +37,7 @@ from inside the compose network, and a handle's name exists nowhere but in nginx
 the network namespace of `slingshot-dns`, a dnsmasq
 that answers nginx's address for any name under `SG_DOMAIN` and nothing else, and its only
 root is the snowglobe's CA. nginx reaches it as `slingshot-dns:8080`. `slingshot` is a name, not a
-handle: `snowglobe account` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
+handle: on the PDS with bare handles `snowglobe account` refuses it. To recreate `slingshot-dns`, recreate `slingshot` with it.
 To build another Slingshot, set `SG_SLINGSHOT_COMMIT` to a full microcosm-rs commit; it picks
 the source and names the image.
 

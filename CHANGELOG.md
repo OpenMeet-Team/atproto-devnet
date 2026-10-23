@@ -44,8 +44,7 @@ Changes to the default stack that existing setups will notice:
   compose project: `mv ~/.local/share/snowglobe/devnet ~/.local/share/snowglobe/snowglobe`, then
   `SG_PROJECT=devnet snowglobe up --default`. To drop it, `down -v` it and delete the folder.
   Either way the old Docker network `devnet_atproto-devnet` is left behind: remove it with
-  `docker network rm devnet_atproto-devnet` once nothing uses it. The quick stack and the old
-  `DEVNET_*` setting names are unchanged.
+  `docker network rm devnet_atproto-devnet` once nothing uses it.
 - **The network page's facts are at `/snowglobe.json`, not `/globe.json`.** `up` writes
   `https/nginx/snowglobe.json` and the page reads it. Anything that fetched `globe.json` from a
   snowglobe uses the new name after its next `up`.

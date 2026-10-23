@@ -1,7 +1,7 @@
 # Snowglobe
 
 Your own isolated [AT Protocol](https://atproto.com) network, for testing, research, and demos. A snowglobe has its own
-PDSes, PLC directory, relay and Jetstream, and nothing in it reaches Bluesky's network. It uses
+PDS, PLC directory and Jetstream (and a relay, once there is more than one PDS), and nothing in it reaches Bluesky's network. It uses
 https and the real network's sign-in (OAuth), so an app built for the real network runs against it
 with no test-only code.
 
@@ -64,14 +64,14 @@ your computer has to send the names to the snowglobe, and trust its certificate.
      every name under `local.snowglobe.at` with `127.0.0.1`. If the browser says "server not found",
      your router is dropping that answer. See
      [When the browser cannot open it](docs/browser.md#when-the-browser-cannot-open-it).
-   - Docker in a dev container, or on another machine: start the snowglobe's proxy and point your
-     browser at it ([From a browser on your own computer](docs/browser.md)).
+   - Docker in a dev container, or on another machine: the snowglobe's proxy runs with every `up`, on
+     `127.0.0.1:1080`; point your browser at it ([From a browser on your own computer](docs/browser.md)).
    - A command started with `snowglobe run`: you do nothing, it sets the names up itself.
 4. Trust the snowglobe's certificate authority (CA). Run `snowglobe trust` on the machine that runs
    Docker. For another machine, see [From a browser on your own computer](docs/browser.md).
 
-**Why not just use ports?** The PDSes are not published on ports at all: only nginx (443), the PLC,
-Jetstream and MailDev are. A PDS's address is its name, and that name is what a DID document, a
+**Why not just use ports?** The PDSes are not published on ports at all: only nginx (443), the proxy,
+the PLC, Jetstream and MailDev are. A PDS's address is its name, and that name is what a DID document, a
 handle lookup and an OAuth sign-in resolve to, so an app has to be told it is on a test network to
 use a port instead. A snowglobe can still be small: a file with one PDS, the PLC and Jetstream
 checks and renders ([The file and the commands](docs/snowglobe.md#the-file-and-the-commands)). It
@@ -93,7 +93,7 @@ gives curl the snowglobe's certificate authority (CA), so it trusts the snowglob
 
 ```bash
 # Sign up a new account, then look up alice's account through Slingshot
-snowglobe account carol CAROL
+snowglobe account carol CAROL                # CAROL: the prefix of her login variables, such as CAROL_PASSWORD
 snowglobe run curl -s --cacert ~/.local/share/snowglobe/ca/ca.crt \
   'https://slingshot.local.snowglobe.at/xrpc/com.bad-example.identity.resolveMiniDoc?identifier=alice.local.snowglobe.at'
 ```

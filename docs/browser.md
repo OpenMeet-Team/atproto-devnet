@@ -75,7 +75,7 @@ you make once, in the browser you already use. Launch flags (further down) are t
 
 ### Through the snowglobe's proxy (Chrome, Edge, Firefox)
 
-The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC file that points at it, on one
+The `proxy` service (`https/proxy/server.mjs`) is a proxy and the PAC (proxy auto-config) file, a small script that tells the browser which names to send to a proxy, on one
 port, `127.0.0.1:1080` (`SG_PROXY_PORT`). The PAC names it as an HTTP proxy, which every PAC
 reader understands, Windows' own included; it also answers SOCKS5, for a client set to it directly. The PAC sends `local.snowglobe.at` and `*.local.snowglobe.at` (apps included) to the proxy and
 everything else direct, so the rest of your browsing is untouched. The browser hands the proxy the name, and the proxy connects every name in the snowglobe to nginx,
@@ -164,12 +164,13 @@ with bare handles, `*.<name>.local.snowglobe.at` for each other), each group hos
 each handle domain needs its own. `snowglobe app` reissues the leaf
 when it claims an ending, and `snowglobe up` when the leaf lacks any of these names. Add deeper names
 with `HTTPS_EXTRA_NAMES="x.mine.local.snowglobe.at"` on every run, then restart nginx. A name one label
-under `local.snowglobe.at` is already covered. To start over, delete `<state>/https/ca.*` and trust the new
-`ca.crt` wherever the old one was trusted.
+under `local.snowglobe.at` is already covered when a PDS has `bare_handles`. To start over, delete
+`<state root>/ca/` (your one CA, so every snowglobe is affected) and trust the new `ca.crt` wherever the old
+one was trusted.
 
 The CA can only vouch for servers under `local.snowglobe.at` (the `SG_DOMAIN` it was made for),
 and `plc.directory` (name constraints, server auth only, no IP addresses), so trusting it puts no other site at risk, even if
-`<state>/https/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
+`<state root>/ca/ca.key` leaks. Keep that file on the dev machine, and remove the CA from a browser or OS
 when you're done with it: `snowglobe trust --remove`. On Windows by hand:
 `certutil -user -delstore Root "<its name>"`, the name being the CN that `snowglobe certs`
 prints ("Keeping the existing CA: ...").

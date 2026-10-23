@@ -16,7 +16,7 @@ domain: local.snowglobe.at     # every name below is under it
 pds:
   - name: alpha                # https://alpha.local.snowglobe.at
     image: spaces-alpha        # the permissioned-spaces alpha, pinned by digest
-    bare_handles: true         # its handles are <name>.local.snowglobe.at
+    bare_handles: true         # its handles are <account>.local.snowglobe.at
     invites: required
   - name: regular              # a current release; handles <name>.regular.local.snowglobe.at
     image: ghcr.io/bluesky-social/pds:0.4.5037
