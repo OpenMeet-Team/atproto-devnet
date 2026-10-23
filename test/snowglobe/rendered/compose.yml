@@ -25,8 +25,8 @@ services:
     image: maildev/maildev:latest
     restart: unless-stopped
     ports:
-      - 127.0.0.1:${SG_MAILDEV_WEB_PORT:-1081}:1080
-      - 127.0.0.1:${SG_MAILDEV_SMTP_PORT:-1026}:1025
+      - ${SG_BIND:-127.0.0.1}:${SG_MAILDEV_WEB_PORT:-1081}:1080
+      - ${SG_BIND:-127.0.0.1}:${SG_MAILDEV_SMTP_PORT:-1026}:1025
     networks:
       - snowglobe
   plc:
@@ -51,7 +51,7 @@ services:
       LOG_LEVEL: info
       NODE_ENV: development
     ports:
-      - 127.0.0.1:${SG_PLC_PORT:-2582}:2582
+      - ${SG_BIND:-127.0.0.1}:${SG_PLC_PORT:-2582}:2582
     networks:
       - snowglobe
     healthcheck:
@@ -295,8 +295,8 @@ services:
     volumes:
       - jetstream-data:/data
     ports:
-      - 127.0.0.1:${SG_JETSTREAM_PORT:-6008}:6008
-      - 127.0.0.1:${SG_JETSTREAM_METRICS_PORT:-6009}:6009
+      - ${SG_BIND:-127.0.0.1}:${SG_JETSTREAM_PORT:-6008}:6008
+      - ${SG_BIND:-127.0.0.1}:${SG_JETSTREAM_METRICS_PORT:-6009}:6009
     networks:
       - snowglobe
     healthcheck:
@@ -431,7 +431,7 @@ services:
       PROXY_DOMAIN: local.snowglobe.at
       PROXY_UPSTREAM: nginx:443
     ports:
-      - 127.0.0.1:${SG_PROXY_PORT:-1080}:1080
+      - ${SG_BIND:-127.0.0.1}:${SG_PROXY_PORT:-1080}:1080
     networks:
       - snowglobe
     healthcheck:

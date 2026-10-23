@@ -349,6 +349,14 @@ apps:
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toContain("export TAP='http://127.0.0.4:2490'");
   });
+
+  it('is on the address the first up chose and kept, when SG_BIND is not set', () => {
+    const f = started();
+    writeFileSync(join(f.data, 'snowglobe/setg/bind'), '127.0.0.7\n');
+    const r = sg(f, ['env']);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain("export TAP='http://127.0.0.7:2480'");
+  });
 });
 
 describe('a setting named __proto__', () => {
