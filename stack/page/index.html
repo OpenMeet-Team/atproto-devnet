@@ -184,7 +184,7 @@
       <h2 id="h-act" style="margin:0">Activity</h2>
       <span class="live" id="stream"><span class="pulse"></span><span id="stream-text">Connecting</span></span>
     </div>
-    <p><span id="count">0</span> writes in the last week, newest first, then live as they happen.</p>
+    <p><span id="count">0</span> writes in the last 24 hours, newest first, then live as they happen. Jetstream keeps a day of events, so older writes are not listed.</p>
     <div class="feed" id="events"><p class="empty">Waiting for the next write on the network…</p></div>
   </section>
 
@@ -233,7 +233,7 @@
     if (tally.people != null) parts.push(plural(tally.people, "person", "people"));
     if (tally.groups) parts.push(plural(tally.groups, "group", "groups"));
     var line = parts.length ? parts.join(" and ") + ". " : "";
-    document.getElementById("tally").textContent = line + plural(tally.writes, "write", "writes") + " in the last week.";
+    document.getElementById("tally").textContent = line + plural(tally.writes, "write", "writes") + " in the last 24 hours.";
   }
 
   function health(domain, services) {
@@ -338,9 +338,10 @@
   // feed: the Jetstream subscribe URL; a path is taken on this page's own host.
   function activity(feed) {
     var body = document.getElementById("events");
-    // Start a week back, so a quiet network still shows what it did lately (Jetstream replays what it
-    // still holds); a reconnect resumes from the last event seen. Older events are dropped here.
-    var since = (Date.now() - 7 * 86400 * 1000) * 1000;
+    // Start a day back, which is as much as Jetstream keeps (its event TTL defaults to 24 hours), so a
+    // quiet network still shows what it did lately; a reconnect resumes from the last event seen. Older
+    // events are dropped here.
+    var since = (Date.now() - 86400 * 1000) * 1000;
     var first = true, wait = 1000, cursor = since;
     var stream = document.getElementById("stream"), streamText = document.getElementById("stream-text");
     var verbs = { create: "created", update: "updated", "delete": "deleted" };
