@@ -39,6 +39,46 @@ jobs:
             docker logs --tail 30 $c 2>&1 | cut -c1-300
           done
 
+  # The Statusphere example's whole flow in a headless browser (docs/examples/statusphere.md).
+  statusphere:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: corepack enable
+      - name: Allow bubblewrap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --dev-bind / / true
+      # Chromium's system libraries; the script installs Playwright and the browser itself, same version.
+      - run: npx -y playwright@1.64.1 install-deps chromium
+      - run: node scripts/statusphere.mjs
+        env:
+          SMOKE_KEEP: '1'
+      - name: Show containers on failure
+        if: failure()
+        run: |
+          docker ps -a
+          for c in $(docker ps -aq); do
+            echo "=== $(docker inspect -f '{{.Name}} {{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' $c)"
+            docker logs --tail 30 $c 2>&1 | cut -c1-300
+          done
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: statusphere
+          path: |
+            /tmp/snowglobe-statusphere-*/shots
+            /tmp/snowglobe-statusphere-*/app.log
+          if-no-files-found: ignore
+
   # GitHub's macOS runners have no Docker, so this is the tests and the type check only, not the smoke.
   snowglobe-mac:
     runs-on: macos-latest
