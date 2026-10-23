@@ -201,6 +201,10 @@ names the Docker Compose project, unless `SG_PROJECT` is set. A state folder rem
 owns it, and `up` refuses a second file that says the same `globe:`: give one of them another name.
 `snowglobe ls` lists them, and `up` and `down` take one by its name from any folder; `down` works
 even when the file that owned the snowglobe is gone, `up` needs a file (`up -f <file>`).
+The name is the file's `globe:` line, so `up <name>` finds the file that owns it. If you have since
+changed that line, `up <name>` stops before it starts anything and says what the file calls itself
+now: put the old name back to bring the old snowglobe up, or run `snowglobe up <file>` to start the
+renamed one as a new snowglobe.
 
 Docker keeps each snowglobe's data (the PDS, the PLC directory) in volumes named after the project,
 and `snowglobe down` leaves them, so the next `up` finds the same accounts. If the volumes outlive
@@ -223,7 +227,8 @@ Both run the one compose file `snowglobe up` last rendered, from the repo root:
 ```bash
 snowglobe up ../myapp/snowglobe.yml   # another snowglobe than the default (or -f ../myapp/snowglobe.yml)
 snowglobe ls                          # every snowglobe on this machine, and which are running
-snowglobe down myapp                  # one of them by its name, from any folder
+snowglobe up myapp                    # one of them by its name, from any folder
+snowglobe down myapp                  # and stop it the same way
 docker compose -p <project> --project-directory . -f <state>/globe/compose.yml ps
 ```
 
