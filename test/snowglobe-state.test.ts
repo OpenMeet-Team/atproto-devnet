@@ -202,22 +202,23 @@ describe('a snowglobe is found from the folder you are in', () => {
     expect(readdirSync(join(r, '.local/share/snowglobe')).sort()).toEqual(['four', 'other']);
   });
 
-  it('refuses a second file with the same globe name, naming the first and the fix, before docker', () => {
+  it('takes a second file with the same globe name as the same snowglobe, the last to render it deciding, and says so', () => {
     const r = box();
     mkdirSync(join(r, 'one'));
     mkdirSync(join(r, 'two'));
     cpSync(FOUR, join(r, 'one/snowglobe.yml'));
     cpSync(FOUR, join(r, 'two/snowglobe.yml'));
     expect(sg(r, join(r, 'one'), ['render']).status).toBe(0);
-    const before = tree(join(r, '.local/share/snowglobe'));
-    for (const args of [['up'], ['render'], ['down'], ['account', 'x', 'X']]) {
-      const res = sg(r, join(r, 'two'), args);
-      expect(res.status, args[0]).toBe(1);
-      expect(res.stderr, args[0]).toContain(join(r, 'one/snowglobe.yml'));
-      expect(res.stderr, args[0]).toContain('another name');
-    }
-    expect(dockerLog(r)).toBe('');
-    expect(tree(join(r, '.local/share/snowglobe'))).toEqual(before);
+    const res = sg(r, join(r, 'two'), ['render']);
+    expect(res.status).toBe(0);
+    const lines = res.stderr.split('\n').filter((l) => l.includes('was last brought up from'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain(join(r, 'one/snowglobe.yml'));
+    expect(lines[0]).toContain(join(r, 'two/snowglobe.yml'));
+    expect(readdirSync(join(r, '.local/share/snowglobe'))).toEqual(['four']);
+    expect(readFileSync(join(r, '.local/share/snowglobe/four/owner'), 'utf8')).toContain(join(r, 'two'));
+    // The same file again says nothing.
+    expect(sg(r, join(r, 'two'), ['render']).stderr).not.toContain('was last brought up from');
   });
 
   it('lets a file take over a name whose first file is gone', () => {
@@ -232,16 +233,15 @@ describe('a snowglobe is found from the folder you are in', () => {
     expect(readFileSync(join(r, '.local/share/snowglobe/four/owner'), 'utf8')).toContain(join(r, 'two'));
   });
 
-  it('says so when up takes over a name from a file that is gone', () => {
+  it('says so when up brings up a snowglobe another file brought up before', () => {
     const r = box();
     mkdirSync(join(r, 'one'));
     mkdirSync(join(r, 'two'));
     cpSync(FOUR, join(r, 'one/snowglobe.yml'));
     cpSync(FOUR, join(r, 'two/snowglobe.yml'));
     expect(sg(r, join(r, 'one'), ['render']).status).toBe(0);
-    spawnSync('rm', ['-r', join(r, 'one')]);
     const res = sg(r, join(r, 'two'), ['up']);
-    const lines = res.stderr.split('\n').filter((l) => l.includes('is gone'));
+    const lines = res.stderr.split('\n').filter((l) => l.includes('was last brought up from'));
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain(join(r, 'one/snowglobe.yml'));
     expect(lines[0]).toContain(join(r, 'two/snowglobe.yml'));

@@ -176,7 +176,7 @@ The commands, each `snowglobe <command>`:
 | `render [<file>] [--out <dir>] [--domain <domain>]` | writes the snowglobe it describes into `<state>/globe/`, or `<dir>` (`up` does this itself); `--domain` replaces the file's domain, for a copy beside another snowglobe |
 | `certs [--check]` | makes your CA, once, and the leaf nginx serves (`up` does this itself) |
 | `trust [--remove] [--dry-run] [--no-sudo]` | puts your CA in the system and browser trust stores, or takes it out ([From a browser on your own computer](browser.md)) |
-| `ls` | lists the snowglobes on this machine: name, domain, up or down, and the file that owns each |
+| `ls` | lists the snowglobes on this machine: name, domain, up or down, and the file that last brought each up |
 | `up [<file> \| <name>] [-f <file>] [--default]` | brings the snowglobe up and seeds it ([Up and down](#up-and-down)) |
 | `down [<file> \| <name>] [-f <file>] [-v]` | stops it; `-v` drops its volumes too |
 | `env [--app <name>] [--secrets] [--dotenv]` | prints the settings an app is handed ([An app's settings](your-app.md#snowglobe-env-know-where-things-are)) |
@@ -199,11 +199,13 @@ The file's `globe:` line names the snowglobe. The name gives its state folder, `
 `<state root>/<name>` in your own account, not in the checkout: `~/.local/share/snowglobe` on Linux
 and WSL (under `XDG_DATA_HOME` if you set it), `%LOCALAPPDATA%\snowglobe` on Windows. Beside the
 snowglobes' folders is `ca/`, your one certificate authority, which they all use. The name also
-names the Docker Compose project, unless `SG_PROJECT` is set. A state folder remembers the file that
-owns it, and `up` refuses a second file that says the same `globe:`: give one of them another name.
-`snowglobe ls` lists them, and `up` and `down` take one by its name from any folder; `down` works
-even when the file that owned the snowglobe is gone, `up` needs a file (`up -f <file>`).
-The name is the file's `globe:` line, so `up <name>` finds the file that owns it. If you have since
+names the Docker Compose project, unless `SG_PROJECT` is set. The name is the snowglobe: every file
+that says the same `globe:` is the same one, so two worktrees or clones of an app share it. `up` from
+either brings it up as that file says, and the last `up` decides what it runs; it says so when another
+file brought it up before. To keep two apart, give them different names. The state folder remembers
+the file that last brought it up. `snowglobe ls` lists them, and `up` and `down` take one by its name
+from any folder; `down` works even when that file is gone, `up` needs a file (`up -f <file>`).
+The name is the file's `globe:` line, so `up <name>` finds the file that last brought it up. If you have since
 changed that line, `up <name>` stops before it starts anything and says what the file calls itself
 now: put the old name back to bring the old snowglobe up, or run `snowglobe up <file>` to start the
 renamed one as a new snowglobe.
@@ -237,7 +239,7 @@ docker compose -p <project> --project-directory . -f <state>/globe/compose.yml p
 
 `-f <file>` and a file's path name the same thing: the `snowglobe.yml` to act on, from any folder. Use
 `-f` when you want it to read plainly in a script, and when the snowglobe's file has moved: `up` by
-name needs the file that owns it, and `up -f <new path>` hands the snowglobe to the file at its new
+name needs the file that last brought it up, and `up -f <new path>` brings it up from the file at its new
 place. With neither, `up` and `down` read the nearest `snowglobe.yml` in the folder you are in or
 above. Give one or the other, not both.
 
