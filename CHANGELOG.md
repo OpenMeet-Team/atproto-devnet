@@ -2,7 +2,7 @@
 
 Changes to the default stack that existing setups will notice:
 
-## Unreleased
+## v0.3.0 (2026-10-24)
 
 - **What snowglobe writes and says names the installed command.** The headers of the files it
   renders, its errors and the 404 for an unregistered app said `bin/snowglobe.mjs`, a path that
