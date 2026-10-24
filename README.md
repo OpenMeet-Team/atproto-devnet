@@ -85,8 +85,8 @@ snowglobe up --default                   # the first run pulls and builds images
 ```
 
 To change what it runs, copy the default file into your folder, give it a name of its own on the
-`globe:` line (`snowglobe` is the default file's, and a snowglobe belongs to the file that first
-brought it up), edit it, and run `snowglobe up`:
+`globe:` line (`snowglobe` is the default file's, and every file with the same name is the same
+snowglobe), edit it, and run `snowglobe up`:
 `cp "$(npm root -g)/@openmeet/snowglobe/snowglobe.default.yml" snowglobe.yml`.
 To keep the command with one project instead, run `npm install --save-dev @openmeet/snowglobe`, then
 `npx snowglobe up --default` for the default, or `npx snowglobe up` once the folder has a
