@@ -4,6 +4,10 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **The network page names only what the globe runs.** Its first line said "relay and Jetstream" on
+  every globe, though one PDS runs no relay; it now lists the services that run. With
+  `services.jetstream: false` the Activity panel says the network has no Jetstream, instead of
+  reconnecting to one forever.
 - **A first `up` with one PDS and no relay no longer fails on a slow machine.** The default file is
   one. `up` recreates the PDSes once the lexicon authority exists, and Jetstream, which reads the PDS
   itself when there is no relay, could still be restarting when compose checked it ("jetstream is
