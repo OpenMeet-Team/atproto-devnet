@@ -4,6 +4,11 @@ Changes to the default stack that existing setups will notice:
 
 ## Unreleased
 
+- **What snowglobe writes and says names the installed command.** The headers of the files it
+  renders, its errors and the 404 for an unregistered app said `bin/snowglobe.mjs`, a path that
+  works only in a checkout of snowglobe; they now say `snowglobe up`, `snowglobe render` and
+  `snowglobe app`. The default file says `snowglobe up` too, and links its docs on GitHub, since
+  the package ships no `docs/`.
 - **The network page names only what the globe runs.** Its first line said "relay and Jetstream" on
   every globe, though one PDS runs no relay; it now lists the services that run. With
   `services.jetstream: false` the Activity panel says the network has no Jetstream, instead of

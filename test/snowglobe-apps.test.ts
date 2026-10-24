@@ -165,6 +165,6 @@ describe('snowglobe app', () => {
     const r = globeRoot();
     expect(app(r, '--render').status).toBe(0);
     expect(page(r).domain).toBe('four.test');
-    expect(readFileSync(st(r, 'https/nginx/apps.conf'), 'utf8')).toMatch(/^# Written by bin\/snowglobe\.mjs app/);
+    expect(readFileSync(st(r, 'https/nginx/apps.conf'), 'utf8')).toMatch(/^# Written by snowglobe app/);
   });
 });

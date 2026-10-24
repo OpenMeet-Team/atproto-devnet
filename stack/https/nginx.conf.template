@@ -96,7 +96,7 @@ server {
     listen 443 ssl;
     server_name *.app.${SG_DOMAIN};
     if ($snowglobe_app = "") {
-        return 404 "No app is registered at $host (bin/snowglobe.mjs app).\n";
+        return 404 "No app is registered at $host (snowglobe app).\n";
     }
     location / {
         proxy_pass http://$snowglobe_app;
