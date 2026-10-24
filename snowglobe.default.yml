@@ -1,8 +1,11 @@
 # The default snowglobe: one current PDS, a PLC directory and Jetstream, all at https names, with
 # Slingshot and PDSls (the record browser) beside them.
-# Copy this file to snowglobe.yml (here, or in your app's repo) and run bin/snowglobe.mjs up.
-# The commented sections below add more; docs/snowglobe.md says what each one does, and
-# docs/examples/atmo.yml is the whole thing: three PDSes, a relay and a lexicon authority.
+# Copy this file to snowglobe.yml (here, or in your app's repo) and run snowglobe up
+# (bin/snowglobe.mjs up from a checkout of snowglobe). The commented sections below add more.
+# What each one does:
+#   https://github.com/OpenMeet-Team/snowglobe/blob/main/docs/snowglobe.md
+# The whole thing, three PDSes, a relay and a lexicon authority:
+#   https://github.com/OpenMeet-Team/snowglobe/blob/main/docs/examples/atmo.yml
 
 globe: snowglobe
 domain: local.snowglobe.at     # every name below is under it
@@ -26,7 +29,7 @@ services:                      # these are the defaults, each true or false
   jetstream: true
   slingshot: true              # answers a handle's DID and PDS inside the network; needs jetstream
   pdsls: true                  # https://pdsls.local.snowglobe.at, a browser for the network's records
-  tap: false                   # sends an app the events of one collection (true, or a map; see docs/snowglobe.md)
+  tap: false                   # sends an app the events of one collection (true, or a map; see snowglobe.md above)
   # relay: auto                # auto: on when there is more than one PDS
 
 # Where every PDS resolves lexicons (NSIDs) from. Name a PDS that is in this file.
@@ -45,7 +48,8 @@ accounts:                      # <name>@<pds>; up makes each one
   - bob@main
 
 # Your app, reached at https://myapp.app.local.snowglobe.at, with settings from the snowglobe.
-# `snowglobe env` hands them over; docs/your-app.md has the names.
+# `snowglobe env` hands them over. The names:
+#   https://github.com/OpenMeet-Team/snowglobe/blob/main/docs/your-app.md
 # apps:
 #   - name: myapp
 #     local: { port: 5173 }
