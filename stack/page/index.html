@@ -233,7 +233,8 @@
     if (tally.people != null) parts.push(plural(tally.people, "person", "people"));
     if (tally.groups) parts.push(plural(tally.groups, "group", "groups"));
     var line = parts.length ? parts.join(" and ") + ". " : "";
-    document.getElementById("tally").textContent = line + plural(tally.writes, "write", "writes") + " in the last 24 hours.";
+    // writes is null on a network with no feed to count them from.
+    document.getElementById("tally").textContent = line + (tally.writes == null ? "" : plural(tally.writes, "write", "writes") + " in the last 24 hours.");
   }
 
   function health(domain, services) {
@@ -380,6 +381,15 @@
     connect();
   }
 
+  // A network with no Jetstream has no feed: the panel says so instead of reconnecting forever.
+  function noActivity() {
+    document.getElementById("stream").style.display = "none";
+    document.getElementById("count").parentNode.style.display = "none";
+    var body = document.getElementById("events");
+    body.textContent = "";
+    add(body, el("p", { "class": "empty" }, "This network runs no Jetstream, so its writes are not followed here."));
+  }
+
   getJSON("/snowglobe.json").then(function (g) {
     document.title = g.globe + " · Snowglobe network";
     document.getElementById("title").textContent = g.globe;
@@ -396,12 +406,14 @@
     }
     if (g.about) document.getElementById("about").textContent = g.about;
     if (g.accountsNote) document.getElementById("accounts-note").textContent = g.accountsNote;
-    var feed = g.feed || "wss://jetstream." + g.domain + "/subscribe";
-    if (feed.charAt(0) === "/") feed = "wss://" + location.host + feed;
+    // feed false: the network runs no Jetstream. Unset, Jetstream is at its usual public name.
+    var feed = g.feed === false ? null : g.feed || "wss://jetstream." + g.domain + "/subscribe";
+    if (feed && feed.charAt(0) === "/") feed = "wss://" + location.host + feed;
+    if (!feed) { tally.writes = null; noActivity(); }
     showTally();
     health(g.domain, g.services || SERVICES);
     // The feed names accounts by handle, so it waits for the account list.
-    accounts(g.accounts || ACCOUNTS).catch(function () {}).then(function () { activity(feed); });
+    accounts(g.accounts || ACCOUNTS).catch(function () {}).then(function () { if (feed) activity(feed); });
   });
 })();
 </script>

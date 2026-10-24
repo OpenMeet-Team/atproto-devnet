@@ -183,6 +183,17 @@ describe('snowglobe render', () => {
     }
   });
 
+  it("names on the page only what the globe runs, and gives it no feed without Jetstream", () => {
+    const page = (doc: object) => JSON.parse(render(doc).files['page.json']);
+    const one = page({ globe: 'one', domain: 'one.test', pds: [PDS('solo')] });
+    expect(one.about).toContain('its own PDS, PLC directory and Jetstream.');
+    expect(one.feed).toBe('/subscribe');
+    expect(page({ ...THREE, services: { relay: true } }).about).toContain('its own PDSs, PLC directory, relay and Jetstream.');
+    const quiet = page({ globe: 'one', domain: 'one.test', pds: [PDS('solo')], services: { jetstream: false, slingshot: false } });
+    expect(quiet.about).toContain('its own PDS and PLC directory.');
+    expect(quiet.feed).toBe(false);
+  });
+
   it('lists in globe.env every service it runs, the one-shots apart', () => {
     const { compose, env } = render(FOUR);
     const listed = [...env.SG_SERVICES.split(' '), ...env.SG_ONESHOTS.split(' ')];
